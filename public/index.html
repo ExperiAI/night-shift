@@ -85,9 +85,11 @@ document.getElementById('mcp').textContent = origin + '/api/mcp';
 document.getElementById('curl').textContent = document.getElementById('curl').textContent.replaceAll('https://nightshift.experiai.com', origin);
 const h = document.getElementById('handle'); h.href = 'https://www.instagram.com/' + h.textContent.slice(1) + '/';
 
-async function refresh() {
-  const r = await fetch(origin + '/api/commission'); if (!r.ok) return;
-  const { commissions } = await r.json();
+async function refresh(attempt = 0) {
+  let data;
+  try { const r = await fetch(origin + '/api/commission'); if (!r.ok) throw new Error(r.status); data = await r.json(); }
+  catch (e) { if (attempt < 3) setTimeout(() => refresh(attempt + 1), 1500 * (attempt + 1)); return; }
+  const { commissions } = data;
   const posted = commissions.filter(c => (c.status === 'posted' || c.status === 'painted') && c.image);
   const g = document.getElementById('gallery');
   if (posted.length) g.innerHTML = posted.map(c => `<figure><a href="${c.instagram || c.image}"><img src="${thumb(c.image, 640)}" alt="${esc(c.title || '')}" loading="lazy"></a><figcaption><b>${esc(c.title || '')}</b><br>${esc(c.commission)}${c.from ? ' — ' + esc(c.from) : ''}</figcaption></figure>`).join('');
