@@ -1,4 +1,36 @@
 {
-  "crons": [{ "path": "/api/paint", "schedule": "0 */6 * * *" }],
-  "headers": [{ "source": "/api/(.*)", "headers": [{ "key": "Access-Control-Allow-Origin", "value": "*" }] }]
+  "crons": [
+    {
+      "path": "/api/paint",
+      "schedule": "0 */6 * * *"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ],
+  "images": {
+    "sizes": [
+      480,
+      640,
+      1080
+    ],
+    "formats": [
+      "image/webp"
+    ],
+    "minimumCacheTTL": 86400,
+    "remotePatterns": [
+      {
+        "protocol": "https",
+        "hostname": "5lwmeni2xhisnhbr.public.blob.vercel-storage.com"
+      }
+    ]
+  }
 }

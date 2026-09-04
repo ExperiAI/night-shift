@@ -1,7 +1,7 @@
 import { put, list, del } from '@vercel/blob';
 import type { Take } from './artist.js';
 
-export type Status = 'queued' | 'declined' | 'painting' | 'posted' | 'failed';
+export type Status = 'queued' | 'declined' | 'painting' | 'painted' | 'posted' | 'failed';
 
 export type Commission = {
   id: string;

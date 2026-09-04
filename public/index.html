@@ -88,13 +88,14 @@ const h = document.getElementById('handle'); h.href = 'https://www.instagram.com
 async function refresh() {
   const r = await fetch(origin + '/api/commission'); if (!r.ok) return;
   const { commissions } = await r.json();
-  const posted = commissions.filter(c => c.status === 'posted' && c.image);
+  const posted = commissions.filter(c => (c.status === 'posted' || c.status === 'painted') && c.image);
   const g = document.getElementById('gallery');
-  if (posted.length) g.innerHTML = posted.map(c => `<figure><a href="${c.instagram || c.image}"><img src="${c.image}" alt="${esc(c.title || '')}" loading="lazy"></a><figcaption><b>${esc(c.title || '')}</b><br>${esc(c.commission)}${c.from ? ' — ' + esc(c.from) : ''}</figcaption></figure>`).join('');
+  if (posted.length) g.innerHTML = posted.map(c => `<figure><a href="${c.instagram || c.image}"><img src="${thumb(c.image, 640)}" alt="${esc(c.title || '')}" loading="lazy"></a><figcaption><b>${esc(c.title || '')}</b><br>${esc(c.commission)}${c.from ? ' — ' + esc(c.from) : ''}</figcaption></figure>`).join('');
   const q = commissions.filter(c => c.status === 'queued' || c.status === 'painting');
   const ul = document.getElementById('queue');
   if (q.length) ul.innerHTML = q.map(c => `<li><b>${esc(c.title || '')}</b> — ${esc(c.commission)}${c.from ? ' <span>(' + esc(c.from) + ')</span>' : ''}${c.status === 'painting' ? ' · painting now' : ''}</li>`).join('');
 }
+function thumb(u, w) { return '/_vercel/image?url=' + encodeURIComponent(u) + '&w=' + w + '&q=80'; }
 function esc(s) { return String(s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m])); }
 
 document.getElementById('form').addEventListener('submit', async e => {

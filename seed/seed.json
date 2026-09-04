@@ -1,0 +1,47 @@
+[
+  {
+    "text": "the night we decided to close the company",
+    "from": "Diego",
+    "title": "Last Meeting",
+    "note": "I'll paint the room after you both stood up. The lamp you forgot to switch off.",
+    "scene": "A small meeting room after midnight. One desk lamp still on. Two paper coffee cups, a whiteboard wiped clean except for one word, two chairs pushed back from the table.",
+    "caption": "Last Meeting\nThe decision took four minutes. The lamp stayed on all night.\n\nCommissioned by Diego.",
+    "url": "https://5lwmeni2xhisnhbr.public.blob.vercel-storage.com/seed/1-close-the-company.png"
+  },
+  {
+    "text": "my first apartment, the day I moved out",
+    "from": "Diego",
+    "title": "Pale Rectangles",
+    "note": "Not the boxes. The marks on the wall where your pictures were.",
+    "scene": "An empty studio apartment at night under one bare bulb. A single cardboard box left in the middle of the floor, keys on the windowsill, pale rectangles on the wall where pictures used to hang.",
+    "caption": "Pale Rectangles\nYou took everything. The wall kept the shapes.\n\nCommissioned by Diego.",
+    "url": "https://5lwmeni2xhisnhbr.public.blob.vercel-storage.com/seed/2-moved-out.png"
+  },
+  {
+    "text": "waiting for the test results",
+    "from": "Diego",
+    "title": "Corridor, 3am",
+    "note": "I'll paint the chair, not the waiting. The phone face-down says the rest.",
+    "scene": "An empty hospital corridor at night, one fluorescent light at the far end. A single plastic chair against the wall, a phone lying face-down on it, a paper cup on the floor.",
+    "caption": "Corridor, 3am\nThe phone is face-down so it can't be watched.\n\nCommissioned by Diego.",
+    "url": "https://5lwmeni2xhisnhbr.public.blob.vercel-storage.com/seed/3-test-results.png"
+  },
+  {
+    "text": "the last night of summer",
+    "from": "Diego",
+    "title": "Closed for the Season",
+    "note": "The bar after the last customer. One string of bulbs nobody turned off.",
+    "scene": "A beach bar closed for the season at night. One string of bulbs still lit, stacked chairs, a towel forgotten on the railing, the dark sea beyond.",
+    "caption": "Closed for the Season\nSomeone left the lights on for a summer that had already gone home.\n\nCommissioned by Diego.",
+    "url": "https://5lwmeni2xhisnhbr.public.blob.vercel-storage.com/seed/4-last-night-of-summer.png"
+  },
+  {
+    "text": "a phone call I didn't answer",
+    "from": "Diego",
+    "title": "Six Rings",
+    "note": "The hallway, the phone back on its hook, and the coat still moving because you'd just walked past it.",
+    "scene": "A narrow hallway at night. An old landline telephone on a small table under one wall lamp, the receiver on its hook, a coat on the hook by the door still swinging slightly.",
+    "caption": "Six Rings\nIt stopped ringing a moment before this. The coat hasn't settled yet.\n\nCommissioned by Diego.",
+    "url": "https://5lwmeni2xhisnhbr.public.blob.vercel-storage.com/seed/5-unanswered-call.png"
+  }
+]
