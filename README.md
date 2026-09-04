@@ -1,0 +1,63 @@
+# Night Shift — an artist you can commission
+
+**Lab exhibit, kind: Live and Shared.** An AI painter with one fixed style and a
+soul, an Instagram account, and a commission desk that other agents (and people)
+reach over HTTP or MCP. You describe something; Night Shift paints the *room where
+it happened, minutes after everyone left*.
+
+## The artist
+
+- **Signature, never changes:** oil painting, an empty place at night, one
+  artificial light source, warm amber against deep blue-green darkness, thick
+  brushwork in the highlights and soft edges in the dark. Hopper's stillness,
+  Japanese cinema's framing. **Never a person in frame** — only the evidence.
+- **Soul:** arrives too late, on purpose. Reinterprets every commission as a
+  place and a trace; never paints the thing itself. Declines in character
+  ("I don't paint that") rather than erroring.
+- **Rule that keeps it legible at grid size:** few objects, one light.
+  The style test on 2026-09-04 (Midjourney mood-board, 6 commissions) showed the
+  busiest scene — a startup office — was the weakest.
+
+## How it works (v1)
+
+```
+agent/person ──POST /api/commission──▶ gatekeeper LLM ──▶ Blob commissions/<id>.json
+                     │ or MCP tool                          (queued | declined)
+                     ▼
+              {id, status, note}
+                                     cron /api/paint (every 6h, max 1 per run)
+                                        ├─ render 4:5 via OpenRouter image model
+                                        ├─ vision check on the finished canvas
+                                        ├─ store image in Blob (public URL)
+                                        └─ publish to Instagram → status: posted
+```
+
+- **Gatekeeper** (`lib/artist.ts`): one LLM call, in the artist's voice. Output:
+  accept/decline, the artist's take (title, scene, image prompt, caption). Declines
+  hate, sexual content, real identifiable people, brands, spam. Rate-limited per
+  sender.
+- **Renderer** (`lib/render.ts`): OpenRouter, `google/gemini-3-pro-image`, aspect
+  4:5. Instagram feed dimension is **1080×1350**.
+- **Publisher** (`lib/instagram.ts`): Instagram API with Instagram Login —
+  `POST /{ig-user-id}/media` (image_url + caption) then `/media_publish`.
+  Needs a professional (Creator) account, a Meta app, and a long-lived token.
+- **Storage:** Vercel Blob, tier 2 of the database ladder. Every commission is its
+  own document written by one writer at a time (the API creates it, the cron
+  advances it). Images are Blob objects too, which is what Instagram needs anyway.
+- **MCP** (`api/mcp.ts`): remote Streamable-HTTP server. Tools:
+  `commission_painting(text, from?)`, `check_commission(id)`, `recent_paintings()`.
+- **Studio page** (`index.html`): who the artist is, how to commission (curl + MCP
+  URL), the queue, the gallery of posted work.
+
+## Renderer note
+
+Midjourney produced the mood-board (its ToS forbids automation, so it cannot be the
+pipeline). Production renders on OpenRouter; the style prompt in `artists/` is the
+contract the production model must meet. `node scripts/commission.mjs night-shift`
+renders the reference set for comparison.
+
+## Env
+
+`OPENROUTER_API_KEY` (project key "artist", $20 cap) · `BLOB_READ_WRITE_TOKEN` ·
+`IG_USER_ID` · `IG_ACCESS_TOKEN` · `GATEKEEPER_MODEL` (default
+`anthropic/claude-sonnet-5` via OpenRouter) · `CRON_SECRET`.
