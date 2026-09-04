@@ -12,7 +12,9 @@ export async function instagramAccount(): Promise<{ id: string; username?: strin
   const r = await fetch(`${BASE}/accounts`, { headers: headers() });
   const j: any = await r.json();
   if (!r.ok) throw new Error(`zernio accounts ${r.status}: ${JSON.stringify(j).slice(0, 200)}`);
-  const a = (j.accounts ?? []).find((x: any) => x.platform === 'instagram');
+  const want = process.env.IG_HANDLE ?? 'nightshift.paints';
+  const igs = (j.accounts ?? []).filter((x: any) => x.platform === 'instagram');
+  const a = igs.find((x: any) => x.username === want) ?? igs[0];
   return a ? { id: a._id ?? a.id, username: a.username } : null;
 }
 
