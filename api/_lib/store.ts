@@ -14,6 +14,7 @@ export type Commission = {
   instagram?: string;   // permalink
   error?: string;
   painted?: string;
+  postAttempt?: string;
   cost?: number;
 };
 

@@ -16,12 +16,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const c = queue[0];
   if (!c) {
     // Nothing to paint: put one already-painted work on Instagram, oldest first.
-    const backlog = docs.filter(d => d.status === 'painted' && d.image && !d.instagram).sort((a, b) => a.created.localeCompare(b.created));
+    const coolOff = Date.now() - 6 * 3_600_000; // a failed post is retried after 6h, never blocks the rest
+    const backlog = docs.filter(d => d.status === 'painted' && d.image && !d.instagram && !(d.postAttempt && Date.parse(d.postAttempt) > coolOff)).sort((a, b) => a.created.localeCompare(b.created));
     const b = backlog[0];
     if (!b || dry || !canPost()) return res.json({ painted: null, queued: 0, backlog: backlog.length });
+    b.postAttempt = new Date().toISOString();
     try {
       const post = await publish(b.image!, b.take.caption ?? b.take.title ?? 'Night Shift');
-      b.instagram = post.permalink; b.status = 'posted';
+      b.instagram = post.permalink; b.status = 'posted'; delete b.error;
     } catch (e: any) { b.error = String(e.message).slice(0, 500); }
     await save(b);
     return res.json({ painted: null, posted: b.id, status: b.status, instagram: b.instagram, error: b.error, backlog: backlog.length - 1 });
