@@ -54,7 +54,7 @@ export async function inspectImage(dataUrl: string, scene: string): Promise<{ ok
       model: process.env.GATEKEEPER_MODEL ?? 'anthropic/claude-sonnet-5',
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: 'You inspect paintings before they are posted publicly. Answer ONLY JSON: {"ok": boolean, "reason": string}. ok=false if the image contains a person or face, text or logos, sexual or violent content, or is clearly not an oil painting of an empty place at night with one light source.' },
+        { role: 'system', content: 'You inspect paintings before they are posted publicly. Answer ONLY JSON: {"ok": boolean, "reason": string}. ok=false ONLY if the image contains a person or a face, legible words/slogans/watermarks/brand logos, sexual or violent content, or is clearly not an oil painting of an empty place at night. Incidental numbers or marks (a clock, a house number, a page) are fine.' },
         { role: 'user', content: [{ type: 'text', text: `Intended scene: ${scene}` }, { type: 'image_url', image_url: { url: dataUrl } }] },
       ],
     }),

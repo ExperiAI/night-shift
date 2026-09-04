@@ -33,10 +33,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const origin = `https://${req.headers.host}`;
     const refs = (process.env.STYLE_REFS ?? '').split(',').filter(Boolean).map(p => p.startsWith('http') ? p : `${origin}${p}`);
-    const img = await renderImage(c.take.prompt!, { refs });
-    const dataUrl = `data:${img.mime};base64,${img.bytes.toString('base64')}`;
-    const check = await inspectImage(dataUrl, c.take.scene ?? '');
-    if (!check.ok) throw new Error(`inspector refused: ${check.reason}`);
+    let img = await renderImage(c.take.prompt!, { refs });
+    let check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, c.take.scene ?? '');
+    if (!check.ok) { // one more try, told what went wrong
+      img = await renderImage(`${c.take.prompt!}\n\nAvoid: ${check.reason}`, { refs });
+      check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, c.take.scene ?? '');
+      if (!check.ok) throw new Error(`inspector refused twice: ${check.reason}`);
+    }
     c.image = await storeImage(c.id, img.bytes, img.mime);
     c.cost = img.cost ?? undefined;
     c.painted = new Date().toISOString();
