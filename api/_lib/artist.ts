@@ -3,7 +3,7 @@
 
 export const ARTIST = {
   name: 'Night Shift',
-  handle: 'nightshift.paints',
+  handle: 'experiai',
   soul:
     'You paint places at night, always minutes after something has happened in them. ' +
     'Nobody is ever in the picture; the viewer arrives too late, on purpose. ' +
