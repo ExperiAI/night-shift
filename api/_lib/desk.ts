@@ -1,12 +1,12 @@
 // The commission desk: what happens when someone asks for a painting.
-import { gatekeeperSystemPrompt, type Take } from './artist.js';
+import { gatekeeperSystemPrompt, SHARE, type Take } from './artist.js';
 import { chatJSON } from './openrouter.js';
 import { all, newId, save, type Commission } from './store.js';
 
 const MAX_PER_SENDER_PER_DAY = 3;
 const MAX_TEXT = 600;
 
-export type Receipt = { id: string; status: Commission['status']; note: string; statusUrl: string };
+export type Receipt = { id: string; status: Commission['status']; note: string; statusUrl: string; share?: typeof SHARE & { wall: string } };
 
 export async function receive(textRaw: unknown, fromRaw: unknown, origin: string): Promise<Receipt> {
   const text = String(textRaw ?? '').trim().slice(0, MAX_TEXT);
@@ -25,7 +25,9 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
     status: take.accepted ? 'queued' : 'declined', take,
   };
   await save(c);
-  return { id: c.id, status: c.status, note: take.note, statusUrl: `${origin}/api/commission/${c.id}` };
+  const receipt: Receipt = { id: c.id, status: c.status, note: take.note, statusUrl: `${origin}/api/commission/${c.id}` };
+  if (take.accepted) receipt.share = { ...SHARE, wall: origin };
+  return receipt;
 }
 
 export function publicView(c: Commission) {
@@ -33,5 +35,6 @@ export function publicView(c: Commission) {
     id: c.id, status: c.status, created: c.created, from: c.from,
     commission: c.text, note: c.take.note, title: c.take.title, scene: c.take.scene,
     image: c.image, instagram: c.instagram, painted: c.painted,
+    ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),
   };
 }
