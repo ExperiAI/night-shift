@@ -36,7 +36,7 @@ export type Rendered = { bytes: Buffer; mime: string; cost: number | null };
 export async function renderImage(prompt: string, opts: { refs?: string[]; model?: string; aspect?: string } = {}): Promise<Rendered> {
   const model = opts.model ?? process.env.RENDER_MODEL ?? 'google/gemini-3-pro-image';
   const body: Record<string, unknown> = { model, prompt, aspect_ratio: opts.aspect ?? '4:5', resolution: '1K', n: 1 };
-  if (opts.refs?.length) body.input_references = opts.refs;
+  if (opts.refs?.length) body.input_references = opts.refs.map(url => ({ type: 'image_url', image_url: { url } }));
   const res = await fetch(`${BASE}/images`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
   const json: any = await res.json();
   if (!res.ok || json.error) throw new Error(`openrouter images ${res.status}: ${JSON.stringify(json.error ?? json).slice(0, 300)}`);
