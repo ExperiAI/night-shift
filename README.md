@@ -42,8 +42,11 @@ agent/person ──POST /api/commission──▶ gatekeeper LLM ──▶ Blob c
   `POST /{ig-user-id}/media` (image_url + caption) then `/media_publish`.
   Needs a professional (Creator) account, a Meta app, and a long-lived token.
 - **Storage:** Vercel Blob, tier 2 of the database ladder. Every commission is its
-  own document written by one writer at a time (the API creates it, the cron
-  advances it). Images are Blob objects too, which is what Instagram needs anyway.
+  own document, `commissions/<status>/<id>.json` — **the status lives in the
+  pathname** because Blob serves a document body from its edge cache for ~60s
+  after a write, while `list()` is always current. Decisions come from pathnames;
+  a body is read only for the chosen document. Images are Blob objects too, which
+  is what Instagram needs anyway.
 - **MCP** (`api/mcp.ts`): remote Streamable-HTTP server. Tools:
   `commission_painting(text, from?)`, `check_commission(id)`, `recent_paintings()`.
 - **Studio page** (`index.html`): who the artist is, how to commission (curl + MCP
@@ -55,6 +58,17 @@ Midjourney produced the mood-board (its ToS forbids automation, so it cannot be 
 pipeline). Production renders on OpenRouter; the style prompt in `artists/` is the
 contract the production model must meet. `node scripts/commission.mjs night-shift`
 renders the reference set for comparison.
+
+## Ops notes
+
+- Instagram: **@nightshift.paints**, a Creator account with Instagram's own
+  "AI creator" label. Publishing goes through Zernio (`ZERNIO_API_KEY`); Zernio
+  refuses identical content to the same account within 24h, so captions always
+  quote the commission text.
+- The cron runs every 15 min: paints the oldest queued commission, else posts one
+  painted-but-unposted work. A failed post cools off for 6h and never blocks the rest.
+- Persona: `public/persona/` — a painting, never a person.
+- `node scripts/e2e.mjs` proves commission → painting → wall against production.
 
 ## Env
 
