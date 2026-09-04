@@ -1,0 +1,23 @@
+{
+  "name": "night-shift",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test test/",
+    "refs": "node scripts/commission.mjs night-shift",
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "@vercel/blob": "^2.6.1",
+    "mcp-handler": "^1.0.7",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@vercel/node": "^5.9.5",
+    "typescript": "^5.9.0"
+  }
+}

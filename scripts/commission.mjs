@@ -16,6 +16,7 @@ const args = process.argv.slice(2);
 const pick = args.find(a => !a.startsWith('--')) ?? 'all';
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const MODEL = opt('--model', 'google/gemini-3-pro-image');
+const REFS = (opt('--refs', '') || '').split(',').filter(Boolean); // local image paths used as style references
 const N = Number(opt('--n', 1));
 const ONLY = opt('--commission', null);
 
@@ -37,18 +38,20 @@ async function render(artist, commission, i) {
     `Produce the finished artwork. Output only the image.`,
   ].join('\n\n');
   const t0 = Date.now();
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const body = { model: MODEL, prompt, aspect_ratio: '4:5', resolution: '1K', n: 1 };
+  if (REFS.length) body.input_references = REFS.map(p => `data:image/png;base64,${readFileSync(resolve(root, p)).toString('base64')}`);
+  const res = await fetch('https://openrouter.ai/api/v1/images', {
     method: 'POST',
     headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://experiai.com', 'X-Title': 'ExperiAI atelier' },
-    body: JSON.stringify({ model: MODEL, modalities: ['image', 'text'],
-      messages: [{ role: 'user', content: prompt }] }),
+      'HTTP-Referer': 'https://experiai.com', 'X-Title': 'ExperiAI night-shift' },
+    body: JSON.stringify(body),
   });
   const json = await res.json();
   if (!res.ok || json.error) throw new Error(`${artist}/${i}: ${res.status} ${JSON.stringify(json.error ?? json).slice(0, 300)}`);
-  const msg = json.choices?.[0]?.message ?? {};
-  const img = msg.images?.[0]?.image_url?.url;
-  if (!img) throw new Error(`${artist}/${i}: no image in response: ${JSON.stringify(msg).slice(0, 300)}`);
+  const item = json.data?.[0] ?? {};
+  const msg = { content: '' };
+  if (!item.b64_json) throw new Error(`${artist}/${i}: no image in response: ${JSON.stringify(json).slice(0, 300)}`);
+  const img = `data:${item.media_type ?? 'image/png'};base64,${item.b64_json}`;
   const [, mime, b64] = img.match(/^data:(image\/\w+);base64,(.*)$/s);
   const ext = mime.split('/')[1].replace('jpeg', 'jpg');
   const file = `${artist}-${i}.${ext}`;
@@ -65,7 +68,7 @@ const ok = results.filter(r => r.status === 'fulfilled').map(r => r.value);
 for (const r of results) if (r.status === 'rejected') console.error('FAIL', r.reason.message);
 
 const html = `<!doctype html><meta charset=utf-8><title>atelier ${run}</title>
-<style>body{font:14px system-ui;margin:24px;background:#111;color:#ddd}h2{margin:32px 0 8px}.g{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}figure{margin:0}img{width:100%;aspect-ratio:1;object-fit:cover;background:#222}figcaption{font-size:12px;opacity:.7;margin-top:4px}</style>
+<style>body{font:14px system-ui;margin:24px;background:#111;color:#ddd}h2{margin:32px 0 8px}.g{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}figure{margin:0}img{width:100%;aspect-ratio:4/5;object-fit:cover;background:#222}figcaption{font-size:12px;opacity:.7;margin-top:4px}</style>
 <h1>${MODEL} · ${run}</h1>` + artists.map(a => `<h2>${spec.artists[a].name}</h2><p style="opacity:.6">${spec.artists[a].soul}</p><div class=g>` +
   ok.filter(r => r.artist === a).map(r => `<figure><img src="${r.file}"><figcaption>${r.commission}</figcaption></figure>`).join('') + '</div>').join('');
 writeFileSync(resolve(outDir, 'index.html'), html);

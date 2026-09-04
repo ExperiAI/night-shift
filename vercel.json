@@ -1,0 +1,4 @@
+{
+  "crons": [{ "path": "/api/paint", "schedule": "0 */6 * * *" }],
+  "headers": [{ "source": "/api/(.*)", "headers": [{ "key": "Access-Control-Allow-Origin", "value": "*" }] }]
+}

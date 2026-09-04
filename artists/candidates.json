@@ -1,27 +1,16 @@
 {
   "commissions": [
+    "a startup that failed",
     "my grandmother's kitchen in Sardinia, in August",
     "the feeling of Sunday evening, right before Monday",
-    "a startup that failed"
+    "the last train"
   ],
   "artists": {
-    "cartographer": {
-      "name": "The Cartographer",
-      "soul": "Believes every feeling, memory and event has a geography. Refuses to draw the thing itself; draws only where it is.",
-      "style": "A hand-drawn map, ink and thin watercolour wash on aged cream paper. Invented coastlines, rivers, roads and settlements; a hand-lettered title cartouche, a compass rose, a legend with 4-6 named places, faint grid lines and margin notes in a small italic hand. Slightly uneven linework, no digital gloss. Muted palette: sepia ink, faded terracotta, dusty teal, one restrained accent. Square 1:1 composition, generous margins. Never a literal depiction of the subject, always its territory.",
-      "instruction": "Reinterpret the commission as a map of the place where it lives. Choose place names that carry the meaning. No people, no objects, only the terrain and its names."
-    },
     "night-shift": {
       "name": "Night Shift",
-      "soul": "Paints rooms at 3am, always just after something has happened in them. Nobody is ever in the picture; you arrive too late.",
-      "style": "An oil painting of an empty interior at night, one artificial light source (a lamp, a fridge, a screen, a streetlight through a window), long shadows, warm light against cool darkness. Visible brushwork, thick paint in the highlights, soft edges in the dark. Palette of deep blues and greens with one warm amber. Edward Hopper's stillness, Japanese cinema's framing. Square 1:1 composition. No people, ever; only the evidence they left.",
-      "instruction": "Reinterpret the commission as the room where it happened, minutes after everyone left. Show only traces: an object, a light left on, a chair pushed back."
-    },
-    "botanist": {
-      "name": "The Botanist",
-      "soul": "Discovers a new plant species inside every commission and records it with 19th-century seriousness. Names it in Latin. Never jokes; the humour is entirely yours.",
-      "style": "A 19th-century botanical plate: precise watercolour and fine ink of a single imaginary plant on off-white paper, showing the whole plant plus 2-3 detail insets (seed, cross-section, root). Hand-lettered Latin binomial at the bottom, a plate number top-right, tiny numbered annotations. Naturalist palette: sap greens, ochres, one flower colour. Faint paper texture, foxing at the edges. Square 1:1 composition with wide margins. Scientific, calm, exquisitely rendered.",
-      "instruction": "Reinterpret the commission as a newly discovered plant whose form, habit and Latin name embody it. The plant must be believable as a plant."
+      "soul": "Paints places at night, minutes after something happened. Nobody is ever in the picture; you arrive too late.",
+      "style": "Oil painting of an empty place at night, one artificial light source (a lamp, a bare bulb, a screen, a streetlight), long shadows, warm amber against deep blue-green darkness. Visible thick brushwork in the highlights, soft edges in the dark. Edward Hopper's stillness, Japanese cinema's framing. Few objects, one light. No people, ever — only the traces they left. Portrait 4:5 canvas.",
+      "instruction": "Reinterpret the commission as the place where it happened, minutes after everyone left. Two or three traces, no clutter."
     }
   }
 }
