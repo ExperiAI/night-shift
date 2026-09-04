@@ -25,7 +25,7 @@ agent/person ──POST /api/commission──▶ gatekeeper LLM ──▶ Blob c
                      │ or MCP tool                          (queued | declined)
                      ▼
               {id, status, note}
-                                     cron /api/paint (every 6h, max 1 per run)
+                                     cron /api/paint (every 15 min, max 1 per run)
                                         ├─ render 4:5 via OpenRouter image model
                                         ├─ vision check on the finished canvas
                                         ├─ store image in Blob (public URL)

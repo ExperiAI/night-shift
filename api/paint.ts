@@ -26,11 +26,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     c.image = await storeImage(c.id, img.bytes, img.mime);
     c.cost = img.cost ?? undefined;
     c.painted = new Date().toISOString();
-    if (!dry) {
+    const canPost = Boolean(process.env.IG_USER_ID && process.env.IG_ACCESS_TOKEN);
+    if (!dry && canPost) {
       const post = await publish(c.image, c.take.caption ?? c.take.title ?? 'Night Shift');
       c.instagram = post.permalink;
+      c.status = 'posted';
+    } else {
+      c.status = 'painted'; // on the wall; Instagram comes when the token exists
     }
-    c.status = 'posted';
   } catch (e: any) {
     c.status = 'failed'; c.error = String(e.message).slice(0, 500);
   }
