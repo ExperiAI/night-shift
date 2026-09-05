@@ -77,6 +77,16 @@ async function copyPhoto(id: string, url: string): Promise<string> {
   return storeReference(id, bytes, outMime);
 }
 
+/** What the studio painted in the last day, for the gatekeeper: the critic's first review (2026-09-05)
+ *  found two desk lamps and two champagne scenes in one batch — the model cannot vary what it cannot see. */
+export function recentWorkLine(docs: Pick<Commission, 'created' | 'status' | 'take' | 'seed'>[], now = Date.now()): string {
+  const since = now - 86_400_000;
+  const recent = docs.filter(c => !c.seed && c.status !== 'declined' && c.status !== 'failed' && c.take?.scene && Date.parse(c.created) > since)
+    .sort((a, b) => b.created.localeCompare(a.created)).slice(0, 8);
+  if (!recent.length) return '';
+  return '\nPainted today already (choose a different light source and anchor object):\n' + recent.map(c => `- ${c.take.title ?? 'untitled'}: ${c.take.scene!.split(/(?<=\.)\s/)[0]}`).join('\n');
+}
+
 export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null): Promise<Receipt> {
   const anonymous = anonymousRaw === true || anonymousRaw === 'true';
   const photoUrl = validatePhotoUrl(photoRaw);
@@ -100,7 +110,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const photo = photoUrl ? await copyPhoto(id, photoUrl) : undefined;
   const system = photo ? `${gatekeeperSystemPrompt()}\n${PHOTO.gatekeeper}` : gatekeeperSystemPrompt();
   const credit = anonymous || !from ? 'anonymous — write “…” — a commission' : from;
-  const take = await chatJSON<Take>(system, `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}`, undefined, photo);
+  const take = await chatJSON<Take>(system, `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}${recentWorkLine(docs)}`, undefined, photo);
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
   if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out
   const holdUntil = take.accepted ? holdFor(take.core_conflict) : undefined;

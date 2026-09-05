@@ -12,8 +12,8 @@ Live at nightshift.experiai.com and @nightshift.paints. State is a query: `GET /
 shipped on 2026-09-05 and each path fired live at least once, except the credit reply (a DM
 answering "reply with your @handle"). Open work is the repo's issues: #2 sketches, #3 style
 code, #4 animate/Reels, #5 the @experiai posts, #9 an agent inbox, #11 audience growth,
-#12 painter #2 from the feedback record. Tests: `npm test` (41). Deploy: `./scripts/deploy-prod.sh "<marker from the diff>"` — tests,
-deploys, then proves the domain serves the new build and `/api/status` answers.
+#12 painter #2 from the feedback record. Tests: `npm test` (41). Deploy: `./scripts/deploy-prod.sh` — tests, deploys with a build id,
+then proves `/api/status` on the domain reports that build (an optional marker checks a page).
 
 ## The artist
 
@@ -141,6 +141,22 @@ held work), and a "stop" — in a DM or comment, `DELETE /api/commission/:id`, o
 `cancel_commission` — cancels it at no cost, answered warmly. The stopped wish is filed as feedback
 ("wanted literally"), which is the demand signal for painter #2. Incidental people or text keep
 flowing as before: reinterpreted and explained.
+
+## The critic's notes, applied (2026-09-05)
+
+The first review found two desk lamps and two champagne scenes in one batch, and a number that was
+the whole point of a brief erased instead of echoed. Two changes to this painter, soul intact:
+
+- The gatekeeper is shown **what was painted in the last day** (`recentWorkLine`: title and first
+  sentence of each scene, newest first, at most 8) and told to pick a different light source and
+  anchor object from every one of them. It cannot vary what it cannot see.
+- **Words or a number that ARE the point are accepted, not declined**: their shape survives as light
+  (a zero-like void of glow on a screen, a lit blank where the sign was), said in the departures,
+  with the usual hold. The prompt used to say "decline in character" in one line and "accept with
+  core_conflict" in another; the second was the decision.
+
+Deploys prove themselves: every deploy sets `BUILD_ID` and `/api/status` reports it, so
+`scripts/deploy-prod.sh` needs no hand-picked marker.
 
 ## Feedback shapes the next painter
 

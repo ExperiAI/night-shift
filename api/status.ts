@@ -16,7 +16,8 @@ export async function studioStatus() {
   const critiques = await latestCritiques(1).catch(() => []);
   const aud = await audience().catch(() => null);
   return {
-    artist: ARTIST.name, instagram: `https://www.instagram.com/${ARTIST.handle}/`,
+    artist: ARTIST.name, build: process.env.BUILD_ID ?? null, // set per deployment by scripts/deploy-prod.sh; how the deploy proves itself
+    instagram: `https://www.instagram.com/${ARTIST.handle}/`,
     queue: { waiting: docs.filter(c => c.status === 'queued' && !isHeld(c)).length, held: docs.filter(isHeld).length, painting: docs.filter(c => c.status === 'painting').length },
     today: { accepted: acceptedToday(docs), cap: STUDIO_CAP, declined: today.filter(c => c.status === 'declined').length, failed: today.filter(c => c.status === 'failed').length, cancelled: today.filter(c => c.cancelled).length, renderSpendUsd: Number(spentToday.toFixed(3)) },
     allTime: { posted: posted.length, renderSpendUsd: Number(docs.reduce((s, c) => s + (c.cost ?? 0), 0).toFixed(2)), photoCommissions: docs.filter(c => c.photo).length, fromInstagram: docs.filter(c => c.source).length },
