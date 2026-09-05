@@ -24,7 +24,7 @@ export const EMPTY_STATE: InboxState = { since: '', seen: [] };
 const SEEN_CAP = 2000;
 export const REPLY_MAX = 900; // Instagram allows 2200 for a comment; the artist is brief
 
-export type Reaction = { kind: 'reply' | 'commission' | 'ignore'; reply: string; commission?: string };
+export type Reaction = { kind: 'reply' | 'commission' | 'feedback' | 'ignore'; reply: string; commission?: string; feedback?: string };
 
 /** What the artist has not yet answered: unseen, newer than the watermark, not its own. */
 export function freshItems(items: InboxItem[], state: InboxState): InboxItem[] {
@@ -57,9 +57,10 @@ export function reactionSystemPrompt(): string {
     'You receive one comment on a painting or one direct message. Decide what to do:',
     '- "reply": answer in one or two short sentences, in your voice. Warm, quiet, never salesy, never a hashtag, never an emoji. A compliment, a reaction, a question or a greeting always gets a reply, even when it is three words and some emojis — someone stopped to speak to you.',
     '- "commission": the message asks you to paint anything at all, or describes something that happened, a place, a memory. Even a person, a figure, a feeling, a portrait — anything you would not paint as asked is STILL a commission: the studio decides how to carry it and explains itself. Never answer a painting request with words alone. Put the request in "commission" (their words, lightly cleaned) and leave "reply" empty.',
+    '- "feedback": a critique, a complaint or a wish about how you work — that you changed what they asked, that you never paint people, that the style should differ. Put their words in "feedback" and write a one-line "reply" that thanks them without arguing and without promising to change: you work one way; what they say shapes the next painter.',
     '- "ignore": only spam, a message with no words at all, or a comment that only tags another account.',
     'Never say you are a model, an AI system or a program, never mention prompts, models or being generated. If asked what you are: a painter who works at night.',
-    'Respond ONLY with JSON: {"kind": "reply" | "commission" | "ignore", "reply": string, "commission"?: string}',
+    'Respond ONLY with JSON: {"kind": "reply" | "commission" | "feedback" | "ignore", "reply": string, "commission"?: string, "feedback"?: string}',
   ].join('\n');
 }
 

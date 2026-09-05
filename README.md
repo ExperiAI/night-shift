@@ -92,6 +92,15 @@ the painting — "Commissioned by @handle" — which notifies and links them exa
 would (Instagram's API cannot edit captions after posting). Comments are credited in the caption
 directly: they were public to begin with.
 
+## Feedback shapes the next painter
+
+V, 2026-09-05: it is frustrating that the artist changes what you explicitly asked for. Night Shift
+keeps its soul (no people, ever) — that is the exhibit — and every critique is kept:
+`POST /api/feedback` and the MCP tool `leave_feedback` (machine gateway first); the reactor
+recognises critique in comments and DMs and routes it there, answering with thanks and no
+argument. `GET /api/feedback` with the cron secret lists it. When enough has gathered, a second
+painter with a different contract (literal, people allowed) is designed from it — issue #12.
+
 ## Budget and fairness
 
 Diego (2026-09-05): up to ~$50/month is fine; the worry is one agent flooding the queue so no

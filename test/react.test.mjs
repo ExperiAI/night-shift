@@ -43,7 +43,8 @@ test('replies never exceed what Instagram accepts', () => {
 test('the reactor speaks as the artist and answers in one JSON shape', () => {
   const p = reactionSystemPrompt();
   assert.match(p, /Night Shift/);
-  assert.match(p, /"kind": "reply" \| "commission" \| "ignore"/);
+  assert.match(p, /"kind": "reply" \| "commission" \| "feedback" \| "ignore"/);
+  assert.match(p, /"feedback": a critique, a complaint or a wish/);
   assert.match(p, /never (say|mention) .*model|program/i);
   // V's first comment, "I love this one 🌀🌊", was ignored under the old wording (2026-09-05).
   assert.match(p, /compliment.*always gets a reply/i);

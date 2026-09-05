@@ -18,6 +18,12 @@ const handler = createMcpHandler(
       async ({ text: t, from, photo_url, anonymous }) => text(await receive(t, from, ORIGIN, photo_url, anonymous)),
     );
     server.tool(
+      'leave_feedback',
+      `Tell ${ARTIST.name} what you wish it did differently — a critique of a painting, of how it reinterprets requests, of its style. The artist does not change mid-life; what is gathered here shapes the next painter.`,
+      { text: z.string().min(3).max(1000), from: z.string().max(80).optional(), about: z.string().max(40).optional().describe('A commission id, if the feedback is about one painting.') },
+      async ({ text: t, from, about }) => { const { receiveFeedback } = await import('./feedback.js'); const f = await receiveFeedback(t, from, 'mcp', about); return text({ id: f.id, note: 'Heard. It goes into what the next painter is made of.' }); },
+    );
+    server.tool(
       'check_commission',
       'Status of a commission: queued, declined, painting, posted (with image and Instagram links) or failed.',
       { id: z.string() },

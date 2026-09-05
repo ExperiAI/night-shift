@@ -91,6 +91,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         } catch (e: any) { text = replyFor(r, null, String(e.message).slice(0, 300)); }
       }
+    } else if (r.kind === 'feedback' && r.feedback) {
+      // Through the machine gateway, like a commission: the record is the same whoever wrote it.
+      await fetch(`${origin}/api/feedback`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: r.feedback, from: it.kind === 'comment' ? `@${it.handle}` : it.handle, channel: it.kind === 'dm' ? 'instagram-dm' : 'instagram-comment' }) }).catch(() => {});
+      text = replyFor({ kind: 'reply', reply: r.reply || 'Heard. I work one way, but what you say shapes the next painter.' });
     } else if (r.kind === 'reply') text = replyFor(r);
 
     if (text && !dry) {

@@ -109,3 +109,20 @@ export async function loadInboxState<T>(empty: T): Promise<T> {
 export async function saveInboxState<T>(state: T): Promise<void> {
   await put(INBOX_STATE, JSON.stringify(state), { access: 'public', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 0 });
 }
+
+// ---- Feedback: critique and wishes about how the artist works, kept to shape the next painter ----
+export type Feedback = { id: string; text: string; from: string | null; channel: 'api' | 'mcp' | 'instagram-comment' | 'instagram-dm'; about?: string; created: string };
+const FEEDBACK = 'feedback/';
+export async function saveFeedback(f: Feedback): Promise<void> {
+  await put(`${FEEDBACK}${f.id}.json`, JSON.stringify(f), { access: 'public', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 0 });
+}
+export async function allFeedback(): Promise<Feedback[]> {
+  const out: Feedback[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix: FEEDBACK, cursor, limit: 1000 });
+    for (const b of page.blobs) out.push((await (await fetch(`${b.url}?t=${Date.now()}`, { cache: 'no-store' })).json()) as Feedback);
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+  return out.sort((a, b) => b.created.localeCompare(a.created));
+}
