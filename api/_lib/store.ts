@@ -16,6 +16,8 @@ export type Commission = {
   painted?: string;
   postAttempt?: string;
   requeued?: string;    // put back in the queue after a gatekeeper fix (scripts/requeue.mjs)
+  source?: { channel: 'instagram-comment' | 'instagram-dm'; handle: string; postId?: string; commentId?: string; conversationId?: string };
+  sourceReplied?: string; // when the artist answered in the source thread with the finished painting
   cost?: number;
 };
 
@@ -77,4 +79,17 @@ export async function storeImage(id: string, bytes: Buffer, mime: string): Promi
   const ext = mime.includes('jpeg') ? 'jpg' : 'png';
   const { url } = await put(`paintings/${id}.${ext}`, bytes, { access: 'public', contentType: mime, addRandomSuffix: false, allowOverwrite: true });
   return url;
+}
+
+// The inbox reactor's watermark and seen-list: one small document, read and written once
+// per run. Runs are 15 minutes apart, so Blob's ~60s body staleness cannot bite here.
+const INBOX_STATE = 'inbox/state.json';
+export async function loadInboxState<T>(empty: T): Promise<T> {
+  const page = await list({ prefix: INBOX_STATE, limit: 1 });
+  const b = page.blobs.find(x => x.pathname === INBOX_STATE);
+  if (!b) return empty;
+  return (await (await fetch(`${b.url}?t=${Date.now()}`, { cache: 'no-store' })).json()) as T;
+}
+export async function saveInboxState<T>(state: T): Promise<void> {
+  await put(INBOX_STATE, JSON.stringify(state), { access: 'public', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 0 });
 }

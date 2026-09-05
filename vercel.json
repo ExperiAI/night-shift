@@ -3,6 +3,10 @@
     {
       "path": "/api/paint",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/inbox",
+      "schedule": "7,22,37,52 * * * *"
     }
   ],
   "headers": [

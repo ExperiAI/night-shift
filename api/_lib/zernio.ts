@@ -33,3 +33,55 @@ export async function publish(imageUrl: string, caption: string): Promise<{ post
 }
 
 export const canPost = () => Boolean(process.env.ZERNIO_API_KEY);
+
+// ---- Inbox: comments on our posts and direct messages (Zernio's unified inbox) ----
+async function get(path: string): Promise<any> {
+  const r = await fetch(`${BASE}${path}`, { headers: headers() });
+  const j: any = await r.json();
+  if (!r.ok) throw new Error(`zernio GET ${path} ${r.status}: ${JSON.stringify(j).slice(0, 200)}`);
+  return j;
+}
+async function post(path: string, body: unknown): Promise<any> {
+  const r = await fetch(`${BASE}${path}`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+  const j: any = await r.json();
+  if (!r.ok) throw new Error(`zernio POST ${path} ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
+  return j;
+}
+
+export type RawComment = { id: string; message: string; createdTime: string; from?: { username?: string; name?: string; isOwner?: boolean }; postId: string };
+export type RawMessage = { id: string; message: string; createdAt: string; senderName?: string | null; direction: 'incoming' | 'outgoing'; conversationId: string };
+
+/** Every comment on our recent posts (posts with at least one comment since `since`). */
+export async function listComments(accountId: string, since?: string): Promise<RawComment[]> {
+  const q = new URLSearchParams({ platform: 'instagram', accountId, limit: '50', minComments: '1' });
+  if (since) q.set('since', since);
+  const posts: any[] = (await get(`/inbox/comments?${q}`)).data ?? [];
+  const out: RawComment[] = [];
+  for (const p of posts) {
+    const j = await get(`/inbox/comments/${encodeURIComponent(p.id)}?accountId=${accountId}&limit=100`);
+    const walk = (cs: any[]) => { for (const c of cs ?? []) { out.push({ id: c.id, message: c.message ?? '', createdTime: c.createdTime, from: c.from, postId: p.id }); walk(c.replies); } };
+    walk(j.comments);
+  }
+  return out;
+}
+
+/** Incoming messages in conversations touched since `since`. */
+export async function listMessages(accountId: string, since?: string): Promise<RawMessage[]> {
+  const convos: any[] = (await get(`/inbox/conversations?platform=instagram&accountId=${accountId}&limit=50&sortOrder=desc`)).data ?? [];
+  const cutoff = since ? Date.parse(since) : 0;
+  const out: RawMessage[] = [];
+  for (const c of convos) {
+    if (c.updatedTime && Date.parse(c.updatedTime) <= cutoff) continue;
+    const j = await get(`/inbox/conversations/${encodeURIComponent(c.id)}/messages?accountId=${accountId}&limit=20&sortOrder=desc`);
+    for (const m of j.messages ?? []) out.push({ id: m.id, message: m.message ?? '', createdAt: m.createdAt, senderName: m.senderName ?? c.participantName, direction: m.direction, conversationId: c.id });
+  }
+  return out;
+}
+
+export async function replyToComment(accountId: string, postId: string, commentId: string, message: string): Promise<void> {
+  await post(`/inbox/comments/${encodeURIComponent(postId)}`, { accountId, message, commentId });
+}
+
+export async function sendMessage(accountId: string, conversationId: string, message: string): Promise<void> {
+  await post(`/inbox/conversations/${encodeURIComponent(conversationId)}/messages`, { accountId, message });
+}

@@ -52,6 +52,23 @@ agent/person ──POST /api/commission──▶ gatekeeper LLM ──▶ Blob c
 - **Studio page** (`index.html`): who the artist is, how to commission (curl + MCP
   URL), the queue, the gallery of posted work.
 
+## The inbox (v2)
+
+A second cron, `/api/inbox` (every 15 min, offset from the painter), reads new comments on
+our posts and new DMs through Zernio's unified inbox and answers each in the artist's voice.
+A message that describes something — a place, a memory, a request — goes through the same
+desk as the API and MCP (`receive()`), so the sender's 3-per-day limit and the gatekeeper
+apply; the reply carries the artist's note, and when the painting posts, the artist answers
+again in the same thread with the link (`source` on the commission).
+
+- Reactor model: `REACT_MODEL`, default `anthropic/claude-haiku-4-5` — a cheap call per new
+  item, none on an idle run. The gatekeeper and inspector keep `GATEKEEPER_MODEL`.
+- Caps: 15 reactions per run; `INBOX_DAILY_COMMISSIONS` (default 10) Instagram-sourced
+  commissions per day, so a busy day cannot empty the render budget.
+- State: `inbox/state.json` in Blob — a watermark and a bounded seen-list. The first run
+  only sets the watermark, so the backlog is never answered.
+- Mentions are not covered: Zernio's mentions endpoint is LinkedIn-only.
+
 ## Renderer note
 
 Midjourney produced the mood-board (its ToS forbids automation, so it cannot be the

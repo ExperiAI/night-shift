@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, save, storeImage } from './_lib/store.js';
 import { renderImage, inspectImage } from './_lib/openrouter.js';
 import { publish, canPost } from './_lib/zernio.js';
+import { tellSource } from './_lib/react.js';
 
 export const config = { maxDuration: 300 };
 
@@ -24,6 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const post = await publish(b.image!, b.take.caption ?? b.take.title ?? 'Night Shift');
       b.instagram = post.permalink; b.status = 'posted'; delete b.error;
+      await tellSource(b);
     } catch (e: any) { b.error = String(e.message).slice(0, 500); }
     await save(b);
     return res.json({ painted: null, posted: b.id, status: b.status, instagram: b.instagram, error: b.error, backlog: backlog.length - 1 });
@@ -47,6 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const post = await publish(c.image, c.take.caption ?? c.take.title ?? 'Night Shift');
       c.instagram = post.permalink;
       c.status = 'posted';
+      await tellSource(c);
     } else {
       c.status = 'painted'; // on the wall; Instagram comes when the token exists
     }
