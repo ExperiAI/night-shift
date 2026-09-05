@@ -73,6 +73,15 @@ again in the same thread with the link (`source` on the commission).
 - Every caption ends with `INVITE` (artist.ts): the plain-words way in for people without code. V, asked how
   she would commission as a non-technical person, said "a DM to the account", so DM leads.
 
+## Credit after the fact
+
+A DM commission posts anonymously and fast. The finished painting goes back into the DM with the
+link, the artist's explanation of any departure, and one question (`CREDIT_ASK`): reply with your
+@handle if you want your name under it. A reply with a handle becomes a top-level comment under
+the painting — "Commissioned by @handle" — which notifies and links them exactly as a caption
+would (Instagram's API cannot edit captions after posting). Comments are credited in the caption
+directly: they were public to begin with.
+
 ## Budget and fairness
 
 Diego (2026-09-05): up to ~$50/month is fine; the worry is one agent flooding the queue so no

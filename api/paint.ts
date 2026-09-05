@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     b.postAttempt = new Date().toISOString();
     try {
       const post = await publish(b.slides ?? b.image!, b.take.caption ?? b.take.title ?? 'Night Shift');
-      b.instagram = post.permalink; b.status = 'posted'; delete b.error;
+      b.instagram = post.permalink; b.mediaId = post.mediaId; b.status = 'posted'; delete b.error;
       await tellSource(b);
     } catch (e: any) { b.error = String(e.message).slice(0, 500); }
     await save(b);
@@ -57,6 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!dry && canPost()) {
       const post = await publish(c.slides ?? c.image, c.take.caption ?? c.take.title ?? 'Night Shift');
       c.instagram = post.permalink;
+      c.mediaId = post.mediaId;
       c.status = 'posted';
       await tellSource(c);
     } else {

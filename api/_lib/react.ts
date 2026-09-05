@@ -63,16 +63,33 @@ export function reactionSystemPrompt(): string {
   ].join('\n');
 }
 
+/** Asked once, with the finished painting, to a DM commissioner (their post is anonymous until they answer). */
+export const CREDIT_ASK = "If you'd like your name under it, reply with your @handle and I'll add it.";
+
+/** The handle in a reply to CREDIT_ASK, without the @. Emails and a lone "@" are not handles. */
+export function creditHandle(text: string): string | null {
+  const m = text.match(/(?:^|[^\w.])@([A-Za-z0-9_](?:[A-Za-z0-9._]{0,28}[A-Za-z0-9_])?)(?![\w.]*\.[a-z]{2,}\b)/);
+  return m ? m[1] : null;
+}
+
+type Credit = Pick<import('./store.js').Commission, 'status' | 'anonymous' | 'creditAsked' | 'credited' | 'mediaId' | 'source'>;
+/** The posted, anonymous, not-yet-credited DM commission in this conversation that was asked, if any. */
+export function awaitingCredit<T extends Credit>(docs: T[], conversationId: string): T | null {
+  return docs.find(c => c.status === 'posted' && c.anonymous && c.creditAsked && !c.credited && c.mediaId && c.source?.channel === 'instagram-dm' && c.source.conversationId === conversationId) ?? null;
+}
+
 /** Once a commission that came from Instagram is posted, answer in the thread it came from. */
 export async function tellSource(c: import('./store.js').Commission): Promise<void> {
   if (!c.source || c.sourceReplied || !c.instagram) return;
   const { instagramAccount, replyToComment, sendMessage } = await import('./zernio.js');
   const acct = await instagramAccount();
   if (!acct) return;
-  const text = [`${c.take.title ?? 'Done'}. It's up: ${c.instagram}`, c.take.departures].filter(Boolean).join('\n\n');
+  const askCredit = c.source.channel === 'instagram-dm' && c.anonymous && c.mediaId;
+  const text = [`${c.take.title ?? 'Done'}. It's up: ${c.instagram}`, c.take.departures, askCredit ? CREDIT_ASK : ''].filter(Boolean).join('\n\n');
   try {
     if (c.source.channel === 'instagram-comment' && c.source.postId && c.source.commentId) await replyToComment(acct.id, c.source.postId, c.source.commentId, text);
     else if (c.source.channel === 'instagram-dm' && c.source.conversationId) await sendMessage(acct.id, c.source.conversationId, text, c.image); // the painting itself, in the DM
     c.sourceReplied = new Date().toISOString();
+    if (askCredit) c.creditAsked = c.sourceReplied;
   } catch (e: any) { c.error = `source reply: ${String(e.message).slice(0, 200)}`; }
 }

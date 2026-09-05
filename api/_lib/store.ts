@@ -23,6 +23,9 @@ export type Commission = {
   requeued?: string;    // put back in the queue after a gatekeeper fix (scripts/requeue.mjs)
   source?: { channel: 'instagram-comment' | 'instagram-dm'; handle: string; postId?: string; commentId?: string; conversationId?: string };
   sourceReplied?: string; // when the artist answered in the source thread with the finished painting
+  mediaId?: string;      // Instagram media id of the post (for comments under it)
+  creditAsked?: string;  // DM commissions: when the artist asked whether to name them
+  credited?: string;     // the @handle now in a comment under the painting
   cost?: number;
 };
 

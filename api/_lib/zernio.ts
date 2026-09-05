@@ -19,7 +19,7 @@ export async function instagramAccount(): Promise<{ id: string; username?: strin
 }
 
 /** One image posts a single; several post a carousel in the given order (first = the grid tile). */
-export async function publish(images: string | string[], caption: string): Promise<{ postId: string; permalink: string }> {
+export async function publish(images: string | string[], caption: string): Promise<{ postId: string; permalink: string; mediaId?: string }> {
   const acct = await instagramAccount();
   if (!acct) throw new Error('no Instagram account connected in Zernio');
   const urls = Array.isArray(images) ? images : [images];
@@ -30,8 +30,22 @@ export async function publish(images: string | string[], caption: string): Promi
   const j: any = await r.json();
   if (!r.ok) throw new Error(`zernio post ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
   const postId = j.post?._id ?? j.post?.id ?? j._id ?? j.id ?? '';
-  const permalink = j.post?.platforms?.[0]?.platformPostUrl ?? j.platforms?.[0]?.platformPostUrl ?? (acct.username ? `https://www.instagram.com/${acct.username}/` : 'https://www.instagram.com/experiai/');
-  return { postId, permalink };
+  // Publishing is asynchronous: the Instagram permalink and media id appear on the post record
+  // ~30s later. Wait for them (bounded) so the link we send points at the painting, not the profile.
+  const fallback = acct.username ? `https://www.instagram.com/${acct.username}/` : 'https://www.instagram.com/experiai/';
+  for (let i = 0; i < 12 && postId; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    const p = await get(`/posts/${postId}`).catch(() => null);
+    const pl = (p?.post ?? p)?.platforms?.[0];
+    if (pl?.platformPostUrl) return { postId, permalink: pl.platformPostUrl, mediaId: pl.platformPostId ?? undefined };
+    if (pl?.status === 'failed') throw new Error(`zernio publish failed: ${JSON.stringify(pl).slice(0, 200)}`);
+  }
+  return { postId, permalink: fallback, mediaId: undefined };
+}
+
+/** A top-level comment under one of our posts (e.g. the credit). */
+export async function commentOnPost(accountId: string, mediaId: string, message: string): Promise<void> {
+  await post(`/inbox/comments/${encodeURIComponent(mediaId)}`, { accountId, message });
 }
 
 export const canPost = () => Boolean(process.env.ZERNIO_API_KEY);

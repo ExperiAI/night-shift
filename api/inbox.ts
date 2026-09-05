@@ -5,10 +5,10 @@
 // MCP is available to people on Instagram by default, and nothing exists only for humans.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { chatJSON } from './_lib/openrouter.js';
-import { instagramAccount, listComments, listMessages, replyToComment, sendMessage } from './_lib/zernio.js';
+import { instagramAccount, listComments, listMessages, replyToComment, sendMessage, commentOnPost } from './_lib/zernio.js';
 import { loadInboxState, saveInboxState, all, load, save } from './_lib/store.js';
 import type { Receipt } from './_lib/desk.js';
-import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
+import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
 
 export const config = { maxDuration: 300 };
 
@@ -48,12 +48,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const fresh = freshItems(items, state).sort((a, b) => a.at.localeCompare(b.at)).slice(0, MAX_REACTIONS_PER_RUN);
 
   const dayAgo = Date.now() - 86_400_000;
-  let igCommissionsToday = (await all()).filter(c => c.source && Date.parse(c.created) > dayAgo).length;
+  const docs = await all();
+  let igCommissionsToday = docs.filter(c => c.source && Date.parse(c.created) > dayAgo).length;
   const origin = `https://${req.headers.host}`;
   const log: any[] = [];
 
   for (const it of fresh) {
     if (!it.text.trim() && !it.photo) continue;
+    // A DM answering CREDIT_ASK with a handle: name them in a comment under their painting.
+    const handle = it.kind === 'dm' && !it.photo ? creditHandle(it.text) : null;
+    const owed = handle && it.ref.conversationId ? awaitingCredit(docs, it.ref.conversationId) : null;
+    if (handle && owed) {
+      if (!dry) {
+        try {
+          await commentOnPost(acct.id, owed.mediaId!, `Commissioned by @${handle}. Thank you for sending it.`);
+          owed.credited = `@${handle}`; await save(owed);
+          if (it.ref.conversationId) await sendMessage(acct.id, it.ref.conversationId, `Done — your name is under it now: ${owed.instagram}`);
+        } catch (e: any) { log.push({ id: it.id, error: String(e.message).slice(0, 200) }); continue; }
+      }
+      log.push({ id: it.id, from: it.handle, kind: 'credit', commission: owed.id, replied: true });
+      continue;
+    }
     // A photograph is a commission by itself: no reactor call, straight to the desk.
     const r: Reaction = it.photo
       ? { kind: 'commission', reply: '', commission: it.text.trim() || 'this place, after everyone left' }
