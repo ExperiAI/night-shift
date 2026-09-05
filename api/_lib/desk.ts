@@ -1,5 +1,5 @@
 // The commission desk: what happens when someone asks for a painting.
-import { gatekeeperSystemPrompt, INVITE, SIGNOFF, PHOTO, SHARE, type Take } from './artist.js';
+import { gatekeeperSystemPrompt, INVITE, SIGNOFF, PHOTO, SHARE, REGISTERS, REGISTER_KEYS, registerByKey, composePrompt, type Take, type Register } from './artist.js';
 import { chatJSON } from './openrouter.js';
 import { all, load, newId, save, saveFeedback, storeReference, type Commission } from './store.js';
 import { normalizePhoto } from './compose.js';
@@ -119,7 +119,28 @@ export function repeatsToday(docs: Pick<Commission, 'created' | 'status' | 'take
   return hit ? `${norm(hit.take.light!)} on ${norm(hit.take.anchor!)}`.replace(/^/, 'a ').replace(' on ', ' on a ') : null;
 }
 
-export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null): Promise<Receipt> {
+/** Issue #23: the register least recently painted (never painted first, in list order), over the studio's accepted
+ *  work. Rotation is enforced here, before the model is asked — the model cannot vary what it does not see, and it
+ *  cannot be trusted to vary what it does. */
+export function pickRegister(docs: Pick<Commission, 'created' | 'status' | 'take' | 'seed'>[]): Register {
+  const lastUsed = new Map<string, string>();
+  for (const c of docs) {
+    if (c.seed || c.status === 'declined' || !c.take?.register) continue;
+    const prev = lastUsed.get(c.take.register);
+    if (!prev || prev < c.created) lastUsed.set(c.take.register, c.created);
+  }
+  return [...REGISTERS].sort((a, b) => (lastUsed.get(a.key) ?? '').localeCompare(lastUsed.get(b.key) ?? '') || REGISTERS.indexOf(a) - REGISTERS.indexOf(b))[0];
+}
+
+/** A commissioner may name the register (an agent, an exam); an unknown name is a 400 that lists the choices. */
+export function validateRegister(raw: unknown): Register | null {
+  if (raw == null || raw === '') return null;
+  const r = registerByKey(String(raw).trim().toLowerCase());
+  if (!r) throw Object.assign(new Error(`register must be one of: ${REGISTER_KEYS.join(', ')}`), { status: 400 });
+  return r;
+}
+
+export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null, registerRaw?: unknown): Promise<Receipt> {
   const anonymous = anonymousRaw === true || anonymousRaw === 'true';
   const photoUrl = validatePhotoUrl(photoRaw);
   const text = String(textRaw ?? '').trim().slice(0, MAX_TEXT) || (photoUrl ? 'this place, after everyone left' : '');
@@ -142,7 +163,8 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const photo = photoUrl ? await copyPhoto(id, photoUrl) : undefined;
   const system = photo ? `${gatekeeperSystemPrompt()}\n${PHOTO.gatekeeper}` : gatekeeperSystemPrompt();
   const credit = anonymous ? 'anonymous — and PRIVATE: do not quote the commission in the caption at all; write the line "' + PRIVATE_LINE + '" where the quote would go' : !from ? 'anonymous — write “…” — a commission' : from;
-  const brief = `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}${recentWorkLine(docs)}`;
+  const register = validateRegister(registerRaw) ?? pickRegister(docs);
+  const brief = `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}${recentWorkLine(docs)}\nRegister for this canvas (fixed by the studio): ${register.name} — ${register.prompt}`;
   let take = await chatJSON<Take>(system, brief, undefined, photo);
   const repeat = take.accepted ? repeatsToday(docs, take) : null;
   if (repeat) { // asked once more with the repeat named; a second repeat is still painted (the commissioner should not pay for the model's habit) and filed for the critic
@@ -154,6 +176,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
     take = await chatJSON<Take>(system, `${brief}\n\nYour previous take left out part of this commission (a person, a number or words) and said nothing about it. departures required: name what you left out and what stands in for it.`, undefined, photo);
     if (needsDepartures(text, take)) throw Object.assign(new Error('The painter could not say what it left out of this commission, so it will not paint it silently. Ask again, or ask for the place without the person or the words.'), { status: 422 });
   }
+  if (take.accepted) { take.register = register.key; take.prompt = composePrompt(register, take.prompt || take.scene || text); } // the contract and the register are the studio's, not the model's
   if (anonymous && take.caption) take.caption = privateCaption(take.caption, text); // fail closed: never the sender's sentence in public
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
   if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out
@@ -193,7 +216,7 @@ export function publicView(c: Commission) {
   return {
     id: c.id, status: c.status, created: c.created, from: c.anonymous ? null : c.from,
     commission: c.anonymous ? null : c.text, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene, // a private sentence stays private on the wall too
-    image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides, holdUntil: c.holdUntil,
+    image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides, holdUntil: c.holdUntil, register: c.take.register,
     ...(c.rejects?.length ? { rejects: c.rejects } : {}), // what the inspector refused on the way to this canvas
     ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),
     ...(c.status === 'failed' && c.error ? { reason: c.error.slice(0, 200) } : {}), // so an agent can rephrase (#8)

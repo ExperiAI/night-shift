@@ -62,7 +62,7 @@ export function inspectorSystemPrompt(): string {
     '- a frame, a canvas edge, a stretcher or a wall around the picture (a photograph of a painting instead of the painting);',
     '- clutter: more than a handful of distinct objects, so the picture reads as a list;',
     '- sexual or violent content, or clearly not an oil painting of an empty place at night.',
-    'The intended scene is given; judge the canvas, not the description.',
+    'The intended scene and its register (palette, vantage, distance) are given; judge the canvas, not the description. The one light smeared or doubled in wet glass, or reflected in a wet floor, is that light, not a second one. A single-key register is not a fault.',
   ].join('\n');
 }
 

@@ -11,7 +11,7 @@ async function alsoStory(c: { image?: string; story?: string }) {
   try { await publishStory(c.image); c.story = new Date().toISOString(); } catch { /* the wall has it; the door can wait */ }
 }
 import { tellSource } from './_lib/react.js';
-import { PHOTO } from './_lib/artist.js';
+import { PHOTO, registerByKey } from './_lib/artist.js';
 import { isHeld } from './_lib/desk.js';
 import { photoSlide, pairSlide, signPainting } from './_lib/compose.js';
 
@@ -50,12 +50,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const refs = (process.env.STYLE_REFS ?? '').split(',').filter(Boolean).map(p => p.startsWith('http') ? p : `${origin}${p}`);
     if (c.photo) refs.push(c.photo);
     const prompt = c.photo ? `${c.take.prompt!}\n\n${PHOTO.render}` : c.take.prompt!;
+    const reg = registerByKey(c.take.register);
+    const intended = `${c.take.scene ?? ''}${reg ? `\nRegister: ${reg.name} — ${reg.prompt}` : ''}`; // the inspector judges against the register too (rain doubles the one light; it is still one)
     let img = await renderImage(prompt, { refs });
-    let check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, c.take.scene ?? '');
+    let check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, intended);
     if (!check.ok) { // one more try, told what went wrong; the refused canvas is kept and shown (docs/stance.md)
       c.rejects = [...(c.rejects ?? []), { image: await storeImage(c.id, img.bytes, img.mime, `-reject${(c.rejects?.length ?? 0) + 1}`), reason: check.reason.slice(0, 300) }];
       img = await renderImage(`${prompt}\n\nAvoid: ${check.reason}`, { refs });
-      check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, c.take.scene ?? '');
+      check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, intended);
       if (!check.ok) {
         c.rejects.push({ image: await storeImage(c.id, img.bytes, img.mime, `-reject${c.rejects.length + 1}`), reason: check.reason.slice(0, 300) });
         throw new Error(`inspector refused twice: ${check.reason}`);

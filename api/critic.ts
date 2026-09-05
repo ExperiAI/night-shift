@@ -5,7 +5,7 @@
 // the system evolves. Night Shift's soul is not up for change here; the NEXT painter is.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, allFeedback, saveFeedback, saveCritique, latestCritiques, newId, type Critique } from './_lib/store.js';
-import { ARTIST, isTestSender } from './_lib/artist.js';
+import { ARTIST, REGISTERS, registerByKey, isTestSender } from './_lib/artist.js';
 import { instagramAccount, audience, publishStory, canPost } from './_lib/zernio.js';
 import { openDoorStory } from './_lib/compose.js';
 import { captionMatches } from './_lib/reconcile.js';
@@ -28,7 +28,8 @@ const MODEL = process.env.CRITIC_MODEL ?? 'openai/gpt-5.6-terra';
 export function criticSystemPrompt(): string {
   return [
     `You are the critic of a studio whose painter is ${ARTIST.name}. You are a different model from the painter and owe it nothing. Its soul: ${ARTIST.soul}`,
-    `Its style: ${ARTIST.style}`,
+    `Its contract: ${ARTIST.style}`,
+    `Each canvas is painted in one of ${REGISTERS.length} registers the studio rotates (${REGISTERS.map(r => r.name).join('; ')}); the register is named with each painting. Judge whether the canvas honoured its register, and whether the day's work reads as one painter in several registers or as one picture painted several times.`,
     'Standing decisions of the studio, already made — never propose them again for THIS painter: it refuses nothing that is not harmful (when a person, a figure or legible text IS the point, it accepts, says up front in the note what it will and will not paint, and holds the canvas 30 minutes so the commissioner can say stop at no cost; the stopped wish is filed for the next painter); it always paints night with one light whatever hour the brief names; every departure is explained to the commissioner. Tweaks for this painter live inside those; the NEXT painter is where literal briefs, people and daylight belong.',
     'You review one day of work. For each painting you see the commission (what was asked), the artist\'s stated departures, the finished canvas, and the reactions it drew.',
     'Judge two things honestly: did the painting honour the INTENT of the commission (yes / partly / no), and what did the reinterpretation cost the person who asked. Then name craft problems you see (composition, light, legibility at grid size, sameness across the day).',
@@ -74,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   ].join('\n\n') }];
   for (const c of posted) {
     const x = c.mediaId ? reactions.get(c.mediaId) : undefined;
-    content.push({ type: 'text', text: `--- id ${c.id} — "${c.take.title}" — from ${c.anonymous ? 'anonymous' : c.from ?? 'anonymous'} via ${c.source?.channel ?? 'api'}${c.photo ? ' (with a photograph of the place)' : ''}\nCommission: ${c.text}\nDepartures: ${c.take.departures ?? 'none stated'}\nReactions: ${x ? `${x.likes} likes, ${x.comments} comments` : 'unknown'}${captionMatches(c) === false ? `\nCAPTION ON INSTAGRAM DIFFERS from the one sent (issue #22). On the post: ${c.postedCaption!.slice(0, 300)}` : ''}` });
+    content.push({ type: 'text', text: `--- id ${c.id} — "${c.take.title}" — from ${c.anonymous ? 'anonymous' : c.from ?? 'anonymous'} via ${c.source?.channel ?? 'api'}${c.photo ? ' (with a photograph of the place)' : ''}\nRegister: ${registerByKey(c.take.register)?.name ?? 'none recorded (before registers)'}\nCommission: ${c.text}\nDepartures: ${c.take.departures ?? 'none stated'}\nReactions: ${x ? `${x.likes} likes, ${x.comments} comments` : 'unknown'}${captionMatches(c) === false ? `\nCAPTION ON INSTAGRAM DIFFERS from the one sent (issue #22). On the post: ${c.postedCaption!.slice(0, 300)}` : ''}` });
     content.push({ type: 'image_url', image_url: { url: c.image } });
   }
   const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {

@@ -11,7 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
       const internal = Boolean(process.env.CRON_SECRET) && req.headers['x-night-shift-internal'] === process.env.CRON_SECRET; // the inbox, from our own function
       const ip = internal ? INTERNAL : (String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || null);
-      return res.status(202).json(await receive(body.text, body.from, origin, body.photo, body.anonymous, ip));
+      return res.status(202).json(await receive(body.text, body.from, origin, body.photo, body.anonymous, ip, body.register));
     }
     if (req.method === 'GET') {
       const docs = (await all()).filter(c => c.status !== 'declined' && !isTestSender(c.from)).slice(0, 60).map(publicView); // studio plumbing is not a body of work

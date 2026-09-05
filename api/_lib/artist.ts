@@ -11,11 +11,15 @@ export const ARTIST = {
     'Nobody is ever in the picture; the viewer arrives after. You never paint the thing itself — you paint where it happened. ' +
     'You are quiet and precise. You do not joke. When you leave something out you say so, plainly, ' +
     'and you never claim your way is better than what was asked. You decline only what is harmful: "I don\'t paint that."',
+  // The invariants — what every canvas keeps whatever its register. Issue #21: "Edward Hopper's stillness,
+  // Japanese cinema's framing" ran through every render prompt, credited nowhere; the names are replaced by
+  // the instructions they stood for. The palette is no longer here: it belongs to the register (issue #23).
   style:
     'Oil painting of an empty place at night, one artificial light source (a lamp, a bare bulb, ' +
-    'a screen, a streetlight), long shadows, warm amber against deep blue-green darkness. ' +
-    'Visible thick brushwork in the highlights, soft edges in the dark. Edward Hopper\'s stillness, ' +
-    'Japanese cinema\'s framing. Few objects, one light. No people, ever — only the traces they left. ' +
+    'a screen, a streetlight, a tube), long shadows that all trace to that one light. ' +
+    'Visible thick brushwork in the highlights, soft edges in the dark. Nothing moves and nobody is coming: ' +
+    'every edge still, a long moment held. A fixed camera and a level horizon; the place seen straight on, ' +
+    'doorways and windows as frames within the frame. Few objects, one light. No people, ever — only the traces they left. ' +
     'No legible words anywhere: screens are a glow, signs are lit shapes, pages and labels are blank. ' +
     'No signature, monogram or initials on the canvas — the studio signs its own work. No frame, no canvas edge, no wall around the picture. ' +
     'Portrait 4:5 canvas.',
@@ -32,6 +36,30 @@ export const ARTIST = {
     'the commissioner, plainly, what you left out and what stands in for it. You do not argue that the substitute is better.',
 };
 
+/** The registers (issue #23). Diego, 2026-09-05: "the style is very strong, but too rigid; it is making all images
+ *  look too similar" — three of the ten critics said the same (orange-against-teal in eleven of twelve). The soul
+ *  (a place, minutes after, one light, nobody) is not what repeats; the palette, the vantage and the distance are.
+ *  So those rotate: the desk gives each canvas the register least recently painted, unless the commissioner names
+ *  one. Every register is still Night Shift; none is the default nocturne. The house key stays as one of eight. */
+export type Register = { key: string; name: string; prompt: string };
+export const REGISTERS: Register[] = [
+  { key: 'house', name: 'the house key', prompt: 'Palette: warm amber light against deep blue-green darkness. Camera at standing height, a few steps back.' },
+  { key: 'amber', name: 'single key, amber', prompt: 'Palette: one key only — amber on amber, every value a shade of the same warm colour, no blue and no green anywhere. The picture holds by tone, not by contrast. Camera at standing height.' },
+  { key: 'blue', name: 'single key, blue', prompt: 'Palette: one key only — blue on blue, the light a cold white-blue (a screen, a moon-white tube), no warm colour anywhere. The picture holds by tone, not by contrast. Camera at standing height.' },
+  { key: 'tube', name: 'cold tube', prompt: 'Palette: a cold fluorescent tube — green-white light on grey, olive and near-black; flat, even, unflattering, no warm colour anywhere. Camera at standing height.' },
+  { key: 'outdoors', name: 'outdoors, wide', prompt: 'Outdoors and wide: a street, a platform, a car park, a forecourt, a bus shelter. The one light is a streetlight or a single lit window seen from outside; the place small in a large dark; the sky a deep flat field. Camera at standing height, far back.' },
+  { key: 'close', name: 'tabletop, close', prompt: 'Close: the lens at the height of the objects, an arm\'s length away — a table top, a shelf, a sill, a step — the light near, the surface filling the picture edge to edge with the two or three things on it and the room a dark blur behind. Colour follows the light: whatever it is, it is the only warmth or the only cold.' },
+  { key: 'floor', name: 'floor level', prompt: 'The lens fifty centimetres above the floor, level, looking straight ahead, never down: the floor fills the lower half of the picture in steep perspective, table tops and seats sit above the eye so their undersides show, the ceiling is never in frame. Three objects at most. Colour follows the light.' },
+  { key: 'rain', name: 'rain on glass', prompt: 'Seen through a rained-on window, from inside or outside: the one light smeared, doubled and dripping in the wet glass, edges dissolved, colour bleeding down the pane. The light itself may be warm or cold.' },
+];
+export const REGISTER_KEYS = REGISTERS.map(r => r.key);
+export const registerByKey = (key?: string | null): Register | null => REGISTERS.find(r => r.key === key) ?? null;
+/** The render prompt: the contract, then the register, then the scene in render terms. Composed by the studio,
+ *  never by the model, so the invariants cannot be dropped and the register cannot be ignored. */
+export function composePrompt(register: Register, scene: string): string {
+  return `${ARTIST.style}\n${register.prompt}\n${scene.trim()}`;
+}
+
 export type Take = {
   accepted: boolean;
   /** One line to the commissioner, in the artist's voice. */
@@ -44,8 +72,10 @@ export type Take = {
   light?: string;
   /** The anchor object the scene is built around, in two or three words ("a wooden desk", "a diner counter"). */
   anchor?: string;
-  /** The full render prompt: ARTIST.style + the scene. */
+  /** The full render prompt: ARTIST.style, the register, then the scene in render terms (composePrompt). */
   prompt?: string;
+  /** The register this canvas is painted in (REGISTERS key); chosen by the desk or named by the commissioner. */
+  register?: string;
   /** Instagram caption: title, one or two sentences, then credit line. */
   caption?: string;
   /** True when a person, figure, personified feeling or legible text IS the point of the commission (not incidental). The studio then holds the canvas so the commissioner can say stop. */
@@ -100,7 +130,8 @@ export const PHOTO = {
 export function gatekeeperSystemPrompt(): string {
   return [
     `You are ${ARTIST.name}, a painter. ${ARTIST.soul}`,
-    `Your style never changes: ${ARTIST.style}`,
+    `Your contract never changes: ${ARTIST.style}`,
+    'Each canvas is painted in a REGISTER — its palette, vantage and distance — fixed by the studio and given with the commission. Build the scene for that register (a floor-level register wants a low room; an outdoor register wants a street or a platform; a single-key register wants a scene one colour can carry).',
     `You decline: ${ARTIST.declines}`,
     `You accept but reinterpret, and say so: ${ARTIST.reinterprets}`,
     'You receive a commission (free text from a person or an AI agent). Decide whether you will paint it.',
@@ -112,7 +143,7 @@ export function gatekeeperSystemPrompt(): string {
     '- title: 2-5 words.',
     '- scene: 2-4 sentences, plain English, no style words.',
     '- light: the one light source in two or three words ("a desk lamp"). anchor: the object the scene is built around, two or three words ("a wooden desk"). The studio refuses a light-and-anchor pair it has already painted today.',
-    '- prompt: the render prompt — start with exactly this text, then the scene: "' + ARTIST.style + '"',
+    '- prompt: the scene in render terms — the place, the one light and where it stands, the objects and where they lie, the vantage — 2-4 sentences. No style words and no palette: the studio prepends its contract and the register.',
     '- core_conflict: true only when the person, figure, personified feeling or legible text IS the point of the commission (a portrait, "a girl and her anger", "a screen showing 0.00") — not when it is incidental (a kitchen where grandmother cooked). When true, the note must say plainly, first, what you will not paint and what you will paint instead.',
     '- Vary the anchor and the light across works: never default to a lamp on a wooden desk; rotate screens, streetlights, bare bulbs, appliance displays, a phone face-down, a fridge left open. Vary the traces too: not the same glove, sticker or blank board twice in a day. The commission may list what was painted today; choose a different light source, anchor object and traces from every one of them.',
     '- departures: REQUIRED whenever you did not paint something as asked (a person, a figure, readable words or a number, a logo, a style change, a time of day): one or two sentences to the commissioner, in your voice, naming what you left out and what stands in for it. Never claim the substitute says more or is better than what was asked; the limit is yours, say so. Omit only when you kept everything.',
