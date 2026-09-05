@@ -13,10 +13,9 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const from = fromRaw ? String(fromRaw).trim().slice(0, 80) : null;
   if (text.length < 3) throw Object.assign(new Error('Tell me what happened. A few words are enough.'), { status: 400 });
 
-  const since = Date.now() - 86_400_000;
-  const recent = (await all()).filter(c => c.from && c.from === from && Date.parse(c.created) > since);
-  if (from && recent.length >= MAX_PER_SENDER_PER_DAY) {
-    throw Object.assign(new Error(`${from} has commissioned ${recent.length} paintings today. Come back tomorrow.`), { status: 429 });
+  const recent = recentBySender(await all(), from);
+  if (from && recent >= MAX_PER_SENDER_PER_DAY) {
+    throw Object.assign(new Error(`${from} has commissioned ${recent} paintings today. Come back tomorrow.`), { status: 429 });
   }
 
   const take = await chatJSON<Take>(gatekeeperSystemPrompt(), `From: ${from ?? 'anonymous'}\nCommission: ${text}`);
@@ -28,6 +27,13 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const receipt: Receipt = { id: c.id, status: c.status, note: take.note, statusUrl: `${origin}/api/commission/${c.id}` };
   if (take.accepted) receipt.share = { ...SHARE, wall: origin };
   return receipt;
+}
+
+/** Commissions this sender made in the last 24h. Seeded paintings are not commissions (#6). */
+export function recentBySender(docs: Pick<Commission, 'from' | 'created' | 'seed'>[], from: string | null, now = Date.now()): number {
+  if (!from) return 0;
+  const since = now - 86_400_000;
+  return docs.filter(c => c.from === from && !c.seed && Date.parse(c.created) > since).length;
 }
 
 export function publicView(c: Commission) {

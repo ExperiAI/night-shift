@@ -15,6 +15,7 @@ export type Commission = {
   error?: string;
   painted?: string;
   postAttempt?: string;
+  seed?: string;        // written by scripts/seed.mjs: made outside the pipeline, not a commission
   requeued?: string;    // put back in the queue after a gatekeeper fix (scripts/requeue.mjs)
   source?: { channel: 'instagram-comment' | 'instagram-dm'; handle: string; postId?: string; commentId?: string; conversationId?: string };
   sourceReplied?: string; // when the artist answered in the source thread with the finished painting
