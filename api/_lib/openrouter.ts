@@ -11,13 +11,14 @@ function headers() {
   };
 }
 
-export async function chatJSON<T>(system: string, user: string, model = process.env.GATEKEEPER_MODEL ?? 'anthropic/claude-sonnet-5'): Promise<T> {
+export async function chatJSON<T>(system: string, user: string, model = process.env.GATEKEEPER_MODEL ?? 'anthropic/claude-sonnet-5', imageUrl?: string): Promise<T> {
+  const userContent = imageUrl ? [{ type: 'text', text: user }, { type: 'image_url', image_url: { url: imageUrl } }] : user;
   const res = await fetch(`${BASE}/chat/completions`, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({
       model,
-      messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+      messages: [{ role: 'system', content: system }, { role: 'user', content: userContent }],
       response_format: { type: 'json_object' },
       temperature: 0.7,
     }),

@@ -15,6 +15,8 @@ export type Commission = {
   error?: string;
   painted?: string;
   postAttempt?: string;
+  photo?: string;       // our copy of the photograph the commission came with (references/<id>)
+  slides?: string[];    // carousel for a photo commission: painting, the photo, both side by side
   seed?: string;        // written by scripts/seed.mjs: made outside the pipeline, not a commission
   requeued?: string;    // put back in the queue after a gatekeeper fix (scripts/requeue.mjs)
   source?: { channel: 'instagram-comment' | 'instagram-dm'; handle: string; postId?: string; commentId?: string; conversationId?: string };
@@ -76,9 +78,16 @@ export async function all(): Promise<Commission[]> {
   return docs.sort((a, b) => b.created.localeCompare(a.created));
 }
 
-export async function storeImage(id: string, bytes: Buffer, mime: string): Promise<string> {
+/** Copy a commissioner's photograph into our store: source links (Instagram CDN) expire. */
+export async function storeReference(id: string, bytes: Buffer, mime: string): Promise<string> {
+  const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+  const { url } = await put(`references/${id}.${ext}`, bytes, { access: 'public', contentType: mime, addRandomSuffix: false, allowOverwrite: true });
+  return url;
+}
+
+export async function storeImage(id: string, bytes: Buffer, mime: string, suffix = ''): Promise<string> {
   const ext = mime.includes('jpeg') ? 'jpg' : 'png';
-  const { url } = await put(`paintings/${id}.${ext}`, bytes, { access: 'public', contentType: mime, addRandomSuffix: false, allowOverwrite: true });
+  const { url } = await put(`paintings/${id}${suffix}.${ext}`, bytes, { access: 'public', contentType: mime, addRandomSuffix: false, allowOverwrite: true });
   return url;
 }
 

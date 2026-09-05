@@ -4,6 +4,8 @@ import { all, save, storeImage } from './_lib/store.js';
 import { renderImage, inspectImage } from './_lib/openrouter.js';
 import { publish, canPost } from './_lib/zernio.js';
 import { tellSource } from './_lib/react.js';
+import { PHOTO } from './_lib/artist.js';
+import { photoSlide, pairSlide } from './_lib/compose.js';
 
 export const config = { maxDuration: 300 };
 
@@ -23,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!b || dry || !canPost()) return res.json({ painted: null, queued: 0, backlog: backlog.length });
     b.postAttempt = new Date().toISOString();
     try {
-      const post = await publish(b.image!, b.take.caption ?? b.take.title ?? 'Night Shift');
+      const post = await publish(b.slides ?? b.image!, b.take.caption ?? b.take.title ?? 'Night Shift');
       b.instagram = post.permalink; b.status = 'posted'; delete b.error;
       await tellSource(b);
     } catch (e: any) { b.error = String(e.message).slice(0, 500); }
@@ -35,18 +37,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const origin = `https://${req.headers.host}`;
     const refs = (process.env.STYLE_REFS ?? '').split(',').filter(Boolean).map(p => p.startsWith('http') ? p : `${origin}${p}`);
-    let img = await renderImage(c.take.prompt!, { refs });
+    if (c.photo) refs.push(c.photo);
+    const prompt = c.photo ? `${c.take.prompt!}\n\n${PHOTO.render}` : c.take.prompt!;
+    let img = await renderImage(prompt, { refs });
     let check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, c.take.scene ?? '');
     if (!check.ok) { // one more try, told what went wrong
-      img = await renderImage(`${c.take.prompt!}\n\nAvoid: ${check.reason}`, { refs });
+      img = await renderImage(`${prompt}\n\nAvoid: ${check.reason}`, { refs });
       check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, c.take.scene ?? '');
       if (!check.ok) throw new Error(`inspector refused twice: ${check.reason}`);
     }
     c.image = await storeImage(c.id, img.bytes, img.mime);
+    if (c.photo) { // a photo commission posts as a carousel: painting, the original, the two side by side
+      const photo = Buffer.from(await (await fetch(c.photo)).arrayBuffer());
+      const [ps, pr] = await Promise.all([photoSlide(photo), pairSlide(photo, img.bytes)]);
+      c.slides = [c.image, await storeImage(c.id, ps, 'image/jpeg', '-photo'), await storeImage(c.id, pr, 'image/jpeg', '-pair')];
+    }
     c.cost = img.cost ?? undefined;
     c.painted = new Date().toISOString();
     if (!dry && canPost()) {
-      const post = await publish(c.image, c.take.caption ?? c.take.title ?? 'Night Shift');
+      const post = await publish(c.slides ?? c.image, c.take.caption ?? c.take.title ?? 'Night Shift');
       c.instagram = post.permalink;
       c.status = 'posted';
       await tellSource(c);

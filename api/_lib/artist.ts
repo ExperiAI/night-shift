@@ -52,6 +52,17 @@ export const SHARE = {
 /** The last line of every caption: how a person with no code commissions the artist. */
 export const INVITE = 'Send me a moment by DM, or leave it in the comments, and I will paint where it happened.';
 
+/** When a photograph of the place comes with the commission. */
+export const PHOTO = {
+  gatekeeper:
+    'A photograph of the place is attached. Paint THIS place: keep its layout, its main objects and its character, ' +
+    'but minutes after everyone left — remove every person, choose one light source, let the traces tell what happened. ' +
+    'Describe the place from the photo in the scene. Never describe faces, names or anything that identifies a person.',
+  render:
+    'The last reference image is a photograph of the place to paint. Keep its layout and main objects; remove every person; ' +
+    'one light source; render it entirely in the oil-painting style described, not as a photo.',
+};
+
 export function gatekeeperSystemPrompt(): string {
   return [
     `You are ${ARTIST.name}, a painter. ${ARTIST.soul}`,

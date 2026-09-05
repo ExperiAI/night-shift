@@ -8,7 +8,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
-      return res.status(202).json(await receive(body.text, body.from, origin));
+      return res.status(202).json(await receive(body.text, body.from, origin, body.photo));
     }
     if (req.method === 'GET') {
       const docs = (await all()).filter(c => c.status !== 'declined').slice(0, 60).map(publicView);

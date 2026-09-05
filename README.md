@@ -73,6 +73,19 @@ again in the same thread with the link (`source` on the commission).
 - Every caption ends with `INVITE` (artist.ts): the plain-words way in for people without code. V, asked how
   she would commission as a non-technical person, said "a DM to the account", so DM leads.
 
+## Photographs (v3) — and the gateway rule
+
+`POST /api/commission` and the MCP tool take an optional `photo` / `photo_url`: a public https
+URL of a photograph of a place. The desk copies it into `references/<id>` (Instagram CDN links
+expire), the gatekeeper sees it and describes *that* place after everyone left, and the
+renderer gets it as the last reference with `PHOTO.render`. `photo` is on the public view.
+
+**Gateway rule (Diego, 2026-09-05):** the API and MCP are the painter's front door. The
+Instagram inbox is a *client* of it — it POSTs to `/api/commission` like any agent — so every
+capability exists for agents first and reaches people by default. Never build a human-only path.
+On Instagram this means: DM a photo (with or without words) and the finished painting comes
+back in the same DM as an image.
+
 ## Renderer note
 
 Midjourney produced the mood-board (its ToS forbids automation, so it cannot be the

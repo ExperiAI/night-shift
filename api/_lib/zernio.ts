@@ -18,12 +18,14 @@ export async function instagramAccount(): Promise<{ id: string; username?: strin
   return a ? { id: a._id ?? a.id, username: a.username } : null;
 }
 
-export async function publish(imageUrl: string, caption: string): Promise<{ postId: string; permalink: string }> {
+/** One image posts a single; several post a carousel in the given order (first = the grid tile). */
+export async function publish(images: string | string[], caption: string): Promise<{ postId: string; permalink: string }> {
   const acct = await instagramAccount();
   if (!acct) throw new Error('no Instagram account connected in Zernio');
+  const urls = Array.isArray(images) ? images : [images];
   const r = await fetch(`${BASE}/posts`, {
     method: 'POST', headers: headers(),
-    body: JSON.stringify({ content: caption, mediaItems: [{ type: 'image', url: imageUrl }], platforms: [{ platform: 'instagram', accountId: acct.id }], publishNow: true }),
+    body: JSON.stringify({ content: caption, mediaItems: urls.map(url => ({ type: 'image', url })), platforms: [{ platform: 'instagram', accountId: acct.id }], publishNow: true }),
   });
   const j: any = await r.json();
   if (!r.ok) throw new Error(`zernio post ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
@@ -49,7 +51,8 @@ async function post(path: string, body: unknown): Promise<any> {
 }
 
 export type RawComment = { id: string; message: string; createdTime: string; from?: { username?: string; name?: string; isOwner?: boolean }; postId: string };
-export type RawMessage = { id: string; message: string; createdAt: string; senderName?: string | null; direction: 'incoming' | 'outgoing'; conversationId: string };
+export type RawAttachment = { type: string; url: string; previewUrl?: string | null; refreshUrl?: string | null };
+export type RawMessage = { id: string; message: string; createdAt: string; senderName?: string | null; direction: 'incoming' | 'outgoing'; conversationId: string; attachments?: RawAttachment[] };
 
 /** Every comment on our posts that have any. No `since` here: Zernio's `since` filters by the
  *  POST's date, so an old painting with a fresh comment would vanish (seen 2026-09-05, V's first
@@ -74,7 +77,7 @@ export async function listMessages(accountId: string, since?: string): Promise<R
   for (const c of convos) {
     if (c.updatedTime && Date.parse(c.updatedTime) <= cutoff) continue;
     const j = await get(`/inbox/conversations/${encodeURIComponent(c.id)}/messages?accountId=${accountId}&limit=20&sortOrder=desc`);
-    for (const m of j.messages ?? []) out.push({ id: m.id, message: m.message ?? '', createdAt: m.createdAt, senderName: m.senderName ?? c.participantName, direction: m.direction, conversationId: c.id });
+    for (const m of j.messages ?? []) out.push({ id: m.id, message: m.message ?? '', createdAt: m.createdAt, senderName: m.senderName ?? c.participantName, direction: m.direction, conversationId: c.id, attachments: m.attachments ?? [] });
   }
   return out;
 }
@@ -83,6 +86,8 @@ export async function replyToComment(accountId: string, postId: string, commentI
   await post(`/inbox/comments/${encodeURIComponent(postId)}`, { accountId, message, commentId });
 }
 
-export async function sendMessage(accountId: string, conversationId: string, message: string): Promise<void> {
-  await post(`/inbox/conversations/${encodeURIComponent(conversationId)}/messages`, { accountId, message });
+export async function sendMessage(accountId: string, conversationId: string, message: string, attachmentUrl?: string): Promise<void> {
+  const body: Record<string, unknown> = { accountId, message };
+  if (attachmentUrl) { body.attachmentUrl = attachmentUrl; body.attachmentType = 'image'; }
+  await post(`/inbox/conversations/${encodeURIComponent(conversationId)}/messages`, body);
 }

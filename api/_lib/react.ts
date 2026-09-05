@@ -11,7 +11,13 @@ export type InboxItem = {
   at: string;                // ISO time
   own: boolean;              // written by the artist's own account
   ref: { postId?: string; commentId?: string; conversationId?: string };
+  photo?: string | null;     // a DM can carry a photograph of the place
 };
+
+/** The first image among a DM's attachments, if any. */
+export function photoFrom(attachments?: { type: string; url: string }[] | null): string | null {
+  return attachments?.find(a => a.type === 'image' && a.url)?.url ?? null;
+}
 
 export type InboxState = { since: string; seen: string[] };
 export const EMPTY_STATE: InboxState = { since: '', seen: [] };
@@ -66,7 +72,7 @@ export async function tellSource(c: import('./store.js').Commission): Promise<vo
   const text = `${c.take.title ?? 'Done'}. It's up: ${c.instagram}`;
   try {
     if (c.source.channel === 'instagram-comment' && c.source.postId && c.source.commentId) await replyToComment(acct.id, c.source.postId, c.source.commentId, text);
-    else if (c.source.channel === 'instagram-dm' && c.source.conversationId) await sendMessage(acct.id, c.source.conversationId, text);
+    else if (c.source.channel === 'instagram-dm' && c.source.conversationId) await sendMessage(acct.id, c.source.conversationId, text, c.image); // the painting itself, in the DM
     c.sourceReplied = new Date().toISOString();
   } catch (e: any) { c.error = `source reply: ${String(e.message).slice(0, 200)}`; }
 }
