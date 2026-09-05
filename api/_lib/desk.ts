@@ -163,7 +163,7 @@ export function repeatsTraces(docs: Pick<Commission, 'created' | 'status' | 'tak
     if (c.seed || c.status === 'declined' || c.status === 'failed' || Date.parse(c.created) <= since) continue;
     for (const t of c.take?.traces ?? []) { const k = traceKey(t); if (k) painted.set(k, t); }
   }
-  for (const t of take.traces) { const k = traceKey(t); if (k && painted.has(k)) return `a ${k}`; }
+  for (const t of take.traces) { const k = traceKey(t); if (k && painted.has(k)) return `${/^[aeiou]/.test(k) ? 'an' : 'a'} ${k}`; }
   return null;
 }
 

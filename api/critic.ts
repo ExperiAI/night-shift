@@ -31,6 +31,17 @@ async function sitExam(allDocs: { text: string; created: string; status: string;
   return { key: exam.key, status: r.status, body: (await r.text()).slice(0, 200) };
 }
 
+/** Both reviews on 2026-09-05 proposed, for THIS painter, what its standing decisions refuse: decline people
+ *  outright; paint the hour the brief names. The prompt says not to; the model does anyway. Such a proposal stays
+ *  in the critique (it is the critic's honest view) but is not filed as feedback, where it would be counted daily
+ *  as demand this painter should answer. Painter #2 is where it belongs, and next_painter already carries it. */
+const STANDING = [
+  /\b(decline|refuse|refusal|decline line|"I don't paint that")\b[\s\S]*\b(person|people|figure|portrait|subject)\b|\b(person|people|figure|portrait)\b[\s\S]*\b(decline|refuse|refusal|decline line)\b/i,
+  /\bpaint (the )?(people|person|figure|literal subject)\b/i,
+  /\b(time of day|hour|daylight|dawn|morning|afternoon|daytime)\b[\s\S]*\b(match|shift|honou?r|literal|instead of|rather than|default)/i,
+];
+export function restatesStandingDecision(proposal: string): boolean { return STANDING.some(re => re.test(proposal)); }
+
 export const config = { maxDuration: 300 };
 // A different vendor from the gatekeeper (Anthropic) and the renderer (Google): the critic is a stranger, not the
 // painter's own family grading itself (the engineer's bar, docs/critics/2026-09-05/08-kwame.md).
@@ -104,6 +115,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   await saveCritique(critique);
   // Proposals join the human feedback record, so one list holds everything the next painter is made of.
   for (const p of critique.next_painter) await saveFeedback({ id: newId(), text: p, from: 'the critic', channel: 'critic', about: date, created: new Date().toISOString() });
-  for (const p of critique.this_painter) await saveFeedback({ id: newId(), text: `For this painter: ${p}`, from: 'the critic', channel: 'critic', about: date, created: new Date().toISOString() });
+  for (const p of critique.this_painter.filter(p => !restatesStandingDecision(p))) await saveFeedback({ id: newId(), text: `For this painter: ${p}`, from: 'the critic', channel: 'critic', about: date, created: new Date().toISOString() });
   return res.json({ ...critique, exam });
 }
