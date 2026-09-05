@@ -1,0 +1,15 @@
+# Git hooks. `npm install` wires them (prepare script); `lefthook install` by hand.
+# Skip once with LEFTHOOK=0 git commit; never remove a hook to make a commit go through.
+# Why: commit c44a4da landed on a red test because a shell chain used `;` (issue #24).
+
+pre-commit:
+  parallel: false
+  jobs:
+    - name: test
+      run: npm test
+    - name: typecheck
+      run: npm run check
+    - name: gitleaks
+      run: >
+        if command -v gitleaks >/dev/null 2>&1; then gitleaks git --pre-commit --staged --no-banner --redact;
+        else echo "gitleaks not on PATH (brew install gitleaks); skipped"; fi
