@@ -67,6 +67,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const credit = anonymous || !from ? 'anonymous — write “…” — a commission' : from;
   const take = await chatJSON<Take>(system, `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}`, undefined, photo);
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
+  if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out
   const c: Commission = {
     id, text, from, created: new Date().toISOString(),
     status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}),
