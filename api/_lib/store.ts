@@ -32,6 +32,7 @@ export type Commission = {
   credited?: string;     // the @handle now in a comment under the painting
   cost?: number;
   rejects?: { image: string; reason: string }[]; // canvases the inspector refused, kept and shown: the cost of the work (docs/stance.md)
+  outbound?: import('./outbound.js').Outbound; // one message per event to the commissioner, ever (issue #16); written only by sendOnce()
 };
 
 // One document per commission, and THE STATUS LIVES IN THE PATHNAME:

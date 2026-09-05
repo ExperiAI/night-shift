@@ -98,10 +98,13 @@ export async function tellSource(c: import('./store.js').Commission): Promise<vo
   if (!acct) return;
   const askCredit = c.source.channel === 'instagram-dm' && c.anonymous && c.mediaId;
   const text = [`${c.take.title ?? 'Done'}. It's up: ${c.instagram}`, c.take.departures, askCredit ? CREDIT_ASK : ''].filter(Boolean).join('\n\n');
+  const { sendOnce } = await import('./outbound.js');
   try {
-    if (c.source.channel === 'instagram-comment' && c.source.postId && c.source.commentId) await replyToComment(acct.id, c.source.postId, c.source.commentId, text);
-    else if (c.source.channel === 'instagram-dm' && c.source.conversationId) await sendMessage(acct.id, c.source.conversationId, text, c.image); // the painting itself, in the DM
-    c.sourceReplied = new Date().toISOString();
-    if (askCredit) c.creditAsked = c.sourceReplied;
+    const r = await sendOnce(c, 'posted', async () => { // the ledger, not this function, is what makes it one message (issue #16)
+      if (c.source!.channel === 'instagram-comment' && c.source!.postId && c.source!.commentId) await replyToComment(acct.id, c.source!.postId, c.source!.commentId, text);
+      else if (c.source!.channel === 'instagram-dm' && c.source!.conversationId) await sendMessage(acct.id, c.source!.conversationId, text, c.image); // the painting itself, in the DM
+    });
+    c.sourceReplied = c.outbound?.posted?.at ?? new Date().toISOString(); // 'refused' means an earlier run already told them: stop retrying
+    if (askCredit && r === 'sent') c.creditAsked = c.sourceReplied;
   } catch (e: any) { c.error = `source reply: ${String(e.message).slice(0, 200)}`; }
 }

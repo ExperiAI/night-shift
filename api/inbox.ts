@@ -10,6 +10,7 @@ import { loadInboxState, saveInboxState, all, load, save } from './_lib/store.js
 import { cancel, isHeld } from './_lib/desk.js';
 import type { Receipt } from './_lib/desk.js';
 import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, isStop, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
+import { sendOnce } from './_lib/outbound.js';
 
 export const config = { maxDuration: 300 };
 
@@ -62,10 +63,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (held) {
         if (!dry) {
           try {
-            const c = await cancel(held.id, 'stop');
-            const reply = c?.take.note ?? "Understood. I won't paint it.";
-            if (it.kind === 'comment' && it.ref.postId && it.ref.commentId) await replyToComment(acct.id, it.ref.postId, it.ref.commentId, reply);
-            else if (it.ref.conversationId) await sendMessage(acct.id, it.ref.conversationId, reply);
+            const c = (await cancel(held.id, 'stop')) ?? held;
+            const reply = c.take.note ?? "Understood. I won't paint it.";
+            await sendOnce(c, 'stop', async () => { // one answer to a stop, ever (issue #16)
+              if (it.kind === 'comment' && it.ref.postId && it.ref.commentId) await replyToComment(acct.id, it.ref.postId, it.ref.commentId, reply);
+              else if (it.ref.conversationId) await sendMessage(acct.id, it.ref.conversationId, reply);
+            });
           } catch (e: any) { log.push({ id: it.id, error: String(e.message).slice(0, 200) }); continue; }
         }
         log.push({ id: it.id, from: it.handle, kind: 'stop', commission: held.id, replied: true });
@@ -78,9 +81,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (handle && owed) {
       if (!dry) {
         try {
-          await commentOnPost(acct.id, owed.mediaId!, `Commissioned by @${handle}. Thank you for sending it.`);
-          owed.credited = `@${handle}`; await save(owed);
-          if (it.ref.conversationId) await sendMessage(acct.id, it.ref.conversationId, `Done — your name is under it now: ${owed.instagram}`);
+          await sendOnce(owed, 'credit', async () => { // the comment and its confirmation are one event, once (issue #16)
+            await commentOnPost(acct.id, owed.mediaId!, `Commissioned by @${handle}. Thank you for sending it.`);
+            owed.credited = `@${handle}`;
+            if (it.ref.conversationId) await sendMessage(acct.id, it.ref.conversationId, `Done — your name is under it now: ${owed.instagram}`);
+          });
+          if (!owed.credited) { owed.credited = `@${handle}`; await save(owed); } // refused: the comment is already there
         } catch (e: any) { log.push({ id: it.id, error: String(e.message).slice(0, 200) }); continue; }
       }
       log.push({ id: it.id, from: it.handle, kind: 'credit', commission: owed.id, replied: true });
@@ -92,6 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : await chatJSON<Reaction>(reactionSystemPrompt(), `${it.kind === 'dm' ? 'Direct message' : 'Comment'} from @${it.handle}: ${it.text.slice(0, 600)}`, REACT_MODEL);
     let text = '';
     let commissionId: string | undefined;
+    let about: import('./_lib/store.js').Commission | null = null; // the commission this reply is the receipt of, when there is one
     if (r.kind === 'commission' && r.commission) {
       if (igCommissionsToday >= MAX_INSTAGRAM_COMMISSIONS_PER_DAY) text = replyFor(r, null, "The studio is full for today. Ask me again tomorrow.");
       else if (dry) text = '(dry) would commission: ' + r.commission;
@@ -102,10 +109,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // name, not a handle). `from` still keys the per-sender limit either way.
           const receipt = await commissionViaApi(origin, { text: r.commission, from: it.kind === 'comment' ? `@${it.handle}` : it.handle, anonymous: it.kind === 'dm', ...(it.photo ? { photo: it.photo } : {}) });
           text = replyFor(r, receipt);
+          about = await load(receipt.id);
           if (receipt.status === 'queued') {
             igCommissionsToday++; commissionId = receipt.id;
-            const c = await load(receipt.id);
-            if (c) { c.source = { channel: it.kind === 'dm' ? 'instagram-dm' : 'instagram-comment', handle: it.handle, ...it.ref }; await save(c); }
+            if (about) { about.source = { channel: it.kind === 'dm' ? 'instagram-dm' : 'instagram-comment', handle: it.handle, ...it.ref }; await save(about); }
           }
         } catch (e: any) { text = replyFor(r, null, String(e.message).slice(0, 300)); }
       }
@@ -117,8 +124,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (text && !dry) {
       try {
-        if (it.kind === 'comment' && it.ref.postId && it.ref.commentId) await replyToComment(acct.id, it.ref.postId, it.ref.commentId, text);
-        else if (it.kind === 'dm' && it.ref.conversationId) await sendMessage(acct.id, it.ref.conversationId, text);
+        const send = async () => {
+          if (it.kind === 'comment' && it.ref.postId && it.ref.commentId) await replyToComment(acct.id, it.ref.postId, it.ref.commentId, text);
+          else if (it.kind === 'dm' && it.ref.conversationId) await sendMessage(acct.id, it.ref.conversationId, text);
+        };
+        if (about) await sendOnce(about, 'receipt', send); // one receipt per commission (issue #16)
+        else await send(); // a reply to what they said, per inbound item
       } catch (e: any) { log.push({ id: it.id, error: String(e.message).slice(0, 200) }); continue; }
     }
     log.push({ id: it.id, from: it.handle, kind: r.kind, commission: commissionId, replied: Boolean(text) });
