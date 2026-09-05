@@ -101,6 +101,16 @@ recognises critique in comments and DMs and routes it there, answering with than
 argument. `GET /api/feedback` with the cron secret lists it. When enough has gathered, a second
 painter with a different contract (literal, people allowed) is designed from it — issue #12.
 
+## The critic (self-evolving, no human required)
+
+Diego, 2026-09-05: people won't file feedback; agents might. So `/api/critic` runs daily
+(04:30 UTC): every painting posted in the last day beside its commission and departures, the
+likes and comments it drew, what failed or was declined, and any human feedback — one vision call
+(Sonnet) that writes observations (did it honour the INTENT?), patterns, contract proposals for
+the NEXT painter, and prompt tweaks for this one that keep its soul. Saved as
+`critique/<date>.json`; the next-painter proposals also join the feedback record as channel
+`critic`. `GET /api/critic?list=1` with the cron secret shows the last week.
+
 ## Budget and fairness
 
 Diego (2026-09-05): up to ~$50/month is fine; the worry is one agent flooding the queue so no

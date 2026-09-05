@@ -111,7 +111,7 @@ export async function saveInboxState<T>(state: T): Promise<void> {
 }
 
 // ---- Feedback: critique and wishes about how the artist works, kept to shape the next painter ----
-export type Feedback = { id: string; text: string; from: string | null; channel: 'api' | 'mcp' | 'instagram-comment' | 'instagram-dm'; about?: string; created: string };
+export type Feedback = { id: string; text: string; from: string | null; channel: 'api' | 'mcp' | 'instagram-comment' | 'instagram-dm' | 'critic'; about?: string; created: string };
 const FEEDBACK = 'feedback/';
 export async function saveFeedback(f: Feedback): Promise<void> {
   await put(`${FEEDBACK}${f.id}.json`, JSON.stringify(f), { access: 'public', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 0 });
@@ -125,4 +125,23 @@ export async function allFeedback(): Promise<Feedback[]> {
     cursor = page.hasMore ? page.cursor : undefined;
   } while (cursor);
   return out.sort((a, b) => b.created.localeCompare(a.created));
+}
+
+// ---- Critique: the studio's own daily review, so the system evolves without waiting for humans ----
+export type Critique = {
+  date: string; paintings: number;
+  observations: { id: string; title?: string; honoured: 'yes' | 'partly' | 'no'; note: string }[];
+  patterns: string[];
+  next_painter: string[];   // contract changes for the painter after this one
+  this_painter: string[];   // prompt tweaks that keep the soul
+  signals: { posted: number; failed: number; declined: number; likes: number; comments: number; humanFeedback: number };
+};
+const CRITIQUE = 'critique/';
+export async function saveCritique(c: Critique): Promise<void> {
+  await put(`${CRITIQUE}${c.date}.json`, JSON.stringify(c), { access: 'public', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 0 });
+}
+export async function latestCritiques(n = 7): Promise<Critique[]> {
+  const page = await list({ prefix: CRITIQUE, limit: 1000 });
+  const blobs = page.blobs.sort((a, b) => b.pathname.localeCompare(a.pathname)).slice(0, n);
+  return Promise.all(blobs.map(async b => (await (await fetch(`${b.url}?t=${Date.now()}`, { cache: 'no-store' })).json()) as Critique));
 }
