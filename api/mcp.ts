@@ -36,6 +36,12 @@ const handler = createMcpHandler(
       async ({ id }) => { const c = await load(id); return text(c ? publicView(c) : { error: 'no such commission' }); },
     );
     server.tool(
+      'studio_status',
+      'How the studio is doing right now: queue, today\'s count against the daily cap, spend, the last painting posted, the last critique.',
+      {},
+      async () => { const { studioStatus } = await import('./status.js'); return text(await studioStatus()); },
+    );
+    server.tool(
       'recent_paintings',
       `The most recent paintings ${ARTIST.name} has posted, with what commissioned them.`,
       {},

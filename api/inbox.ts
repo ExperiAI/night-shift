@@ -94,6 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let commissionId: string | undefined;
     if (r.kind === 'commission' && r.commission) {
       if (igCommissionsToday >= MAX_INSTAGRAM_COMMISSIONS_PER_DAY) text = replyFor(r, null, "The studio is full for today. Ask me again tomorrow.");
+      else if (dry) text = '(dry) would commission: ' + r.commission;
       else {
         try {
           // Credit rule (2026-09-05): a comment was asked in public, so the caption credits and mentions
