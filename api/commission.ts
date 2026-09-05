@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { receive, publicView } from './_lib/desk.js';
+import { receive, publicView, INTERNAL } from './_lib/desk.js';
 import { all } from './_lib/store.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -8,7 +8,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
-      return res.status(202).json(await receive(body.text, body.from, origin, body.photo, body.anonymous));
+      const internal = Boolean(process.env.CRON_SECRET) && req.headers['x-night-shift-internal'] === process.env.CRON_SECRET; // the inbox, from our own function
+      const ip = internal ? INTERNAL : (String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || null);
+      return res.status(202).json(await receive(body.text, body.from, origin, body.photo, body.anonymous, ip));
     }
     if (req.method === 'GET') {
       const docs = (await all()).filter(c => c.status !== 'declined').slice(0, 60).map(publicView);

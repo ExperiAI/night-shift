@@ -14,7 +14,7 @@ export const config = { maxDuration: 300 };
 
 /** Commission through the public API, as any agent does. Throws with the API's own words on 4xx. */
 async function commissionViaApi(origin: string, body: { text: string; from: string; photo?: string; anonymous?: boolean }): Promise<Receipt> {
-  const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-night-shift-internal': process.env.CRON_SECRET ?? '' }, body: JSON.stringify(body) });
   const j: any = await r.json();
   if (!r.ok) throw new Error(j.error ?? `commission ${r.status}`);
   return j as Receipt;

@@ -15,6 +15,7 @@ export type Commission = {
   error?: string;
   painted?: string;
   postAttempt?: string;
+  ip?: string;          // caller address at the API, 'internal' for the inbox; never public
   anonymous?: boolean;  // credited as “…” — a commission; `from` is kept only for the per-sender limit
   photo?: string;       // our copy of the photograph the commission came with (references/<id>)
   slides?: string[];    // carousel for a photo commission: painting, the photo, both side by side

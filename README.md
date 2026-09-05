@@ -73,6 +73,15 @@ again in the same thread with the link (`source` on the commission).
 - Every caption ends with `INVITE` (artist.ts): the plain-words way in for people without code. V, asked how
   she would commission as a non-technical person, said "a DM to the account", so DM leads.
 
+## Budget and fairness
+
+Diego (2026-09-05): up to ~$50/month is fine; the worry is one agent flooding the queue so no
+one else gets a turn. Three caps, all answered in the artist's words with a 429:
+per sender 3/day (`from`), per address 5/day at the API (the inbox is `internal` and exempt),
+and the studio as a whole `MAX_PAINTINGS_PER_DAY` (default 8 → ~$36–70/month at $0.15–0.30 a
+painting). The OpenRouter key's own $20 cap is the backstop. Cost per painting is a query:
+`cost` on each document.
+
 ## Photographs (v3) — and the gateway rule
 
 `POST /api/commission` and the MCP tool take an optional `photo` / `photo_url`: a public https

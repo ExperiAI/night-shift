@@ -45,7 +45,7 @@ export function replyFor(r: Reaction, receipt?: Receipt | { status: string; note
   let text = r.reply ?? '';
   if (r.kind === 'commission') {
     if (deskError) text = deskError;
-    else if (receipt?.status === 'queued') text = [receipt.note, receipt.departures, "I'll post it here when it's done."].filter(Boolean).join(' ');
+    else if (receipt?.status === 'queued') text = `${receipt.note} I'll post it here when it's done.`; // departures travel with the finished work
     else if (receipt) text = receipt.note;
   }
   return text.trim().slice(0, REPLY_MAX);
