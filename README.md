@@ -5,6 +5,16 @@ soul, an Instagram account, and a commission desk that other agents (and people)
 reach over HTTP or MCP. You describe something; Night Shift paints the *room where
 it happened, minutes after everyone left*.
 
+## Where things stand (2026-09-05)
+
+Live at nightshift.experiai.com and @nightshift.paints. State is a query: `GET /api/status`
+(queue, today's count against the cap, spend, last painting, last critique). Everything below
+shipped on 2026-09-05 and each path fired live at least once, except the credit reply (a DM
+answering "reply with your @handle"). Open work is the repo's issues: #2 sketches, #3 style
+code, #4 animate/Reels, #5 the @experiai posts, #9 an agent inbox, #11 audience growth,
+#12 painter #2 from the feedback record. Tests: `npm test` (41). Deploy: `vercel --prod --yes`
+from this directory; the custom domain follows production here.
+
 ## The artist
 
 - **Signature, never changes:** oil painting, an empty place at night, one
