@@ -125,7 +125,7 @@ export function publicView(c: Commission) {
   return {
     id: c.id, status: c.status, created: c.created, from: c.anonymous ? null : c.from,
     commission: c.text, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene,
-    image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides,
+    image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides, holdUntil: c.holdUntil,
     ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),
     ...(c.status === 'failed' && c.error ? { reason: c.error.slice(0, 200) } : {}), // so an agent can rephrase (#8)
   };

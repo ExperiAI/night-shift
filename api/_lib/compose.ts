@@ -53,3 +53,20 @@ export async function normalizePhoto(bytes: Buffer): Promise<{ bytes: Buffer; mi
   const out = await sharp(bytes).rotate().resize(2048, 2048, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 90 }).toBuffer();
   return { bytes: out, mime: 'image/jpeg' };
 }
+
+/** A 9:16 Story for days with no new painting: the studio window, and the door line. */
+export async function openDoorStory(): Promise<Buffer> {
+  const SW = 1080, SH = 1920;
+  const portrait = readFileSync(new URL('../../public/persona/portrait.png', import.meta.url));
+  const img = await sharp(portrait).resize(SW - 160, 1200, { fit: 'inside' }).toBuffer({ resolveWithObject: true });
+  const [l1, l2] = [label('open-door'), label('open-door-2')];
+  const [s1, s2] = await Promise.all([size(l1), size(l2)]);
+  const top = 260;
+  return sharp({ create: { width: SW, height: SH, channels: 3, background: NIGHT } })
+    .composite([
+      { input: img.data, left: Math.round((SW - img.info.width) / 2), top },
+      { input: l1, left: Math.round((SW - s1.w) / 2), top: top + img.info.height + 90 },
+      { input: l2, left: Math.round((SW - s2.w) / 2), top: top + img.info.height + 90 + s1.h + 24 },
+    ])
+    .jpeg({ quality: 88 }).toBuffer();
+}

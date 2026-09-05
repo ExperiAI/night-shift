@@ -42,3 +42,9 @@ test('a sideways phone photo is stored upright, without relying on its orientati
   assert.equal(m.width, 200); assert.equal(m.height, 300);   // rotated into place
   assert.equal(m.orientation, undefined);                     // no tag left to misread
 });
+
+test('the open-door Story is 9:16 with the window and the door line', async () => {
+  const { openDoorStory } = await import('../api/_lib/compose.ts');
+  const m = await sharp(await openDoorStory()).metadata();
+  assert.equal(m.width, 1080); assert.equal(m.height, 1920);
+});

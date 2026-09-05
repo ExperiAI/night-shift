@@ -6,7 +6,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, allFeedback, saveFeedback, saveCritique, latestCritiques, newId, type Critique } from './_lib/store.js';
 import { ARTIST } from './_lib/artist.js';
-import { instagramAccount } from './_lib/zernio.js';
+import { instagramAccount, publishStory, canPost } from './_lib/zernio.js';
+import { openDoorStory } from './_lib/compose.js';
+import { put } from '@vercel/blob';
+
+/** No new painting in a day: the door still shows a light. Best effort. */
+async function openDoor(): Promise<boolean> {
+  if (!canPost()) return false;
+  try {
+    const { url } = await put('studio/open-door.jpg', await openDoorStory(), { access: 'public', contentType: 'image/jpeg', addRandomSuffix: false, allowOverwrite: true });
+    await publishStory(url); return true;
+  } catch { return false; }
+}
 
 export const config = { maxDuration: 300 };
 const MODEL = process.env.CRITIC_MODEL ?? process.env.GATEKEEPER_MODEL ?? 'anthropic/claude-sonnet-5';
@@ -46,8 +57,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch { /* reactions are a nice-to-have */ }
 
   const date = new Date().toISOString().slice(0, 10);
+  const door = posted.length === 0 ? await openDoor() : false; // idle day: a Story keeps the door lit
   const signals = { posted: posted.length, failed: failed.length, declined: declined.length, likes, comments, humanFeedback: human.length };
-  if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: ['nothing to review'], next_painter: [], this_painter: [], signals }; await saveCritique(empty); return res.json(empty); }
+  if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: [door ? 'nothing to review; the open-door Story went up' : 'nothing to review'], next_painter: [], this_painter: [], signals }; await saveCritique(empty); return res.json(empty); }
 
   const content: any[] = [{ type: 'text', text: [
     `Day: ${date}. Posted ${posted.length}, failed ${failed.length} (${failed.map(f => f.error?.slice(0, 80)).join(' | ')}), declined ${declined.length} (${declined.map(d => d.take.note?.slice(0, 60)).join(' | ')}).`,
