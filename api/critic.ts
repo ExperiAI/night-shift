@@ -9,6 +9,8 @@ import { ARTIST, REGISTERS, registerByKey, isTestSender } from './_lib/artist.js
 import { instagramAccount, audience, publishStory, canPost } from './_lib/zernio.js';
 import { openDoorStory } from './_lib/compose.js';
 import { captionMatches } from './_lib/reconcile.js';
+import { nextExam } from './_lib/exams.js';
+import { STUDIO_CAP, acceptedToday } from './_lib/desk.js';
 import { put } from '@vercel/blob';
 
 /** No new painting in a day: the door still shows a light. Best effort. */
@@ -18,6 +20,15 @@ async function openDoor(): Promise<boolean> {
     const { url } = await put('studio/open-door.jpg', await openDoorStory(), { access: 'public', contentType: 'image/jpeg', addRandomSuffix: false, allowOverwrite: true });
     await publishStory(url); return true;
   } catch { return false; }
+}
+
+/** The studio sits the next exam itself when there is room today (issue #17): one per critic run, so each gets
+ *  the stranger's verdict on its own. Through the public desk, as any agent would, with the exam's register. */
+async function sitExam(allDocs: { text: string; created: string; status: string; seed?: string }[], origin: string): Promise<{ key: string; status: number; body: string } | null> {
+  const exam = nextExam(allDocs);
+  if (!exam || acceptedToday(allDocs as any) >= STUDIO_CAP) return null;
+  const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-night-shift-internal': process.env.CRON_SECRET ?? '' }, body: JSON.stringify({ text: exam.commission, from: 'the studio', register: exam.register }) });
+  return { key: exam.key, status: r.status, body: (await r.text()).slice(0, 200) };
 }
 
 export const config = { maxDuration: 300 };
@@ -46,7 +57,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET' && req.query.list === '1') return res.setHeader('Cache-Control', 'no-store').json(await latestCritiques());
 
   const since = Date.now() - 86_400_000;
-  const docs = (await all()).filter(c => !c.seed && !isTestSender(c.from) && Date.parse(c.created) > since);
+  const everything = await all();
+  const docs = everything.filter(c => !c.seed && !isTestSender(c.from) && Date.parse(c.created) > since);
+  const origin = `https://${req.headers.host}`;
+  const exam = req.query.dry === '1' ? null : await sitExam(everything, origin).catch(e => ({ key: 'error', status: 0, body: String(e.message).slice(0, 120) }));
   const posted = docs.filter(c => c.status === 'posted' && c.image).slice(0, 8);
   const failed = docs.filter(c => c.status === 'failed'), declined = docs.filter(c => c.status === 'declined');
   const human = (await allFeedback()).filter(f => f.channel !== 'critic' && Date.parse(f.created) > since);
@@ -66,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const date = new Date().toISOString().slice(0, 10);
   const door = posted.length === 0 ? await openDoor() : false; // idle day: a Story keeps the door lit
   const signals = { posted: posted.length, failed: failed.length, declined: declined.length, likes, comments, humanFeedback: human.length, ...(followers != null ? { followers } : {}) };
-  if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: [door ? 'nothing to review; the open-door Story went up' : 'nothing to review'], next_painter: [], this_painter: [], signals }; await saveCritique(empty); return res.json(empty); }
+  if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: [door ? 'nothing to review; the open-door Story went up' : 'nothing to review'], next_painter: [], this_painter: [], signals }; await saveCritique(empty); return res.json({ ...empty, exam }); }
 
   const content: any[] = [{ type: 'text', text: [
     `Day: ${date}. Posted ${posted.length}, failed ${failed.length} (${failed.map(f => f.error?.slice(0, 80)).join(' | ')}), declined ${declined.length} (${declined.map(d => d.take.note?.slice(0, 60)).join(' | ')}).`,
@@ -91,5 +105,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Proposals join the human feedback record, so one list holds everything the next painter is made of.
   for (const p of critique.next_painter) await saveFeedback({ id: newId(), text: p, from: 'the critic', channel: 'critic', about: date, created: new Date().toISOString() });
   for (const p of critique.this_painter) await saveFeedback({ id: newId(), text: `For this painter: ${p}`, from: 'the critic', channel: 'critic', about: date, created: new Date().toISOString() });
-  return res.json(critique);
+  return res.json({ ...critique, exam });
 }
