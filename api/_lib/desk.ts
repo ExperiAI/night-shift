@@ -57,6 +57,18 @@ export function needsDepartures(text: string, take: Pick<Take, 'accepted' | 'dep
   return Boolean(take.core_conflict) || ASKS_FOR_A_PERSON.test(text) || ASKS_FOR_WORDS.test(text);
 }
 
+/** A private disclosure stays with the person (Diego, 2026-09-05, on the therapist's point): the caption of an anonymous
+ *  commission carries no quote of what was sent. The gatekeeper is told; this scrubs the line anyway, so it fails closed. */
+export const PRIVATE_LINE = 'from a moment sent privately';
+export function privateCaption(caption: string, text: string): string {
+  const lines = caption.split('\n');
+  const needle = text.trim().slice(0, 40).toLowerCase();
+  const kept = lines.filter(l => !(l.includes('“') || l.includes('"') || l.toLowerCase().includes(needle) || /—\s*(commissioned by|a commission)/i.test(l)));
+  const out = kept.join('\n').replace(/\n{3,}/g, '\n\n');
+  const i = out.lastIndexOf(SIGNOFF);
+  return i >= 0 ? `${out.slice(0, i).trimEnd()}\n\n${PRIVATE_LINE}\n\n${out.slice(i)}` : `${out.trimEnd()}\n\n${PRIVATE_LINE}`;
+}
+
 /** A commissioner's photo is a public https URL or an inline data URL; the desk copies it, never trusts it to last. */
 export function validatePhotoUrl(raw: unknown): string | null {
   if (raw == null || raw === '') return null;
@@ -96,6 +108,17 @@ export function recentWorkLine(docs: Pick<Commission, 'created' | 'status' | 'ta
   return '\nPainted today already (choose a different light source, anchor object and traces):\n' + recent.map(c => `- ${c.take.title ?? 'untitled'}: ${c.take.scene!.split(/(?<=\.)\s/).slice(0, 2).join(' ')}`).join('\n');
 }
 
+/** The normalised light-and-anchor pair of a take: articles dropped, lower case, so "A desk lamp" and "the desk lamp" agree. */
+const norm = (s: string | undefined) => String(s ?? '').toLowerCase().replace(/\b(a|an|the|one|single)\b/g, '').replace(/\s+/g, ' ').trim();
+/** Issue #20: a light-and-anchor pair already painted today is a repeat, named so the gatekeeper can be told; null otherwise.
+ *  Enforced in code before a render is paid for — the prompt's do-not-repeat list was a changelog of the model's habits. */
+export function repeatsToday(docs: Pick<Commission, 'created' | 'status' | 'take' | 'seed'>[], take: Pick<Take, 'light' | 'anchor'>, now = Date.now()): string | null {
+  if (!take.light || !take.anchor) return null;
+  const since = now - 86_400_000;
+  const hit = docs.find(c => !c.seed && c.status !== 'declined' && c.status !== 'failed' && Date.parse(c.created) > since && c.take?.light && c.take?.anchor && norm(c.take.light) === norm(take.light) && norm(c.take.anchor) === norm(take.anchor));
+  return hit ? `${norm(hit.take.light!)} on ${norm(hit.take.anchor!)}`.replace(/^/, 'a ').replace(' on ', ' on a ') : null;
+}
+
 export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null): Promise<Receipt> {
   const anonymous = anonymousRaw === true || anonymousRaw === 'true';
   const photoUrl = validatePhotoUrl(photoRaw);
@@ -118,13 +141,20 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const id = newId();
   const photo = photoUrl ? await copyPhoto(id, photoUrl) : undefined;
   const system = photo ? `${gatekeeperSystemPrompt()}\n${PHOTO.gatekeeper}` : gatekeeperSystemPrompt();
-  const credit = anonymous || !from ? 'anonymous — write “…” — a commission' : from;
+  const credit = anonymous ? 'anonymous — and PRIVATE: do not quote the commission in the caption at all; write the line "' + PRIVATE_LINE + '" where the quote would go' : !from ? 'anonymous — write “…” — a commission' : from;
   const brief = `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}${recentWorkLine(docs)}`;
   let take = await chatJSON<Take>(system, brief, undefined, photo);
+  const repeat = take.accepted ? repeatsToday(docs, take) : null;
+  if (repeat) { // asked once more with the repeat named; a second repeat is still painted (the commissioner should not pay for the model's habit) and filed for the critic
+    take = await chatJSON<Take>(system, `${brief}\n\nThe studio already painted ${repeat} today. Choose a different light source AND a different anchor object for this one.`, undefined, photo);
+    const again = take.accepted ? repeatsToday(docs, take) : null;
+    if (again) await saveFeedback({ id: newId(), text: `For this painter: asked twice, it still reached for ${again} (commission: "${text.slice(0, 80)}").`, from: 'the desk', channel: 'api', about: 'repeat', created: new Date().toISOString() });
+  }
   if (needsDepartures(text, take)) { // asked once more, then fail closed: no silent substitution reaches the wall
     take = await chatJSON<Take>(system, `${brief}\n\nYour previous take left out part of this commission (a person, a number or words) and said nothing about it. departures required: name what you left out and what stands in for it.`, undefined, photo);
     if (needsDepartures(text, take)) throw Object.assign(new Error('The painter could not say what it left out of this commission, so it will not paint it silently. Ask again, or ask for the place without the person or the words.'), { status: 422 });
   }
+  if (anonymous && take.caption) take.caption = privateCaption(take.caption, text); // fail closed: never the sender's sentence in public
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
   if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out
   const holdUntil = take.accepted ? holdFor(take.core_conflict) : undefined;
@@ -162,7 +192,7 @@ export function recentBySender(docs: Pick<Commission, 'from' | 'created' | 'seed
 export function publicView(c: Commission) {
   return {
     id: c.id, status: c.status, created: c.created, from: c.anonymous ? null : c.from,
-    commission: c.text, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene,
+    commission: c.anonymous ? null : c.text, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene, // a private sentence stays private on the wall too
     image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides, holdUntil: c.holdUntil,
     ...(c.rejects?.length ? { rejects: c.rejects } : {}), // what the inspector refused on the way to this canvas
     ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),

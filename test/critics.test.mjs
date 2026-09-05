@@ -102,3 +102,37 @@ test('the critic is a stranger: another vendor, and it may propose changes to th
   assert.doesNotMatch(p, /not up for change/);
   assert.match(p, /this painter/i);
 });
+
+// Issue #20: the do-not-repeat list in the prompt was a changelog of the model's own repetitions, enforced by
+// nothing (Last Light On / After Hours Balance: the same desk, chair, screen and sticker seven hours apart). The
+// take now names its light and its anchor, and the desk refuses a pair already painted today before a render is paid for.
+test('a take names its light and anchor; one already used today is a repeat', async () => {
+  const { repeatsToday } = await import('../api/_lib/desk.ts');
+  const day = new Date().toISOString();
+  const docs = [{ created: day, status: 'posted', take: { accepted: true, note: '', light: 'a desk lamp', anchor: 'a wooden desk' } }];
+  assert.equal(repeatsToday(docs, { light: 'A desk lamp', anchor: 'the wooden desk' }), 'a desk lamp on a wooden desk');
+  assert.equal(repeatsToday(docs, { light: 'a bare bulb', anchor: 'a wooden desk' }), null, 'a different light is not a repeat');
+  assert.equal(repeatsToday(docs, { light: 'a desk lamp', anchor: 'a picnic table' }), null);
+  assert.equal(repeatsToday([{ created: '2026-01-01T00:00:00Z', status: 'posted', take: { accepted: true, note: '', light: 'a desk lamp', anchor: 'a wooden desk' } }], { light: 'a desk lamp', anchor: 'a wooden desk' }), null, 'yesterday does not count');
+  assert.match(gatekeeperSystemPrompt(), /"light"/);
+  assert.match(gatekeeperSystemPrompt(), /"anchor"/);
+  assert.match(read('../api/_lib/desk.ts'), /repeatsToday\(docs, take\)/);
+});
+
+// Diego, 2026-09-05, delegating the therapist's point (07-lena.md): a sentence sent by DM or anonymously is a
+// private disclosure. It is never quoted in the public caption or on the public wall; only a commission that
+// arrived publicly (a comment, or the API/MCP under a name) is. Fail closed: the caption is scrubbed even if the model quoted it.
+test('an anonymous commission is never quoted in the caption or on the wall', async () => {
+  const { privateCaption } = await import('../api/_lib/desk.ts');
+  const cap = `Six Rings\nThe phone waits.\n\n“a phone call I didn't answer” — a commission\n\n${SIGNOFF}\n\nInvite.`;
+  const out = privateCaption(cap, "a phone call I didn't answer");
+  assert.doesNotMatch(out, /phone call I didn't answer/);
+  assert.match(out, /from a moment sent privately/);
+  assert.match(out, new RegExp(SIGNOFF.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.ok(out.endsWith('Invite.'));
+  const view = publicView({ id: 'x', text: 'my secret', from: 'someone', anonymous: true, created: '2026-09-05T00:00:00Z', status: 'posted', take: { accepted: true, note: 'n' } });
+  assert.equal(view.commission, null); assert.equal(view.from, null);
+  assert.equal(publicView({ id: 'y', text: 'public', from: '@bea', created: '2026-09-05T00:00:00Z', status: 'posted', take: { accepted: true, note: 'n' } }).commission, 'public');
+  assert.match(read('../api/_lib/desk.ts'), /privateCaption\(take\.caption, text\)/);
+  assert.match(read('../public/index.html'), /sent privately/);
+});
