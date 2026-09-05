@@ -105,3 +105,15 @@ export async function sendMessage(accountId: string, conversationId: string, mes
   if (attachmentUrl) { body.attachmentUrl = attachmentUrl; body.attachmentType = 'image'; }
   await post(`/inbox/conversations/${encodeURIComponent(conversationId)}/messages`, body);
 }
+
+/** The painting as a 24h Story too — a real painter shows new work at the door, not only on the wall. */
+export async function publishStory(imageUrl: string): Promise<{ postId: string }> {
+  const acct = await instagramAccount();
+  if (!acct) throw new Error('no Instagram account connected in Zernio');
+  const j = await post('/posts', {
+    content: '', mediaItems: [{ type: 'image', url: imageUrl }],
+    platforms: [{ platform: 'instagram', accountId: acct.id, platformSpecificData: { contentType: 'story' } }],
+    publishNow: true,
+  });
+  return { postId: j.post?._id ?? j._id ?? '' };
+}

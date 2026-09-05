@@ -2,7 +2,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, save, storeImage } from './_lib/store.js';
 import { renderImage, inspectImage } from './_lib/openrouter.js';
-import { publish, canPost } from './_lib/zernio.js';
+import { publish, publishStory, canPost } from './_lib/zernio.js';
+
+/** New work also goes up as a 24h Story. Best effort: a Story that fails never touches the post. */
+async function alsoStory(c: { image?: string; story?: string }) {
+  if (!c.image) return;
+  try { await publishStory(c.image); c.story = new Date().toISOString(); } catch { /* the wall has it; the door can wait */ }
+}
 import { tellSource } from './_lib/react.js';
 import { PHOTO } from './_lib/artist.js';
 import { photoSlide, pairSlide } from './_lib/compose.js';
@@ -28,6 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const post = await publish(b.slides ?? b.image!, b.take.caption ?? b.take.title ?? 'Night Shift');
       b.instagram = post.permalink; b.mediaId = post.mediaId; b.status = 'posted'; delete b.error;
       await tellSource(b);
+      await alsoStory(b);
     } catch (e: any) { b.error = String(e.message).slice(0, 500); }
     await save(b);
     return res.json({ painted: null, posted: b.id, status: b.status, instagram: b.instagram, error: b.error, backlog: backlog.length - 1 });
@@ -60,6 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       c.mediaId = post.mediaId;
       c.status = 'posted';
       await tellSource(c);
+      await alsoStory(c);
     } else {
       c.status = 'painted'; // on the wall; Instagram comes when the token exists
     }

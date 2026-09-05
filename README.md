@@ -73,6 +73,11 @@ again in the same thread with the link (`source` on the commission).
 - Every caption ends with `INVITE` (artist.ts): the plain-words way in for people without code. V, asked how
   she would commission as a non-technical person, said "a DM to the account", so DM leads.
 
+## The door as well as the wall
+
+Every posted painting also goes up as a 24h Story (`publishStory`, best effort, never blocks the
+post). Diego, 2026-09-05: the painter should share its work the way a real painter wants to.
+
 ## Credit after the fact
 
 A DM commission posts anonymously and fast. The finished painting goes back into the DM with the
