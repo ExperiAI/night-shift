@@ -26,6 +26,7 @@ export type Commission = {
   source?: { channel: 'instagram-comment' | 'instagram-dm'; handle: string; postId?: string; commentId?: string; conversationId?: string };
   sourceReplied?: string; // when the artist answered in the source thread with the finished painting
   mediaId?: string;      // Instagram media id of the post (for comments under it)
+  zernioPostId?: string; // Zernio's own record of the post; lets reconcile() find the permalink when publishing outran the 60s wait
   story?: string;        // when the painting also went up as a 24h Story
   creditAsked?: string;  // DM commissions: when the artist asked whether to name them
   credited?: string;     // the @handle now in a comment under the painting

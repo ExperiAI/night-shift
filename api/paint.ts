@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, save, storeImage } from './_lib/store.js';
 import { renderImage, inspectImage } from './_lib/openrouter.js';
 import { publish, publishStory, canPost, postOptions } from './_lib/zernio.js';
+import { reconcile } from './_lib/reconcile.js';
 
 /** New work also goes up as a 24h Story. Best effort: a Story that fails never touches the post. */
 async function alsoStory(c: { image?: string; story?: string }) {
@@ -22,6 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const dry = req.query.dry === '1';
 
   const docs = await all();
+  const fixed = await reconcile(docs, { dry }).catch(e => ({ error: String(e.message).slice(0, 120) })); // finish what an earlier publish() started
   const queue = docs.filter(c => c.status === 'queued' && !isHeld(c)).sort((a, b) => a.created.localeCompare(b.created)); // held work waits for its stop window
   const c = queue[0];
   if (!c) {
@@ -29,11 +31,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const coolOff = Date.now() - 6 * 3_600_000; // a failed post is retried after 6h, never blocks the rest
     const backlog = docs.filter(d => d.status === 'painted' && d.image && !d.instagram && !(d.postAttempt && Date.parse(d.postAttempt) > coolOff)).sort((a, b) => a.created.localeCompare(b.created));
     const b = backlog[0];
-    if (!b || dry || !canPost()) return res.json({ painted: null, queued: 0, backlog: backlog.length });
+    if (!b || dry || !canPost()) return res.json({ painted: null, queued: 0, backlog: backlog.length, reconciled: fixed });
     b.postAttempt = new Date().toISOString();
     try {
       const post = await publish(b.slides ?? b.image!, b.take.caption ?? b.take.title ?? 'Night Shift', postOptions(b));
-      b.instagram = post.permalink; b.mediaId = post.mediaId; b.status = 'posted'; delete b.error;
+      b.instagram = post.permalink; b.mediaId = post.mediaId; b.zernioPostId = post.postId; b.status = 'posted'; delete b.error;
       await tellSource(b);
       await alsoStory(b);
     } catch (e: any) { b.error = String(e.message).slice(0, 500); }
@@ -66,6 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const post = await publish(c.slides ?? c.image, c.take.caption ?? c.take.title ?? 'Night Shift', postOptions(c));
       c.instagram = post.permalink;
       c.mediaId = post.mediaId;
+      c.zernioPostId = post.postId;
       c.status = 'posted';
       await tellSource(c);
       await alsoStory(c);

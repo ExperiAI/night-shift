@@ -74,6 +74,32 @@ export async function publish(images: string | string[], caption: string, opts: 
   return { postId, permalink: fallback, mediaId: undefined };
 }
 
+/** A permalink to a post, as opposed to the profile fallback publish() returns when Instagram was slow. */
+export const isPostLink = (url?: string) => /instagram\.com\/(p|reel)\//.test(url ?? '');
+
+export type PublishedPost = { postId: string; content: string; permalink?: string; mediaId?: string; createdAt: string };
+
+/** Zernio's records of our feed posts (Stories excluded), newest first. */
+export async function listPublished(accountId: string): Promise<PublishedPost[]> {
+  const j = await get(`/posts?platform=instagram&accountId=${accountId}&limit=50`);
+  return ((j.posts ?? []) as any[])
+    .filter(p => p.status === 'published' && p.platforms?.[0]?.platformSpecificData?.contentType !== 'story' && p.content)
+    .map(p => ({ postId: p._id ?? p.id, content: p.content, permalink: p.platforms?.[0]?.platformPostUrl, mediaId: p.platforms?.[0]?.platformPostId, createdAt: p.createdAt }));
+}
+
+/** Media ids Instagram itself still lists for the account — a Zernio record can outlive a deleted post. */
+export async function liveMediaIds(accountId: string): Promise<Set<string>> {
+  const j = await get(`/inbox/comments?platform=instagram&accountId=${accountId}&minComments=0&limit=50`);
+  return new Set(((j.data ?? []) as any[]).map(p => String(p.id)));
+}
+
+/** One post by Zernio id: its permalink and media id once Instagram has them. */
+export async function lookupPost(postId: string): Promise<{ permalink?: string; mediaId?: string; failed: boolean }> {
+  const p = await get(`/posts/${postId}`);
+  const pl = (p?.post ?? p)?.platforms?.[0];
+  return { permalink: pl?.platformPostUrl, mediaId: pl?.platformPostId, failed: pl?.status === 'failed' };
+}
+
 /** A top-level comment under one of our posts (e.g. the credit). */
 export async function commentOnPost(accountId: string, mediaId: string, message: string): Promise<void> {
   await post(`/inbox/comments/${encodeURIComponent(mediaId)}`, { accountId, message });
