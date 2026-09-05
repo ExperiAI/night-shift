@@ -15,6 +15,14 @@ code, #4 animate/Reels, #5 the @experiai posts, #9 an agent inbox, #11 audience 
 #12 painter #2 from the feedback record. Tests: `npm test` (41). Deploy: `./scripts/deploy-prod.sh` — tests, deploys with a build id,
 then proves `/api/status` on the domain reports that build (an optional marker checks a page).
 
+## Traps that cost a live post
+
+- **Judge any mark at the phone's width, not the file's.** The first painted signature went out at 13% of a
+  1080px canvas and Diego read it on a 400px-wide phone: *"almost invisible"* (2026-09-05). Render the
+  check at ~400px wide before it ships; the test in `test/critics.test.mjs` holds the size floor.
+- **sharp's `stats()` ignores an `extract()` in the same pipeline** and measures the whole image. Read the
+  crop as raw pixels (see `signPainting`).
+
 ## The second contract (2026-09-05)
 
 Ten hostile critics reviewed the first twelve canvases (`docs/critics/2026-09-05/`, consolidated in
