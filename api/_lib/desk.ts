@@ -7,7 +7,7 @@ const MAX_PER_SENDER_PER_DAY = 3;
 const MAX_TEXT = 600;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
-export type Receipt = { id: string; status: Commission['status']; note: string; statusUrl: string; share?: typeof SHARE & { wall: string } };
+export type Receipt = { id: string; status: Commission['status']; note: string; departures?: string; statusUrl: string; share?: typeof SHARE & { wall: string } };
 
 /** A commissioner's photo must be a public https URL; the desk copies it, never trusts it to last. */
 export function validatePhotoUrl(raw: unknown): string | null {
@@ -48,7 +48,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
     status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}),
   };
   await save(c);
-  const receipt: Receipt = { id: c.id, status: c.status, note: take.note, statusUrl: `${origin}/api/commission/${c.id}` };
+  const receipt: Receipt = { id: c.id, status: c.status, note: take.note, ...(take.departures ? { departures: take.departures } : {}), statusUrl: `${origin}/api/commission/${c.id}` };
   if (take.accepted) receipt.share = { ...SHARE, wall: origin };
   return receipt;
 }
@@ -63,7 +63,7 @@ export function recentBySender(docs: Pick<Commission, 'from' | 'created' | 'seed
 export function publicView(c: Commission) {
   return {
     id: c.id, status: c.status, created: c.created, from: c.from,
-    commission: c.text, note: c.take.note, title: c.take.title, scene: c.take.scene,
+    commission: c.text, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene,
     image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides,
     ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),
     ...(c.status === 'failed' && c.error ? { reason: c.error.slice(0, 200) } : {}), // so an agent can rephrase (#8)

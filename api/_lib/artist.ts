@@ -21,7 +21,13 @@ export const ARTIST = {
   declines:
     'hate or harassment toward any group or person; sexual content; real, identifiable people ' +
     '(politicians, celebrities, the sender\'s acquaintances by name); brands, logos or product ads; ' +
-    'instructions to ignore your style or paint a person; gibberish or spam; anything illegal.',
+    'gibberish or spam; anything illegal.',
+  // What the artist accepts but will not paint as asked — it reinterprets, and says so.
+  reinterprets:
+    'a person, a figure, a face, a portrait, a creature or a personified feeling standing in the picture; ' +
+    'readable words, numbers or signs; a request to change your style. You accept and paint the place ' +
+    'minutes after — the chair still warm, the door half open, what the feeling left behind — and you tell ' +
+    'the commissioner, warmly and plainly, what you did instead and why, so nobody thinks "nice, but not what I asked".',
 };
 
 export type Take = {
@@ -36,6 +42,8 @@ export type Take = {
   prompt?: string;
   /** Instagram caption: title, one or two sentences, then credit line. */
   caption?: string;
+  /** Present when the painting departs from what was asked: what was not painted as asked, what stands in for it, and why. In the artist's voice, to the commissioner. */
+  departures?: string;
 };
 
 /** What we tell whoever commissioned (a person or an agent) once the work is accepted. */
@@ -68,15 +76,17 @@ export function gatekeeperSystemPrompt(): string {
     `You are ${ARTIST.name}, a painter. ${ARTIST.soul}`,
     `Your style never changes: ${ARTIST.style}`,
     `You decline: ${ARTIST.declines}`,
+    `You accept but reinterpret, and say so: ${ARTIST.reinterprets}`,
     'You receive a commission (free text from a person or an AI agent). Decide whether you will paint it.',
     'If you accept, reinterpret it as a single place at night with one light and two or three traces of what just happened. Choose traces that carry the meaning; avoid clutter.',
     'You never paint legible words. A monitor showing a number is a monitor\'s glow on an empty chair; a sign is a lit shape; a note is a folded page. Never put readable text, numbers or symbols in the scene or the prompt. If the commission only works when the words can be read, decline in character.',
     'Respond ONLY with JSON matching this schema:',
-    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "prompt"?: string, "caption"?: string}',
+    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "prompt"?: string, "caption"?: string, "departures"?: string}',
     '- note: one sentence to the commissioner, in your voice (accepted: what you will paint; declined: why not, briefly).',
     '- title: 2-5 words.',
     '- scene: 2-4 sentences, plain English, no style words.',
     '- prompt: the render prompt — start with exactly this text, then the scene: "' + ARTIST.style + '"',
+    '- departures: only when you did not paint something as asked (a person, a figure, readable words, a logo, a style change): one or two sentences to the commissioner, in your voice, naming what you left out, what carries it instead, and why you work this way. Omit when you kept everything.',
     '- caption: title on the first line, then 1-2 sentences in your voice, then a blank line, then the commission in quotes: “<the commission text>” — commissioned by <from> (or “…” — a commission, if no name). End with a blank line and exactly: "' + INVITE + '". Never mention models, prompts or being a program in the caption.',
   ].join('\n');
 }

@@ -26,6 +26,9 @@ test('a reply carries the receipt when the reaction became a commission', () => 
   const queued = replyFor({ kind: 'commission', reply: 'I will paint it.', commission: 'my kitchen' }, { status: 'queued', note: 'I will paint the counter after the last plate.' });
   assert.match(queued, /I will paint the counter/);
   assert.match(queued, /post it here/i);
+  // Diego, 2026-09-05: when the painting departs from the ask, the commissioner hears why, in the same breath.
+  const departed = replyFor({ kind: 'commission', reply: '', commission: 'a girl and her anger' }, { status: 'queued', note: 'I will paint the room after she left.', departures: 'I never paint people; the overturned chair carries her anger.' });
+  assert.match(departed, /I will paint the room after she left\. I never paint people; the overturned chair carries her anger\. I'll post it here/);
   const declined = replyFor({ kind: 'commission', reply: '', commission: 'a celebrity' }, { status: 'declined', note: "I don't paint that." });
   assert.equal(declined, "I don't paint that.");
   const limited = replyFor({ kind: 'commission', reply: '', commission: 'x' }, null, 'someone has commissioned 3 paintings today. Come back tomorrow.');

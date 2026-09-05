@@ -41,11 +41,11 @@ export function remember(state: InboxState, items: InboxItem[]): InboxState {
 }
 
 /** The text that goes back to the person, given what the desk said. */
-export function replyFor(r: Reaction, receipt?: Receipt | { status: string; note: string } | null, deskError?: string): string {
+export function replyFor(r: Reaction, receipt?: Receipt | { status: string; note: string; departures?: string } | null, deskError?: string): string {
   let text = r.reply ?? '';
   if (r.kind === 'commission') {
     if (deskError) text = deskError;
-    else if (receipt?.status === 'queued') text = `${receipt.note} I'll post it here when it's done.`;
+    else if (receipt?.status === 'queued') text = [receipt.note, receipt.departures, "I'll post it here when it's done."].filter(Boolean).join(' ');
     else if (receipt) text = receipt.note;
   }
   return text.trim().slice(0, REPLY_MAX);
@@ -69,7 +69,7 @@ export async function tellSource(c: import('./store.js').Commission): Promise<vo
   const { instagramAccount, replyToComment, sendMessage } = await import('./zernio.js');
   const acct = await instagramAccount();
   if (!acct) return;
-  const text = `${c.take.title ?? 'Done'}. It's up: ${c.instagram}`;
+  const text = [`${c.take.title ?? 'Done'}. It's up: ${c.instagram}`, c.take.departures].filter(Boolean).join('\n\n');
   try {
     if (c.source.channel === 'instagram-comment' && c.source.postId && c.source.commentId) await replyToComment(acct.id, c.source.postId, c.source.commentId, text);
     else if (c.source.channel === 'instagram-dm' && c.source.conversationId) await sendMessage(acct.id, c.source.conversationId, text, c.image); // the painting itself, in the DM
