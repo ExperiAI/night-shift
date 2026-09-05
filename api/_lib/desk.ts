@@ -1,5 +1,5 @@
 // The commission desk: what happens when someone asks for a painting.
-import { gatekeeperSystemPrompt, PHOTO, SHARE, type Take } from './artist.js';
+import { gatekeeperSystemPrompt, INVITE, PHOTO, SHARE, type Take } from './artist.js';
 import { chatJSON } from './openrouter.js';
 import { all, newId, save, storeReference, type Commission } from './store.js';
 
@@ -12,6 +12,14 @@ const MAX_TEXT = 600;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
 export type Receipt = { id: string; status: Commission['status']; note: string; departures?: string; statusUrl: string; share?: typeof SHARE & { wall: string } };
+
+/** The caption of a photo commission says so, right before the invite, so the carousel reads as a story. */
+export function withPhotoLine(caption: string, credit: string): string {
+  const line = PHOTO.caption.replace('%credit%', credit);
+  if (caption.includes(line)) return caption;
+  const i = caption.lastIndexOf(INVITE);
+  return i >= 0 ? `${caption.slice(0, i)}${line}\n\n${caption.slice(i)}` : `${caption.trim()}\n\n${line}`;
+}
 
 /** A commissioner's photo must be a public https URL; the desk copies it, never trusts it to last. */
 export function validatePhotoUrl(raw: unknown): string | null {
@@ -56,6 +64,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const system = photo ? `${gatekeeperSystemPrompt()}\n${PHOTO.gatekeeper}` : gatekeeperSystemPrompt();
   const credit = anonymous || !from ? 'anonymous — write “…” — a commission' : from;
   const take = await chatJSON<Take>(system, `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}`, undefined, photo);
+  if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
   const c: Commission = {
     id, text, from, created: new Date().toISOString(),
     status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}),

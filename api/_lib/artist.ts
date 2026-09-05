@@ -66,6 +66,8 @@ export const PHOTO = {
     'A photograph of the place is attached. Paint THIS place: keep its layout, its main objects and its character, ' +
     'but minutes after everyone left — remove every person, choose one light source, let the traces tell what happened. ' +
     'Describe the place from the photo in the scene. Never describe faces, names or anything that identifies a person.',
+  /** Inserted into the caption before INVITE when a photograph was sent. `%credit%` is the credit line. */
+  caption: 'Painted from a photograph sent in by %credit%. Swipe: the photograph, then the two side by side.',
   render:
     'The last reference image is a photograph of the place to paint. Keep its layout and main objects; remove every person; ' +
     'one light source; render it entirely in the oil-painting style described, not as a photo. ' +
