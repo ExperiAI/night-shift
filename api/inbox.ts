@@ -13,7 +13,7 @@ import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, phot
 export const config = { maxDuration: 300 };
 
 /** Commission through the public API, as any agent does. Throws with the API's own words on 4xx. */
-async function commissionViaApi(origin: string, body: { text: string; from: string; photo?: string }): Promise<Receipt> {
+async function commissionViaApi(origin: string, body: { text: string; from: string; photo?: string; anonymous?: boolean }): Promise<Receipt> {
   const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const j: any = await r.json();
   if (!r.ok) throw new Error(j.error ?? `commission ${r.status}`);
@@ -64,7 +64,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (igCommissionsToday >= MAX_INSTAGRAM_COMMISSIONS_PER_DAY) text = replyFor(r, null, "The studio is full for today. Ask me again tomorrow.");
       else {
         try {
-          const receipt = await commissionViaApi(origin, { text: r.commission, from: `@${it.handle}`, ...(it.photo ? { photo: it.photo } : {}) });
+          // Credit rule (2026-09-05): a comment was asked in public, so the caption credits and mentions
+          // the handle; a DM is private, so it is credited anonymously (Zernio also gives DMs a display
+          // name, not a handle). `from` still keys the per-sender limit either way.
+          const receipt = await commissionViaApi(origin, { text: r.commission, from: it.kind === 'comment' ? `@${it.handle}` : it.handle, anonymous: it.kind === 'dm', ...(it.photo ? { photo: it.photo } : {}) });
           text = replyFor(r, receipt);
           if (receipt.status === 'queued') {
             igCommissionsToday++; commissionId = receipt.id;

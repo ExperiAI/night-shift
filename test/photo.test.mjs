@@ -31,6 +31,17 @@ test('the machine gateway exposes the photo: API body, MCP tool, public view', (
   assert.match(desk, /photo: c\.photo/);
 });
 
+test('anonymity exists at the machine gateway; DMs use it, comments are credited by handle', () => {
+  const api = readFileSync(new URL('../api/commission.ts', import.meta.url), 'utf8');
+  const mcp = readFileSync(new URL('../api/mcp.ts', import.meta.url), 'utf8');
+  const desk = readFileSync(new URL('../api/_lib/desk.ts', import.meta.url), 'utf8');
+  const inbox = readFileSync(new URL('../api/inbox.ts', import.meta.url), 'utf8');
+  assert.match(api, /body\.anonymous/);
+  assert.match(mcp, /anonymous: z\.boolean\(\)\.optional\(\)/);
+  assert.match(desk, /from: c\.anonymous \? null : c\.from/);
+  assert.match(inbox, /anonymous: it\.kind === 'dm'/);
+});
+
 test('the human gateway commissions through the machine gateway, never around it', () => {
   const inbox = readFileSync(new URL('../api/inbox.ts', import.meta.url), 'utf8');
   assert.match(inbox, /fetch\(`\$\{origin\}\/api\/commission`/);

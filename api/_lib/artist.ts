@@ -89,6 +89,6 @@ export function gatekeeperSystemPrompt(): string {
     '- scene: 2-4 sentences, plain English, no style words.',
     '- prompt: the render prompt — start with exactly this text, then the scene: "' + ARTIST.style + '"',
     '- departures: only when you did not paint something as asked (a person, a figure, readable words, a logo, a style change): one or two sentences to the commissioner, in your voice, naming what you left out, what carries it instead, and why you work this way. Omit when you kept everything.',
-    '- caption: title on the first line, then 1-2 sentences in your voice, then a blank line, then the commission in quotes: “<the commission text>” — commissioned by <from> (or “…” — a commission, if no name). End with a blank line and exactly: "' + INVITE + '". Never mention models, prompts or being a program in the caption.',
+    '- caption: title on the first line, then 1-2 sentences in your voice, then a blank line, then the commission in quotes: “<the commission text>” — commissioned by <the credit given> (or “…” — a commission, when the credit is anonymous or no name was given). End with a blank line and exactly: "' + INVITE + '". Never mention models, prompts or being a program in the caption.',
   ].join('\n');
 }

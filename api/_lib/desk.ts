@@ -28,7 +28,8 @@ async function copyPhoto(id: string, url: string): Promise<string> {
   return storeReference(id, bytes, mime);
 }
 
-export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown): Promise<Receipt> {
+export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown): Promise<Receipt> {
+  const anonymous = anonymousRaw === true || anonymousRaw === 'true';
   const photoUrl = validatePhotoUrl(photoRaw);
   const text = String(textRaw ?? '').trim().slice(0, MAX_TEXT) || (photoUrl ? 'this place, after everyone left' : '');
   const from = fromRaw ? String(fromRaw).trim().slice(0, 80) : null;
@@ -42,10 +43,11 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const id = newId();
   const photo = photoUrl ? await copyPhoto(id, photoUrl) : undefined;
   const system = photo ? `${gatekeeperSystemPrompt()}\n${PHOTO.gatekeeper}` : gatekeeperSystemPrompt();
-  const take = await chatJSON<Take>(system, `From: ${from ?? 'anonymous'}\nCommission: ${text}`, undefined, photo);
+  const credit = anonymous || !from ? 'anonymous — write “…” — a commission' : from;
+  const take = await chatJSON<Take>(system, `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}`, undefined, photo);
   const c: Commission = {
     id, text, from, created: new Date().toISOString(),
-    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}),
+    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}),
   };
   await save(c);
   const receipt: Receipt = { id: c.id, status: c.status, note: take.note, ...(take.departures ? { departures: take.departures } : {}), statusUrl: `${origin}/api/commission/${c.id}` };
@@ -62,7 +64,7 @@ export function recentBySender(docs: Pick<Commission, 'from' | 'created' | 'seed
 
 export function publicView(c: Commission) {
   return {
-    id: c.id, status: c.status, created: c.created, from: c.from,
+    id: c.id, status: c.status, created: c.created, from: c.anonymous ? null : c.from,
     commission: c.text, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene,
     image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides,
     ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),

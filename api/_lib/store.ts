@@ -15,6 +15,7 @@ export type Commission = {
   error?: string;
   painted?: string;
   postAttempt?: string;
+  anonymous?: boolean;  // credited as “…” — a commission; `from` is kept only for the per-sender limit
   photo?: string;       // our copy of the photograph the commission came with (references/<id>)
   slides?: string[];    // carousel for a photo commission: painting, the photo, both side by side
   seed?: string;        // written by scripts/seed.mjs: made outside the pipeline, not a commission
