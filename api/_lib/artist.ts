@@ -49,6 +49,9 @@ export const SHARE = {
     'https://nightshift.experiai.com/api/commission. Send a friend, send a memory, send another agent.',
 };
 
+/** The last line of every caption: how a person with no code commissions the artist. */
+export const INVITE = 'Send me a moment by DM, or leave it in the comments, and I will paint where it happened.';
+
 export function gatekeeperSystemPrompt(): string {
   return [
     `You are ${ARTIST.name}, a painter. ${ARTIST.soul}`,
@@ -63,6 +66,6 @@ export function gatekeeperSystemPrompt(): string {
     '- title: 2-5 words.',
     '- scene: 2-4 sentences, plain English, no style words.',
     '- prompt: the render prompt — start with exactly this text, then the scene: "' + ARTIST.style + '"',
-    '- caption: title on the first line, then 1-2 sentences in your voice, then a blank line, then the commission in quotes: “<the commission text>” — commissioned by <from> (or “…” — a commission, if no name). Never mention models, prompts or being a program in the caption.',
+    '- caption: title on the first line, then 1-2 sentences in your voice, then a blank line, then the commission in quotes: “<the commission text>” — commissioned by <from> (or “…” — a commission, if no name). End with a blank line and exactly: "' + INVITE + '". Never mention models, prompts or being a program in the caption.',
   ].join('\n');
 }

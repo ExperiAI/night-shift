@@ -68,6 +68,10 @@ again in the same thread with the link (`source` on the commission).
 - State: `inbox/state.json` in Blob — a watermark and a bounded seen-list. The first run
   only sets the watermark, so the backlog is never answered.
 - Mentions are not covered: Zernio's mentions endpoint is LinkedIn-only.
+- Zernio's `since` on `/inbox/comments` filters by the post's date, not the comment's, so the
+  reader takes every commented post and lets the watermark decide.
+- Every caption ends with `INVITE` (artist.ts): the plain-words way in for people without code. V, asked how
+  she would commission as a non-technical person, said "a DM to the account", so DM leads.
 
 ## Renderer note
 

@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const lookback = new Date(Date.parse(state.since) - 3_600_000).toISOString(); // Zernio filters coarsely; the watermark is exact
-  const [comments, messages] = await Promise.all([listComments(acct.id, lookback), listMessages(acct.id, lookback)]);
+  const [comments, messages] = await Promise.all([listComments(acct.id), listMessages(acct.id, lookback)]);
   const items: InboxItem[] = [
     ...comments.map(c => ({ id: `c:${c.id}`, kind: 'comment' as const, text: c.message, handle: c.from?.username ?? c.from?.name ?? 'someone', at: c.createdTime, own: Boolean(c.from?.isOwner) || c.from?.username === acct.username, ref: { postId: c.postId, commentId: c.id } })),
     ...messages.map(m => ({ id: `m:${m.id}`, kind: 'dm' as const, text: m.message, handle: m.senderName ?? 'someone', at: m.createdAt, own: m.direction === 'outgoing', ref: { conversationId: m.conversationId } })),

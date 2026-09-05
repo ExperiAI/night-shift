@@ -51,10 +51,11 @@ async function post(path: string, body: unknown): Promise<any> {
 export type RawComment = { id: string; message: string; createdTime: string; from?: { username?: string; name?: string; isOwner?: boolean }; postId: string };
 export type RawMessage = { id: string; message: string; createdAt: string; senderName?: string | null; direction: 'incoming' | 'outgoing'; conversationId: string };
 
-/** Every comment on our recent posts (posts with at least one comment since `since`). */
-export async function listComments(accountId: string, since?: string): Promise<RawComment[]> {
+/** Every comment on our posts that have any. No `since` here: Zernio's `since` filters by the
+ *  POST's date, so an old painting with a fresh comment would vanish (seen 2026-09-05, V's first
+ *  comment). The reactor's watermark and seen-list do the filtering exactly. */
+export async function listComments(accountId: string): Promise<RawComment[]> {
   const q = new URLSearchParams({ platform: 'instagram', accountId, limit: '50', minComments: '1' });
-  if (since) q.set('since', since);
   const posts: any[] = (await get(`/inbox/comments?${q}`)).data ?? [];
   const out: RawComment[] = [];
   for (const p of posts) {
