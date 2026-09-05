@@ -59,7 +59,7 @@ test('the render prompt is composed by the studio: contract, register, scene —
   const desk = read('../api/_lib/desk.ts');
   assert.match(desk, /validateRegister\(registerRaw\) \?\? pickRegister\(docs\)/);
   assert.match(desk, /Register for this canvas \(fixed by the studio\)/);
-  assert.match(desk, /take\.prompt = composePrompt\(register, take\.prompt \|\| take\.scene \|\| text\)/);
+  assert.match(desk, /take\.prompt = composePrompt\(register, take\.prompt \|\| take\.scene \|\| text, exception\)/);
   assert.match(read('../scripts/requeue.mjs'), /composePrompt/);
 });
 

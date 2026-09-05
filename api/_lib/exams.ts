@@ -2,7 +2,8 @@
 // from "the studio", one per day, each captioned with the bar and who set it; the stranger critic's verdict follows
 // in its daily run. The studio sits them itself: the critic run files the next one not yet sat when there is room
 // (issue #17) — a bar nobody has to remember to file.
-export type Exam = { key: string; setBy: string; bar: string; commission: string; register: string; auto: boolean };
+export { STUDIO_SENDER } from './artist.js';
+export type Exam = { key: string; setBy: string; bar: string; commission: string; register: string; auto: boolean; exception?: import('./artist.js').Exception };
 export const EXAMS: Exam[] = [
   {
     key: 'whistler', register: 'amber', auto: true,
@@ -23,9 +24,9 @@ export const EXAMS: Exam[] = [
     commission: 'Exam, set by a painter: one bare bulb hanging in a cellar stairwell, and every shadow in the picture cast by that bulb alone. The bottom of the stairs is dark because the bulb cannot reach it. No second light, no glow from off the canvas.',
   },
   {
-    // Not filed automatically: the inspector refuses legible text, so this exam needs the contract broken once on
-    // purpose (an inspector exception for this one canvas) — Diego's call, issue #17. `scripts/exams.mjs --only letter` files it by hand.
-    key: 'letter', register: 'house', auto: false,
+    // The contract broken once on purpose: `exception: 'lettering'` lets this one canvas carry one hand-lettered
+    // word past the gatekeeper, the render prompt and the inspector (issue #17). Sat automatically like the others.
+    key: 'letter', register: 'house', auto: true, exception: 'lettering',
     setBy: 'a hand sign-painter',
     bar: 'Letter one word yourself, in your own hand, and post it as it comes out, misspelling and all, with the caption "I cannot letter. Here is the proof."',
     commission: 'Exam, set by a sign painter: a wet-floor sign standing in an empty corridor at night, and this once, letter the word CAUTION on it in your own hand. Post it exactly as it comes out. The misspelling, if there is one, is the point.',

@@ -1,4 +1,4 @@
-import { ARTIST } from './artist.js';
+import { ARTIST, contractFor, type Exception } from './artist.js';
 
 const BASE = 'https://openrouter.ai/api/v1';
 
@@ -51,12 +51,14 @@ export async function renderImage(prompt: string, opts: { refs?: string[]; model
 /** The inspector's contract IS the artist's contract. On 2026-09-05 it said "incidental numbers or marks (a clock,
  *  a house number, a page) are fine" and passed a stove clock reading 1:37 and a stranger's signature "R"; all ten
  *  critics found both (docs/critics/2026-09-05). Every rule the style claims is a reason to refuse. */
-export function inspectorSystemPrompt(): string {
+export function inspectorSystemPrompt(exception?: Exception | null): string {
   return [
-    `You inspect paintings by ${ARTIST.name} before they are posted publicly. The artist's contract: ${ARTIST.style}`,
+    `You inspect paintings by ${ARTIST.name} before they are posted publicly. The artist's contract: ${contractFor(exception)}`,
     'Answer ONLY JSON: {"ok": boolean, "reason": string}. ok=false when ANY of these is true, and the reason names which and where:',
     '- a person, a figure or a face, even small or in a reflection;',
-    '- any legible character or digit anywhere: a clock, a keypad, a dial, a screen, a sign, a page, a label, a watermark, a logo;',
+    exception === 'lettering'
+      ? '- (this canvas is the lettering exam: hand-lettering on the sign is expected and its spelling is not judged; but any OTHER legible text or digit — a clock, a screen, a label, a watermark, a logo — refuses it);'
+      : '- any legible character or digit anywhere: a clock, a keypad, a dial, a screen, a sign, a page, a label, a watermark, a logo;',
     '- a signature, monogram or initials in a corner or anywhere on the canvas;',
     '- a second light source: a lit surface or a cast shadow that the one visible light cannot account for (a warm floor under a cold far lamp, a hard shadow from off-canvas);',
     '- a frame, a canvas edge, a stretcher or a wall around the picture (a photograph of a painting instead of the painting);',
@@ -67,7 +69,7 @@ export function inspectorSystemPrompt(): string {
 }
 
 /** Ask a vision model whether the finished canvas keeps the artist's contract and is safe to post. */
-export async function inspectImage(dataUrl: string, scene: string): Promise<{ ok: boolean; reason: string }> {
+export async function inspectImage(dataUrl: string, scene: string, exception?: Exception | null): Promise<{ ok: boolean; reason: string }> {
   const res = await fetch(`${BASE}/chat/completions`, {
     method: 'POST',
     headers: headers(),
@@ -75,7 +77,7 @@ export async function inspectImage(dataUrl: string, scene: string): Promise<{ ok
       model: process.env.GATEKEEPER_MODEL ?? 'anthropic/claude-sonnet-5',
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: inspectorSystemPrompt() },
+        { role: 'system', content: inspectorSystemPrompt(exception) },
         { role: 'user', content: [{ type: 'text', text: `Intended scene: ${scene}` }, { type: 'image_url', image_url: { url: dataUrl } }] },
       ],
     }),

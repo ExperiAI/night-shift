@@ -1,6 +1,7 @@
 // The inbox reactor: how the artist answers comments and DMs on Instagram.
 // Pure decisions live here so they can be tested; Zernio and the model stay in the handler.
 import { ARTIST } from './artist.js';
+import { STOP_HINT } from './desk.js';
 import type { Receipt } from './desk.js';
 
 export type InboxItem = {
@@ -64,29 +65,43 @@ export function reactionSystemPrompt(): string {
   ].join('\n');
 }
 
+/** Issue #18 (2): a private disclosure paints only on a click, not a timeout. The DM receipt asks for a yes
+ *  where the public one offers a stop; the desk's STOP_HINT is swapped here, at the human gateway, so the
+ *  API and MCP keep their 30-minute window unchanged. */
+export const YES_HINT = 'Say "yes" and I paint it. Say nothing and nothing is painted — the wish is kept.';
+export function consentNote(note: string): string {
+  const i = note.indexOf(STOP_HINT);
+  return i < 0 ? note : `${note.slice(0, i).trimEnd()} ${YES_HINT}`;
+}
+/** "yes", "go ahead", "paint it" as an answer — short, and not the opening of a scene ("yes but…", "yesterday"). */
+export function isYes(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return /^(yes|yes please|yes,? paint it|yep|yeah|ok|okay|sure|go|go ahead|paint it|do it|please do)\b/.test(t) && t.length <= 40 && !/\b(but|only|if|unless)\b/.test(t);
+}
+
 /** "stop", "no", "cancel", "don't" as an answer — not as a word inside a scene. */
 export function isStop(text: string): boolean {
   const t = text.trim().toLowerCase();
   return /^(stop|cancel|no|nope|don't|dont|do not)\b/.test(t) && t.length <= 60 && !/\b(kitchen|room|table|paint the|scene)\b/.test(t.slice(3));
 }
 
-/** Asked once, with the finished painting, to a DM commissioner (their post is anonymous until they answer). */
-export const CREDIT_ASK = "If you'd like your name under it, reply with your @handle and I'll add it.";
+/** Issue #18 (3): the studio never asks a DM sender for a handle — you do not ask someone who hid to un-hide
+ *  (the therapist's bar). A handle they volunteer, in the same thread, after the painting is up, is credited. */
 
-/** The handle in a reply to CREDIT_ASK, without the @. Emails and a lone "@" are not handles. */
+/** A handle volunteered in a DM, without the @. Emails and a lone "@" are not handles. */
 export function creditHandle(text: string): string | null {
   const m = text.match(/(?:^|[^\w.])@([A-Za-z0-9_](?:[A-Za-z0-9._]{0,28}[A-Za-z0-9_])?)(?![\w.]*\.[a-z]{2,}\b)/);
   return m ? m[1] : null;
 }
 
-type Credit = Pick<import('./store.js').Commission, 'status' | 'anonymous' | 'creditAsked' | 'credited' | 'mediaId' | 'source'>;
-/** The posted, anonymous, not-yet-credited DM commission in this conversation that was asked, if any. */
+type Credit = Pick<import('./store.js').Commission, 'status' | 'anonymous' | 'credited' | 'mediaId' | 'source'>;
+/** The posted, anonymous, not-yet-credited DM commission in this conversation, if any — the one a volunteered handle names. */
 export function awaitingCredit<T extends Credit>(docs: T[], conversationId: string): T | null {
-  return docs.find(c => c.status === 'posted' && c.anonymous && c.creditAsked && !c.credited && c.mediaId && c.source?.channel === 'instagram-dm' && c.source.conversationId === conversationId) ?? null;
+  return docs.find(c => c.status === 'posted' && c.anonymous && !c.credited && c.mediaId && c.source?.channel === 'instagram-dm' && c.source.conversationId === conversationId) ?? null;
 }
 
 /** Once a commission that came from Instagram is posted, answer in the thread it came from — ONE
- *  message, carrying the link, the departures and (DMs) the credit question together. It waits for a
+ *  message, carrying the link and the departures together (never a credit question: issue #18). It waits for a
  *  real post link: publish() can return the profile link when Instagram is slow, and a reply with the
  *  wrong link followed by a "here is the real one" is two messages to a person who asked for a
  *  painting (Diego, 2026-09-05: V got exactly that). The paint cron retries on the next run. */
@@ -96,8 +111,7 @@ export async function tellSource(c: import('./store.js').Commission): Promise<vo
   if (!isPostLink(c.instagram)) return; // not yet: reconcile() fills it, the next run replies once
   const acct = await instagramAccount();
   if (!acct) return;
-  const askCredit = c.source.channel === 'instagram-dm' && c.anonymous && c.mediaId;
-  const text = [`${c.take.title ?? 'Done'}. It's up: ${c.instagram}`, c.take.departures, askCredit ? CREDIT_ASK : ''].filter(Boolean).join('\n\n');
+  const text = [`${c.take.title ?? 'Done'}. It's up: ${c.instagram}`, c.take.departures].filter(Boolean).join('\n\n');
   const { sendOnce } = await import('./outbound.js');
   try {
     const r = await sendOnce(c, 'posted', async () => { // the ledger, not this function, is what makes it one message (issue #16)
@@ -105,6 +119,6 @@ export async function tellSource(c: import('./store.js').Commission): Promise<vo
       else if (c.source!.channel === 'instagram-dm' && c.source!.conversationId) await sendMessage(acct.id, c.source!.conversationId, text, c.image); // the painting itself, in the DM
     });
     c.sourceReplied = c.outbound?.posted?.at ?? new Date().toISOString(); // 'refused' means an earlier run already told them: stop retrying
-    if (askCredit && r === 'sent') c.creditAsked = c.sourceReplied;
+    void r;
   } catch (e: any) { c.error = `source reply: ${String(e.message).slice(0, 200)}`; }
 }

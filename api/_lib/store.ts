@@ -21,6 +21,9 @@ export type Commission = {
   slides?: string[];    // carousel for a photo commission: painting, the photo, both side by side
   seed?: string;        // written by scripts/seed.mjs: made outside the pipeline, not a commission
   holdUntil?: string;   // core-conflict commissions wait this long so the commissioner can say stop
+  exception?: import('./artist.js').Exception; // the contract broken once on purpose (issue #17); set only by the studio
+  awaitingYes?: boolean; // a DM core-conflict commission: nothing paints until the sender says yes (issue #18); expires with holdUntil
+  confirmed?: string;   // when the sender said yes
   cancelled?: string;   // when the commissioner stopped it before painting
   requeued?: string;    // put back in the queue after a gatekeeper fix (scripts/requeue.mjs)
   source?: { channel: 'instagram-comment' | 'instagram-dm'; handle: string; postId?: string; commentId?: string; conversationId?: string };
@@ -28,7 +31,6 @@ export type Commission = {
   mediaId?: string;      // Instagram media id of the post (for comments under it)
   zernioPostId?: string; // Zernio's own record of the post; lets reconcile() find the permalink when publishing outran the 60s wait
   story?: string;        // when the painting also went up as a 24h Story
-  creditAsked?: string;  // DM commissions: when the artist asked whether to name them
   credited?: string;     // the @handle now in a comment under the painting
   cost?: number;
   rejects?: { image: string; reason: string }[]; // canvases the inspector refused, kept and shown: the cost of the work (docs/stance.md)

@@ -9,7 +9,7 @@ import { ARTIST, REGISTERS, registerByKey, isTestSender } from './_lib/artist.js
 import { instagramAccount, audience, publishStory, canPost } from './_lib/zernio.js';
 import { openDoorStory } from './_lib/compose.js';
 import { captionMatches } from './_lib/reconcile.js';
-import { nextExam } from './_lib/exams.js';
+import { nextExam, STUDIO_SENDER } from './_lib/exams.js';
 import { STUDIO_CAP, acceptedToday } from './_lib/desk.js';
 import { put } from '@vercel/blob';
 
@@ -27,7 +27,7 @@ async function openDoor(): Promise<boolean> {
 async function sitExam(allDocs: { text: string; created: string; status: string; seed?: string }[], origin: string): Promise<{ key: string; status: number; body: string } | null> {
   const exam = nextExam(allDocs);
   if (!exam || acceptedToday(allDocs as any) >= STUDIO_CAP) return null;
-  const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-night-shift-internal': process.env.CRON_SECRET ?? '' }, body: JSON.stringify({ text: exam.commission, from: 'the studio', register: exam.register }) });
+  const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-night-shift-internal': process.env.CRON_SECRET ?? '' }, body: JSON.stringify({ text: exam.commission, from: STUDIO_SENDER, register: exam.register, exception: exam.exception }) });
   return { key: exam.key, status: r.status, body: (await r.text()).slice(0, 200) };
 }
 

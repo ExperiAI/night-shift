@@ -14,8 +14,10 @@ and distance rotate per canvas; the soul stays — see "The artist"), the **outb
 per commission per event, enforced at the transport), the **caption read-back**, and the studio **sitting
 its own exams** from the daily critic run. Open work is the repo's issues: #2 sketches, #3 style code,
 #4 animate/Reels, #5 the @experiai posts, #9 an agent inbox, #11 audience growth, #12 painter #2 from
-the feedback record, #13 live paths not yet fired, #17 the letter exam (needs a one-off inspector
-exception, Diego's call), #18 Diego's calls from the critics. Tests: `npm test` (79). Deploy:
+the feedback record, #13 live paths not yet fired. Decided 2026-09-05 night (issue #18, see "Credit"
+and "Never refuse" below): a DM's core-conflict canvas paints only on a **yes**; the studio never asks
+for a handle; its own commissions are marked **studio** on the wall; the letter exam sits itself under
+the one **lettering exception** (#17). Tests: `npm test` (88). Deploy:
 `./scripts/deploy-prod.sh` — tests, deploys with a build id, then proves `/api/status` on the domain
 reports that build (an optional marker checks a page).
 
@@ -171,7 +173,10 @@ post's caption differs. First run, 2026-09-05: twelve read back, twelve match.
 `api/_lib/exams.ts` holds the bars with a register each. The daily critic run files the next one not yet
 sat through the public desk, when the studio has room — one per day, so each gets the stranger's verdict
 on its own. Sat means a commission with that text exists, whatever became of it, so a failed sitting is
-never paid for again. The letter exam is by hand only: it needs the inspector to pass legible text once.
+never paid for again. The letter exam sits itself too: it carries `exception: 'lettering'`, the one way the
+contract is broken on purpose — one hand-lettered word on one canvas, threaded through the gatekeeper, the
+render prompt (`contractFor`) and the inspector. Only the studio can set it (the desk reads `exception` only
+behind the internal header; MCP has no such field). `scripts/exams.mjs --go` needs `CRON_SECRET` in `.env`.
 
 ## Publishing is asynchronous; every cron run finishes it
 
@@ -191,14 +196,16 @@ Diego, 2026-09-05, after V got two messages for one painting: *ensure you don't 
 Every posted painting also goes up as a 24h Story (`publishStory`, best effort, never blocks the
 post). Diego, 2026-09-05: the painter should share its work the way a real painter wants to.
 
-## Credit after the fact
+## Credit after the fact — never asked for (issue #18)
 
 A DM commission posts anonymously and fast. The finished painting goes back into the DM with the
-link, the artist's explanation of any departure, and one question (`CREDIT_ASK`): reply with your
-@handle if you want your name under it. A reply with a handle becomes a top-level comment under
-the painting — "Commissioned by @handle" — which notifies and links them exactly as a caption
-would (Instagram's API cannot edit captions after posting). Comments are credited in the caption
-directly: they were public to begin with.
+link and the artist's explanation of any departure — and no question. Decided 2026-09-05 on the
+therapist's bar: you do not ask someone who hid to un-hide. A handle the sender **volunteers** in
+that thread afterwards becomes a top-level comment under the painting — "Commissioned by @handle" —
+which notifies and links them as a caption would (Instagram's API cannot edit captions after
+posting). Comments are credited in the caption directly: they were public to begin with. The
+studio's own commissions (the exams, sender `the studio`) carry a **studio** chip on the wall, so the
+ledger never reads as a client list (the dealer's bar).
 
 ## Never refuse, never substitute silently
 
@@ -210,6 +217,13 @@ held work), and a "stop" — in a DM or comment, `DELETE /api/commission/:id`, o
 `cancel_commission` — cancels it at no cost, answered warmly. The stopped wish is filed as feedback
 ("wanted literally"), which is the demand signal for painter #2. Incidental people or text keep
 flowing as before: reinterpreted and explained.
+
+**Silence is not consent for a private disclosure** (issue #18, decided 2026-09-05). A core-conflict
+commission that came in by DM is not painted on a timeout: the receipt asks for a **yes** instead of
+offering a stop (`consentNote`, `awaitingYes`), the inbox releases it on "yes" / "go ahead" / "paint
+it" (`isYes`, one confirmation through the ledger), and after 48 hours with no answer
+(`CONSENT_HOURS`) the paint cron declines it **without a message** and files the wish. The public
+paths — a comment, the API, MCP — keep the 30-minute stop window: those were said out loud.
 
 ## The critic's notes, applied (2026-09-05)
 

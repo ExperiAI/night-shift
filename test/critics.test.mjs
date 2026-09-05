@@ -38,7 +38,7 @@ test('departures fail closed when a person, a number or words were the ask and n
 
 test('the desk asks the gatekeeper once more before failing a silent substitution', () => {
   const desk = read('../api/_lib/desk.ts');
-  assert.match(desk, /needsDepartures\(text, take\)/);
+  assert.match(desk, /needsDepartures\(text, take, exception\)/);
   assert.match(desk, /departures required/i);
 });
 

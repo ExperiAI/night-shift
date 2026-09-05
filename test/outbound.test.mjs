@@ -37,9 +37,9 @@ test('a definite no from Zernio is not recorded (a later run may retry); an ambi
 
 test('every message about a commission goes through the ledger: the receipt, the posted reply, the credit, the stop', () => {
   const inbox = readFileSync(new URL('../api/inbox.ts', import.meta.url), 'utf8');
-  for (const ev of ['receipt', 'credit', 'stop']) assert.match(inbox, new RegExp(`sendOnce\\([a-z]+, '${ev}'`), ev);
+  for (const ev of ['receipt', 'credit', 'stop', 'confirmed']) assert.match(inbox, new RegExp(`sendOnce\\([a-z]+, '${ev}'`), ev);
   const react = readFileSync(new URL('../api/_lib/react.ts', import.meta.url), 'utf8');
   assert.match(react, /sendOnce\(c, 'posted'/);
   // the transport is only ever called inside a sendOnce() closure or for a per-item reply (no `about`)
-  assert.equal((inbox.match(/await (sendMessage|replyToComment|commentOnPost)\(/g) ?? []).length, 6);
+  assert.equal((inbox.match(/await (sendMessage|replyToComment|commentOnPost)\(/g) ?? []).length, 7);
 });

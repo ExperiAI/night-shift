@@ -7,9 +7,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { chatJSON } from './_lib/openrouter.js';
 import { instagramAccount, listComments, listMessages, replyToComment, sendMessage, commentOnPost } from './_lib/zernio.js';
 import { loadInboxState, saveInboxState, all, load, save } from './_lib/store.js';
-import { cancel, isHeld } from './_lib/desk.js';
+import { cancel, isHeld, awaitYes } from './_lib/desk.js';
 import type { Receipt } from './_lib/desk.js';
-import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, isStop, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
+import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, isStop, isYes, consentNote, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
 import { sendOnce } from './_lib/outbound.js';
 
 export const config = { maxDuration: 300 };
@@ -75,7 +75,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         continue;
       }
     }
-    // A DM answering CREDIT_ASK with a handle: name them in a comment under their painting.
+    // "yes" from a DM sender whose commission waits for it (issue #18): released to the painter, one answer.
+    if (it.kind === 'dm' && isYes(it.text)) {
+      const waiting = docs.find(c => c.status === 'queued' && c.awaitingYes && c.source?.conversationId === it.ref.conversationId);
+      if (waiting) {
+        if (!dry) {
+          try {
+            waiting.awaitingYes = false; delete waiting.holdUntil; waiting.confirmed = new Date().toISOString();
+            await save(waiting);
+            await sendOnce(waiting, 'confirmed', async () => { if (it.ref.conversationId) await sendMessage(acct.id, it.ref.conversationId, "Painting it. I'll post it here when it's done."); });
+          } catch (e: any) { log.push({ id: it.id, error: String(e.message).slice(0, 200) }); continue; }
+        }
+        log.push({ id: it.id, from: it.handle, kind: 'yes', commission: waiting.id, replied: true });
+        continue;
+      }
+    }
+    // A DM volunteering a handle after the painting is up: name them in a comment under it (never asked for: issue #18).
     const handle = it.kind === 'dm' && !it.photo ? creditHandle(it.text) : null;
     const owed = handle && it.ref.conversationId ? awaitingCredit(docs, it.ref.conversationId) : null;
     if (handle && owed) {
@@ -108,11 +123,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // the handle; a DM is private, so it is credited anonymously (Zernio also gives DMs a display
           // name, not a handle). `from` still keys the per-sender limit either way.
           const receipt = await commissionViaApi(origin, { text: r.commission, from: it.kind === 'comment' ? `@${it.handle}` : it.handle, anonymous: it.kind === 'dm', ...(it.photo ? { photo: it.photo } : {}) });
-          text = replyFor(r, receipt);
           about = await load(receipt.id);
+          // A private disclosure is not painted on silence (issue #18): the DM hold waits for a yes, and the receipt says so.
+          const waitForYes = it.kind === 'dm' && receipt.status === 'queued' && Boolean(about?.holdUntil);
+          if (waitForYes) receipt.note = consentNote(receipt.note);
+          text = replyFor(r, receipt);
           if (receipt.status === 'queued') {
             igCommissionsToday++; commissionId = receipt.id;
-            if (about) { about.source = { channel: it.kind === 'dm' ? 'instagram-dm' : 'instagram-comment', handle: it.handle, ...it.ref }; await save(about); }
+            if (about) { about.source = { channel: it.kind === 'dm' ? 'instagram-dm' : 'instagram-comment', handle: it.handle, ...it.ref }; if (waitForYes) awaitYes(about); await save(about); }
           }
         } catch (e: any) { text = replyFor(r, null, String(e.message).slice(0, 300)); }
       }

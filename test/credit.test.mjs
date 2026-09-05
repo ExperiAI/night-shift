@@ -1,10 +1,10 @@
-// Credit after the fact (Diego, 2026-09-05): a DM commission is posted anonymously, the finished
-// painting goes back with one question — "reply with your @handle if you'd like your name under
-// it" — and a reply with a handle becomes a comment under the painting that mentions them.
-// A comment mention notifies and links like a caption would; Instagram's API cannot edit captions.
+// Credit after the fact. Issue #18 (3), decided 2026-09-05: the studio never asks a DM sender for a handle —
+// you do not ask someone who hid to un-hide. A handle they volunteer in the same thread, once the painting is
+// up, becomes a comment under it that mentions them (Instagram's API cannot edit captions).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { creditHandle, awaitingCredit, CREDIT_ASK } from '../api/_lib/react.ts';
+import { readFileSync } from 'node:fs';
+import { creditHandle, awaitingCredit } from '../api/_lib/react.ts';
 
 test('a handle is read out of a short reply, and only a handle', () => {
   assert.equal(creditHandle('@kiaorahealing'), 'kiaorahealing');
@@ -14,16 +14,17 @@ test('a handle is read out of a short reply, and only a handle', () => {
   assert.equal(creditHandle('can you paint my kitchen @ night'), null);
 });
 
-test('the conversation must have a posted, anonymous, un-credited commission that asked', () => {
-  const c = { status: 'posted', anonymous: true, creditAsked: '2026-09-05T09:00:00Z', mediaId: '1', source: { channel: 'instagram-dm', conversationId: 'k', handle: 'V' } };
+test('the conversation must have a posted, anonymous, un-credited DM commission; nothing has to have been asked', () => {
+  const c = { status: 'posted', anonymous: true, mediaId: '1', source: { channel: 'instagram-dm', conversationId: 'k', handle: 'V' } };
   assert.equal(awaitingCredit([c], 'k')?.mediaId, '1');
   assert.equal(awaitingCredit([{ ...c, credited: '@x' }], 'k'), null);
-  assert.equal(awaitingCredit([{ ...c, creditAsked: undefined }], 'k'), null);
   assert.equal(awaitingCredit([{ ...c, status: 'painted' }], 'k'), null);
   assert.equal(awaitingCredit([c], 'other'), null);
 });
 
-test('the question is one sentence in the artist\'s voice', () => {
-  assert.match(CREDIT_ASK, /@handle/);
-  assert.ok(CREDIT_ASK.length < 160);
+test('no message from the studio ever asks for a handle', () => {
+  for (const f of ['../api/_lib/react.ts', '../api/inbox.ts', '../api/paint.ts']) {
+    const src = readFileSync(new URL(f, import.meta.url), 'utf8');
+    assert.ok(!/CREDIT_ASK|creditAsked|reply with your @handle/.test(src), f);
+  }
 });

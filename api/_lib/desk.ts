@@ -1,5 +1,5 @@
 // The commission desk: what happens when someone asks for a painting.
-import { gatekeeperSystemPrompt, INVITE, SIGNOFF, PHOTO, SHARE, REGISTERS, REGISTER_KEYS, registerByKey, composePrompt, type Take, type Register } from './artist.js';
+import { gatekeeperSystemPrompt, INVITE, SIGNOFF, PHOTO, SHARE, REGISTERS, REGISTER_KEYS, registerByKey, composePrompt, isStudioSender, EXCEPTIONS, type Take, type Register, type Exception } from './artist.js';
 import { chatJSON } from './openrouter.js';
 import { all, load, newId, save, saveFeedback, storeReference, type Commission } from './store.js';
 import { normalizePhoto } from './compose.js';
@@ -15,8 +15,22 @@ export const STOP_HINT = `If that is not what you want, say "stop" within ${HOLD
 export function holdFor(coreConflict: boolean | undefined, now = Date.now()): string | undefined {
   return coreConflict ? new Date(now + HOLD_MINUTES * 60_000).toISOString() : undefined;
 }
-export function isHeld(c: { status: string; holdUntil?: string }, now = Date.now()): boolean {
+export function isHeld(c: { status: string; holdUntil?: string; awaitingYes?: boolean }, now = Date.now()): boolean {
   return c.status === 'queued' && Boolean(c.holdUntil) && Date.parse(c.holdUntil!) > now;
+}
+/** Issue #18 (2): a core-conflict commission sent privately (a DM) is not painted on silence. The inbox turns
+ *  its 30-minute stop window into a wait for a yes; nothing paints until the sender says so, and after this
+ *  long with no answer it is declined quietly — no message, the wish filed for the next painter. */
+export const CONSENT_HOURS = 48;
+export function awaitYes<T extends { status: string; holdUntil?: string; awaitingYes?: boolean }>(c: T, now = Date.now()): T {
+  c.awaitingYes = true;
+  c.holdUntil = new Date(now + CONSENT_HOURS * 3_600_000).toISOString();
+  return c;
+}
+/** Held-for-a-yes commissions whose wait ran out: the painter declines them without a word. A plain hold that
+ *  ran out is not here — it simply paints. */
+export function expiredHolds<T extends { status: string; holdUntil?: string; awaitingYes?: boolean }>(docs: T[], now = Date.now()): T[] {
+  return docs.filter(c => c.status === 'queued' && c.awaitingYes && c.holdUntil && Date.parse(c.holdUntil) <= now);
 }
 const MAX_TEXT = 600;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
@@ -29,14 +43,14 @@ const DATA_URL = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 export type Receipt = { id: string; status: Commission['status']; note: string; departures?: string; statusUrl: string; share?: typeof SHARE & { wall: string } };
 
 /** Cancel a commission that has not been painted yet. The wish is kept: it is what the next painter is made of. */
-export async function cancel(id: string, why: 'stop' | 'api'): Promise<Commission | null> {
+export async function cancel(id: string, why: 'stop' | 'api' | 'silence'): Promise<Commission | null> {
   const c = await load(id);
   if (!c) return null;
   if (c.status !== 'queued') throw Object.assign(new Error(`too late — it is already ${c.status}`), { status: 409 });
-  c.status = 'declined'; c.take.note = why === 'stop' ? "Understood. I won't paint it. I keep the request for the painter who paints people." : 'Cancelled by the commissioner.';
+  c.status = 'declined'; c.take.note = why === 'stop' ? "Understood. I won't paint it. I keep the request for the painter who paints people." : why === 'silence' ? 'No answer came, so nothing was painted. The wish is kept.' : 'Cancelled by the commissioner.';
   c.cancelled = new Date().toISOString();
   await save(c);
-  await saveFeedback({ id: newId(), text: `Wanted literally, not reinterpreted: "${c.text}"`, from: c.from, channel: c.source?.channel ?? 'api', about: c.id, created: c.cancelled });
+  await saveFeedback({ id: newId(), text: why === 'silence' ? `Asked privately, offered a reinterpretation, never answered: "${c.text}"` : `Wanted literally, not reinterpreted: "${c.text}"`, from: c.from, channel: c.source?.channel ?? 'api', about: c.id, created: c.cancelled });
   return c;
 }
 
@@ -52,9 +66,15 @@ export function withPhotoLine(caption: string, credit: string): string {
  *  nothing about leaving it out, the substitution would be silent — the engineer's and the philosopher's bar. */
 const ASKS_FOR_A_PERSON = /\b(girl|boy|man|woman|men|women|people|person|everyone|crowd|friend|mother|father|grandmother|grandfather|nonna|nonno|mom|dad|child|children|kid|kids|family|couple|face|portrait|figure|someone|anyone|myself|me and|us)\b/i;
 const ASKS_FOR_WORDS = /\d|\b(word|words|text|sign|says|saying|written|writes|letter|number|reads|showing|display)\b/i;
-export function needsDepartures(text: string, take: Pick<Take, 'accepted' | 'departures' | 'core_conflict'>): boolean {
+export function needsDepartures(text: string, take: Pick<Take, 'accepted' | 'departures' | 'core_conflict'>, exception?: Exception | null): boolean {
   if (!take.accepted || take.departures) return false;
-  return Boolean(take.core_conflict) || ASKS_FOR_A_PERSON.test(text) || ASKS_FOR_WORDS.test(text);
+  return Boolean(take.core_conflict) || ASKS_FOR_A_PERSON.test(text) || (exception !== 'lettering' && ASKS_FOR_WORDS.test(text));
+}
+/** The exception is the studio's alone: it is read only when the desk was called from inside (issue #17). */
+export function validateException(raw: unknown, ip: string | null): Exception | undefined {
+  if (raw == null || raw === '' || ip !== INTERNAL) return undefined;
+  if (!EXCEPTIONS.includes(raw as Exception)) throw Object.assign(new Error(`exception must be one of: ${EXCEPTIONS.join(', ')}`), { status: 400 });
+  return raw as Exception;
 }
 
 /** A private disclosure stays with the person (Diego, 2026-09-05, on the therapist's point): the caption of an anonymous
@@ -140,8 +160,9 @@ export function validateRegister(raw: unknown): Register | null {
   return r;
 }
 
-export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null, registerRaw?: unknown): Promise<Receipt> {
+export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null, registerRaw?: unknown, exceptionRaw?: unknown): Promise<Receipt> {
   const anonymous = anonymousRaw === true || anonymousRaw === 'true';
+  const exception = validateException(exceptionRaw, ip);
   const photoUrl = validatePhotoUrl(photoRaw);
   const text = String(textRaw ?? '').trim().slice(0, MAX_TEXT) || (photoUrl ? 'this place, after everyone left' : '');
   const from = fromRaw ? String(fromRaw).trim().slice(0, 80) : null;
@@ -161,7 +182,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
 
   const id = newId();
   const photo = photoUrl ? await copyPhoto(id, photoUrl) : undefined;
-  const system = photo ? `${gatekeeperSystemPrompt()}\n${PHOTO.gatekeeper}` : gatekeeperSystemPrompt();
+  const system = photo ? `${gatekeeperSystemPrompt(exception)}\n${PHOTO.gatekeeper}` : gatekeeperSystemPrompt(exception);
   const credit = anonymous ? 'anonymous — and PRIVATE: do not quote the commission in the caption at all; write the line "' + PRIVATE_LINE + '" where the quote would go' : !from ? 'anonymous — write “…” — a commission' : from;
   const register = validateRegister(registerRaw) ?? pickRegister(docs);
   const brief = `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}${recentWorkLine(docs)}\nRegister for this canvas (fixed by the studio): ${register.name} — ${register.prompt}`;
@@ -172,11 +193,11 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
     const again = take.accepted ? repeatsToday(docs, take) : null;
     if (again) await saveFeedback({ id: newId(), text: `For this painter: asked twice, it still reached for ${again} (commission: "${text.slice(0, 80)}").`, from: 'the desk', channel: 'api', about: 'repeat', created: new Date().toISOString() });
   }
-  if (needsDepartures(text, take)) { // asked once more, then fail closed: no silent substitution reaches the wall
+  if (needsDepartures(text, take, exception)) { // asked once more, then fail closed: no silent substitution reaches the wall
     take = await chatJSON<Take>(system, `${brief}\n\nYour previous take left out part of this commission (a person, a number or words) and said nothing about it. departures required: name what you left out and what stands in for it.`, undefined, photo);
-    if (needsDepartures(text, take)) throw Object.assign(new Error('The painter could not say what it left out of this commission, so it will not paint it silently. Ask again, or ask for the place without the person or the words.'), { status: 422 });
+    if (needsDepartures(text, take, exception)) throw Object.assign(new Error('The painter could not say what it left out of this commission, so it will not paint it silently. Ask again, or ask for the place without the person or the words.'), { status: 422 });
   }
-  if (take.accepted) { take.register = register.key; take.prompt = composePrompt(register, take.prompt || take.scene || text); } // the contract and the register are the studio's, not the model's
+  if (take.accepted) { take.register = register.key; take.prompt = composePrompt(register, take.prompt || take.scene || text, exception); } // the contract and the register are the studio's, not the model's
   if (anonymous && take.caption) take.caption = privateCaption(take.caption, text); // fail closed: never the sender's sentence in public
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
   if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out
@@ -184,7 +205,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   if (holdUntil) take.note = `${take.note} ${STOP_HINT}`;
   const c: Commission = {
     id, text, from, created: new Date().toISOString(),
-    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}), ...(holdUntil ? { holdUntil } : {}),
+    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}), ...(holdUntil ? { holdUntil } : {}), ...(exception ? { exception } : {}),
   };
   await save(c);
   const receipt: Receipt = { id: c.id, status: c.status, note: take.note, ...(take.departures ? { departures: take.departures } : {}), statusUrl: `${origin}/api/commission/${c.id}` };
@@ -218,6 +239,7 @@ export function publicView(c: Commission) {
     commission: c.anonymous ? null : c.text, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene, // a private sentence stays private on the wall too
     image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides, holdUntil: c.holdUntil, register: c.take.register,
     ...(c.rejects?.length ? { rejects: c.rejects } : {}), // what the inspector refused on the way to this canvas
+    ...(isStudioSender(c.from) ? { studio: true } : {}), // the studio's own commission (an exam), marked so the wall is not read as a client list (#18)
     ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),
     ...(c.status === 'failed' && c.error ? { reason: c.error.slice(0, 200) } : {}), // so an agent can rephrase (#8)
   };

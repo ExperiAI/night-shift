@@ -12,7 +12,7 @@ async function alsoStory(c: { image?: string; story?: string }) {
 }
 import { tellSource } from './_lib/react.js';
 import { PHOTO, registerByKey } from './_lib/artist.js';
-import { isHeld } from './_lib/desk.js';
+import { isHeld, expiredHolds, cancel } from './_lib/desk.js';
 import { photoSlide, pairSlide, signPainting } from './_lib/compose.js';
 
 export const config = { maxDuration: 300 };
@@ -25,6 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const docs = await all();
   const fixed = await reconcile(docs, { dry }).catch(e => ({ error: String(e.message).slice(0, 120) })); // finish what an earlier publish() started
   if (!dry) for (const d of docs.filter(d => d.status === 'posted' && d.source && !d.sourceReplied)) { await tellSource(d); if (d.sourceReplied) await save(d); } // the one reply, once the link is real
+  if (!dry) for (const h of expiredHolds(docs)) { await cancel(h.id, 'silence').catch(() => null); h.status = 'declined'; } // a private ask never answered: declined without a word (issue #18)
   const queue = docs.filter(c => c.status === 'queued' && !isHeld(c)).sort((a, b) => a.created.localeCompare(b.created)); // held work waits for its stop window
   const c = queue[0];
   if (!c) {
@@ -53,11 +54,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const reg = registerByKey(c.take.register);
     const intended = `${c.take.scene ?? ''}${reg ? `\nRegister: ${reg.name} — ${reg.prompt}` : ''}`; // the inspector judges against the register too (rain doubles the one light; it is still one)
     let img = await renderImage(prompt, { refs });
-    let check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, intended);
+    let check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, intended, c.exception);
     if (!check.ok) { // one more try, told what went wrong; the refused canvas is kept and shown (docs/stance.md)
       c.rejects = [...(c.rejects ?? []), { image: await storeImage(c.id, img.bytes, img.mime, `-reject${(c.rejects?.length ?? 0) + 1}`), reason: check.reason.slice(0, 300) }];
       img = await renderImage(`${prompt}\n\nAvoid: ${check.reason}`, { refs });
-      check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, intended);
+      check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, intended, c.exception);
       if (!check.ok) {
         c.rejects.push({ image: await storeImage(c.id, img.bytes, img.mime, `-reject${c.rejects.length + 1}`), reason: check.reason.slice(0, 300) });
         throw new Error(`inspector refused twice: ${check.reason}`);

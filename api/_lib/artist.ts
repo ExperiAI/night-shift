@@ -54,10 +54,20 @@ export const REGISTERS: Register[] = [
 ];
 export const REGISTER_KEYS = REGISTERS.map(r => r.key);
 export const registerByKey = (key?: string | null): Register | null => REGISTERS.find(r => r.key === key) ?? null;
+/** Issue #17: the one way the contract is broken on purpose. 'lettering' lets ONE word be lettered by hand on one
+ *  canvas (the sign painter's exam). Only the studio can set it (the internal header at the desk), and it is
+ *  threaded through every place the contract is enforced: this prompt, the gatekeeper, the inspector. */
+export type Exception = 'lettering';
+export const EXCEPTIONS: Exception[] = ['lettering'];
+const NO_WORDS = 'No legible words anywhere: screens are a glow, signs are lit shapes, pages and labels are blank. ';
+const ONE_WORD = 'This canvas only: the one word named in the scene is lettered by hand on the sign, as it comes out — uneven, and a misspelling stays. No other words, numbers or symbols anywhere. ';
+export function contractFor(exception?: Exception | null): string {
+  return exception === 'lettering' ? ARTIST.style.replace(NO_WORDS, ONE_WORD) : ARTIST.style;
+}
 /** The render prompt: the contract, then the register, then the scene in render terms. Composed by the studio,
  *  never by the model, so the invariants cannot be dropped and the register cannot be ignored. */
-export function composePrompt(register: Register, scene: string): string {
-  return `${ARTIST.style}\n${register.prompt}\n${scene.trim()}`;
+export function composePrompt(register: Register, scene: string, exception?: Exception | null): string {
+  return `${contractFor(exception)}\n${register.prompt}\n${scene.trim()}`;
 }
 
 export type Take = {
@@ -103,6 +113,11 @@ export const INVITE = 'Send me a moment by DM, or leave it in the comments, and 
  *  says so on the canvas surface. */
 export const SIGNOFF = 'I am an AI. No hand held this brush. Argue with the painting.';
 
+/** The studio's own commissions (the exams) are shown on the wall marked as such, so the ledger never reads as a
+ *  client list (the dealer's bar, issue #18). `scripts/exams.mjs` and the critic run file them under this name. */
+export const STUDIO_SENDER = 'the studio';
+export function isStudioSender(from: string | null | undefined): boolean { return String(from ?? '').trim().toLowerCase() === STUDIO_SENDER; }
+
 /** Studio plumbing that must never appear on the public wall or reach the critic (the dealer's and the engineer's bar). */
 export const TEST_SENDERS = /^(e2e|studio test|test|smoke)$/i;
 export function isTestSender(from: string | null | undefined): boolean { return Boolean(from) && TEST_SENDERS.test(String(from).trim()); }
@@ -127,10 +142,11 @@ export const PHOTO = {
     'no readable letters, numbers or symbols anywhere on the canvas.',
 };
 
-export function gatekeeperSystemPrompt(): string {
+export function gatekeeperSystemPrompt(exception?: Exception | null): string {
   return [
     `You are ${ARTIST.name}, a painter. ${ARTIST.soul}`,
     `Your contract never changes: ${ARTIST.style}`,
+    ...(exception === 'lettering' ? ['EXCEPTION, this commission only, set by the studio: the one word the commission names is to be lettered legibly on the sign, in your own hand, and posted as it comes out. Do not reinterpret that word, do not set core_conflict for it, and name the word in the scene and the prompt. Everything else in the contract holds.'] : []),
     'Each canvas is painted in a REGISTER — its palette, vantage and distance — fixed by the studio and given with the commission. Build the scene for that register (a floor-level register wants a low room; an outdoor register wants a street or a platform; a single-key register wants a scene one colour can carry).',
     `You decline: ${ARTIST.declines}`,
     `You accept but reinterpret, and say so: ${ARTIST.reinterprets}`,
