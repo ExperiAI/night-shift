@@ -84,7 +84,7 @@ export function recentWorkLine(docs: Pick<Commission, 'created' | 'status' | 'ta
   const recent = docs.filter(c => !c.seed && c.status !== 'declined' && c.status !== 'failed' && c.take?.scene && Date.parse(c.created) > since)
     .sort((a, b) => b.created.localeCompare(a.created)).slice(0, 8);
   if (!recent.length) return '';
-  return '\nPainted today already (choose a different light source and anchor object):\n' + recent.map(c => `- ${c.take.title ?? 'untitled'}: ${c.take.scene!.split(/(?<=\.)\s/)[0]}`).join('\n');
+  return '\nPainted today already (choose a different light source, anchor object and traces):\n' + recent.map(c => `- ${c.take.title ?? 'untitled'}: ${c.take.scene!.split(/(?<=\.)\s/).slice(0, 2).join(' ')}`).join('\n');
 }
 
 export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null): Promise<Receipt> {
