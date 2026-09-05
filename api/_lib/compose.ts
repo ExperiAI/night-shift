@@ -31,8 +31,8 @@ export async function pairSlide(photo: Buffer, painting: Buffer): Promise<Buffer
   const top = Math.round((H - th) / 2) + 20;
   const tile = (b: Buffer) => sharp(b).rotate().resize(tw, th, { fit: 'cover', position: 'attention' }).toBuffer();
   const [p, q] = await Promise.all([tile(photo), tile(painting)]);
-  const [ls, lp, lm] = [label('sent'), label('painted'), label('same-place')];
-  const [ss, sp, sm] = await Promise.all([size(ls), size(lp), size(lm)]);
+  const [ls, lp, lm, lg] = [label('sent'), label('painted'), label('same-place'), label('signature')];
+  const [ss, sp, sm, sg] = await Promise.all([size(ls), size(lp), size(lm), size(lg)]);
   const leftX = margin, rightX = margin + tw + gap;
   return sharp({ create: { width: W, height: H, channels: 3, background: NIGHT } })
     .composite([
@@ -41,6 +41,7 @@ export async function pairSlide(photo: Buffer, painting: Buffer): Promise<Buffer
       { input: ls, left: leftX + Math.round((tw - ss.w) / 2), top: top - ss.h - 18 },
       { input: lp, left: rightX + Math.round((tw - sp.w) / 2), top: top - sp.h - 18 },
       { input: lm, left: Math.round((W - sm.w) / 2), top: top + th + 40 },
+      { input: lg, left: Math.round((W - sg.w) / 2), top: H - sg.h - 36 }, // the signature: this slide travels alone when shared
     ])
     .jpeg({ quality: 90 }).toBuffer();
 }

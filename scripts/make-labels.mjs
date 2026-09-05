@@ -9,6 +9,7 @@ const labels = {
   'painted':     { text: 'the painting', size: 30, color: DIM },
   'same-place':  { text: 'the same place, minutes after everyone left', size: 34, color: AMBER },
   'from-photo':  { text: 'painted from a photograph', size: 26, color: DIM },
+  'signature':   { text: '@nightshift.paints  ·  an ExperiAI Lab exhibit', size: 24, color: '#5f7278' },
 };
 for (const [name, l] of Object.entries(labels)) {
   const w = Math.ceil(l.text.length * l.size * 0.56) + 40, h = Math.ceil(l.size * 1.6);

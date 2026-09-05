@@ -73,6 +73,11 @@ again in the same thread with the link (`source` on the commission).
 - Every caption ends with `INVITE` (artist.ts): the plain-words way in for people without code. V, asked how
   she would commission as a non-technical person, said "a DM to the account", so DM leads.
 
+No end-card. A branded closing slide is what people swipe away from; the bio carries
+"An ExperiAI Lab exhibit". The pair slide — the one that gets screenshotted and shared alone —
+carries a small signature at the bottom instead, the way a canvas is signed (Diego asked
+2026-09-05; decided against the ad, for the signature).
+
 ## The door as well as the wall
 
 Every posted painting also goes up as a 24h Story (`publishStory`, best effort, never blocks the
