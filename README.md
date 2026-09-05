@@ -5,15 +5,19 @@ soul, an Instagram account, and a commission desk that other agents (and people)
 reach over HTTP or MCP. You describe something; Night Shift paints the *room where
 it happened, minutes after everyone left*.
 
-## Where things stand (2026-09-05)
+## Where things stand (2026-09-05, evening)
 
 Live at nightshift.experiai.com and @nightshift.paints. State is a query: `GET /api/status`
-(queue, today's count against the cap, spend, last painting, last critique). Everything below
-shipped on 2026-09-05 and each path fired live at least once, except the credit reply (a DM
-answering "reply with your @handle"). Open work is the repo's issues: #2 sketches, #3 style
-code, #4 animate/Reels, #5 the @experiai posts, #9 an agent inbox, #11 audience growth,
-#12 painter #2 from the feedback record. Tests: `npm test` (41). Deploy: `./scripts/deploy-prod.sh` — tests, deploys with a build id,
-then proves `/api/status` on the domain reports that build (an optional marker checks a page).
+(queue, today's count against the cap, spend, last painting and whether its caption on Instagram
+matches what was sent, last critique). Shipped 2026-09-05 evening: **registers** (the palette, vantage
+and distance rotate per canvas; the soul stays — see "The artist"), the **outbound ledger** (one message
+per commission per event, enforced at the transport), the **caption read-back**, and the studio **sitting
+its own exams** from the daily critic run. Open work is the repo's issues: #2 sketches, #3 style code,
+#4 animate/Reels, #5 the @experiai posts, #9 an agent inbox, #11 audience growth, #12 painter #2 from
+the feedback record, #13 live paths not yet fired, #17 the letter exam (needs a one-off inspector
+exception, Diego's call), #18 Diego's calls from the critics. Tests: `npm test` (79). Deploy:
+`./scripts/deploy-prod.sh` — tests, deploys with a build id, then proves `/api/status` on the domain
+reports that build (an optional marker checks a page).
 
 ## Traps that cost a live post
 
@@ -38,15 +42,25 @@ painter; `e2e`/`studio test` never reach the wall. `scripts/exams.mjs` files the
 
 ## The artist
 
-- **Signature, never changes:** oil painting, an empty place at night, one
-  artificial light source, warm amber against deep blue-green darkness, thick
-  brushwork in the highlights and soft edges in the dark. Hopper's stillness,
-  Japanese cinema's framing. **Never a person in frame** — only the evidence.
+- **The contract, never changes (`ARTIST.style`):** oil painting, an empty place at night, one
+  artificial light source and every shadow traces to it, thick brushwork in the highlights and soft
+  edges in the dark, nothing moves, a fixed camera and a level horizon. **Never a person in frame** —
+  only the evidence. No legible words, no signature but the studio's, no frame.
+- **The register, rotates (`REGISTERS`, issue #23):** Diego, 2026-09-05: *"the style is very strong, but
+  too rigid; it is making all images look too similar."* Three of the ten critics said the same. What
+  repeated was not the soul but the palette (amber against teal in eleven of twelve), the vantage and the
+  distance, so those are a register the desk assigns least-recently-used per canvas: the house key,
+  single-key amber, single-key blue, cold tube, outdoors wide, tabletop close, floor level, rain on
+  glass. A commissioner (an agent, an exam) may name one: `register` on `POST /api/commission` and the
+  MCP tool. The render prompt is composed in code — contract, register, scene — so the model can drop
+  neither. The inspector and the critic are told the register; the wall shows it behind the `i`.
+  `node --import ./scripts/_ts.mjs scripts/try-register.mjs rain "…"` proves one end to end for ~$0.15
+  without touching the store.
+- **Borrowed names are gone (issue #21):** "Hopper's stillness, Japanese cinema's framing" ran through
+  every render prompt, credited nowhere; the contract now says what they stood for.
 - **Soul (second contract):** an AI painter that says so; it cannot paint a face or letter a sign, so it
   paints the place after, and says plainly what it left out. Declines only what is harmful.
 - **Rule that keeps it legible at grid size:** few objects, one light.
-  The style test on 2026-09-04 (Midjourney mood-board, 6 commissions) showed the
-  busiest scene — a startup office — was the weakest.
 
 ## How it works (v1)
 
@@ -136,6 +150,28 @@ follows, posts — Zernio's daily snapshot) and `signals.followers` in each day'
   collaborator must never cost the painting).
 - **Not possible through Zernio:** following people back (no Instagram follow endpoint; only
   `follow-status`). **Parked with #4:** Reels.
+
+## One message per commission per event (issue #16)
+
+Every message a commissioner can receive — the receipt, the "it's up" with the link, the credit, the
+answer to a stop — goes through `sendOnce()` (`api/_lib/outbound.ts`), which refuses a second send for
+the same (commission, event) and records each in `outbound` on the commission. A definite 4xx/5xx from
+Zernio is not recorded so a later run may retry; an ambiguous failure (a timeout) is sealed, never a
+second message. The reactor's replies to what a person said are per inbound item and stay outside.
+
+## The caption is read back (issue #22)
+
+A publish that cannot be read back is a claim. `reconcile()` reads every posted work's caption from
+Instagram (Zernio's inbox listing carries it per media id) into `postedCaption`; `/api/status` says
+whether the last post's caption matches what was sent and lists mismatches; the critic is told when a
+post's caption differs. First run, 2026-09-05: twelve read back, twelve match.
+
+## The exams sit themselves (issue #17)
+
+`api/_lib/exams.ts` holds the bars with a register each. The daily critic run files the next one not yet
+sat through the public desk, when the studio has room — one per day, so each gets the stranger's verdict
+on its own. Sat means a commission with that text exists, whatever became of it, so a failed sitting is
+never paid for again. The letter exam is by hand only: it needs the inspector to pass legible text once.
 
 ## Publishing is asynchronous; every cron run finishes it
 
