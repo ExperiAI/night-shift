@@ -61,7 +61,8 @@ agent/person ──POST /api/commission──▶ gatekeeper LLM ──▶ Blob c
   `commission_painting(text, from?)`, `check_commission(id)`, `recent_paintings()`.
 - **Studio page** (`public/index.html`): the wall leads. Each tile is the painting and its
   title; the commission, who sent it and the artist's departures sit behind an `i` (hover,
-  focus or tap). The agents column is the MCP address and one disclosure. Diego, 2026-09-05:
+  focus or tap). The form takes a photograph from the device (see "A photograph without a
+  host"). The agents column is the MCP address and one disclosure. Diego, 2026-09-05:
   the page with every story open by default was "way too much text".
 
 ## The inbox (v2)
@@ -89,6 +90,32 @@ No end-card. A branded closing slide is what people swipe away from; the bio car
 "An ExperiAI Lab exhibit". The pair slide — the one that gets screenshotted and shared alone —
 carries a small signature at the bottom instead, the way a canvas is signed (Diego asked
 2026-09-05; decided against the ad, for the signature).
+
+## A photograph without a host (issue #14)
+
+`photo` on `POST /api/commission` and `photo_url` on the MCP tool take an https URL **or an inline
+`data:image/jpeg|png|webp;base64` URL under 4MB** (Vercel's body limit is 4.5MB). The studio form
+uses that path: it shrinks the chosen photo in the browser to 1600px on the long side (a phone photo
+is 4–12MB; the painter needs a reference, not the original) and sends the bytes inline. iOS converts
+HEIC to JPEG at the picker because the input does not accept HEIC. The desk copies every photo into
+its own store (`normalizePhoto`: upright, bounded, JPEG) so nothing depends on the sender's host. A
+data URL that is not an image is a 400, never a commission. Built at the gateway first: an agent with
+no public host sends the same data URL.
+
+## Growing an audience (issue #11)
+
+What Zernio can carry, shipped 2026-09-05; measured against `audience` on `/api/status` (followers,
+follows, posts — Zernio's daily snapshot) and `signals.followers` in each day's critique.
+**Baseline 2026-09-05: 1 follower; 30-day reach 4, views 92.**
+
+- **Hashtags as the first comment** (`HASHTAGS` in artist.ts, `firstComment` in the post), never in
+  the caption, so the caption stays the painter's words. `#aiart` is in the set on purpose.
+- **Collaborator invite** for a commission that came in as a public comment under a handle: if they
+  accept, the painting sits on their profile too. DMs stay anonymous, a display name or the
+  `someone` fallback is not a handle, and a rejected handle retries the post without it (a
+  collaborator must never cost the painting).
+- **Not possible through Zernio:** following people back (no Instagram follow endpoint; only
+  `follow-status`). **Parked with #4:** Reels.
 
 ## The door as well as the wall
 

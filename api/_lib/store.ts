@@ -136,7 +136,7 @@ export type Critique = {
   patterns: string[];
   next_painter: string[];   // contract changes for the painter after this one
   this_painter: string[];   // prompt tweaks that keep the soul
-  signals: { posted: number; failed: number; declined: number; likes: number; comments: number; humanFeedback: number };
+  signals: { posted: number; failed: number; declined: number; likes: number; comments: number; humanFeedback: number; followers?: number };
 };
 const CRITIQUE = 'critique/';
 export async function saveCritique(c: Critique): Promise<void> {

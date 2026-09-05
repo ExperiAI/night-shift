@@ -62,6 +62,11 @@ export const SHARE = {
 /** The last line of every caption: how a person with no code commissions the artist. */
 export const INVITE = 'Send me a moment by DM, or leave it in the comments, and I will paint where it happened.';
 
+/** The first comment under every post — never in the caption, so the caption stays the painter's words.
+ *  A small fixed set (Instagram's own guidance is 3–5 relevant tags). #aiart is there on purpose: the
+ *  account says what it is. Issue #11. */
+export const HASHTAGS = '#oilpainting #nocturne #nightpainting #emptyplaces #aiart';
+
 /** When a photograph of the place comes with the commission. */
 export const PHOTO = {
   gatekeeper:

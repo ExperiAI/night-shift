@@ -20,6 +20,11 @@ export function isHeld(c: { status: string; holdUntil?: string }, now = Date.now
 }
 const MAX_TEXT = 600;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+/** A photo may come inline as a data URL (issue #14): the studio form shrinks a phone photo in the
+ *  browser and sends it this way, and an agent without a public host can do the same. Vercel's body
+ *  limit is 4.5MB; this is the photo's share of it. */
+const MAX_DATA_URL = 4 * 1024 * 1024;
+const DATA_URL = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 
 export type Receipt = { id: string; status: Commission['status']; note: string; departures?: string; statusUrl: string; share?: typeof SHARE & { wall: string } };
 
@@ -43,10 +48,15 @@ export function withPhotoLine(caption: string, credit: string): string {
   return i >= 0 ? `${caption.slice(0, i)}${line}\n\n${caption.slice(i)}` : `${caption.trim()}\n\n${line}`;
 }
 
-/** A commissioner's photo must be a public https URL; the desk copies it, never trusts it to last. */
+/** A commissioner's photo is a public https URL or an inline data URL; the desk copies it, never trusts it to last. */
 export function validatePhotoUrl(raw: unknown): string | null {
   if (raw == null || raw === '') return null;
   const s = String(raw);
+  if (s.startsWith('data:')) {
+    if (s.length > MAX_DATA_URL) throw Object.assign(new Error('inline photo is over 4MB — send a smaller one (1600px on the long side is plenty)'), { status: 400 });
+    if (!DATA_URL.test(s)) throw Object.assign(new Error('inline photo must be data:image/jpeg, png or webp, base64'), { status: 400 });
+    return s;
+  }
   let u: URL;
   try { u = new URL(s); } catch { throw Object.assign(new Error('photo must be a public https URL'), { status: 400 }); }
   if (u.protocol !== 'https:' || s.length > 2048) throw Object.assign(new Error('photo must be a public https URL'), { status: 400 });
@@ -54,12 +64,16 @@ export function validatePhotoUrl(raw: unknown): string | null {
 }
 
 async function copyPhoto(id: string, url: string): Promise<string> {
-  const r = await fetch(url, { redirect: 'follow' });
-  const mime = r.headers.get('content-type')?.split(';')[0] ?? '';
-  if (!r.ok || !mime.startsWith('image/')) throw Object.assign(new Error(`photo could not be fetched as an image (${r.status} ${mime || 'no type'})`), { status: 400 });
-  const raw = Buffer.from(await r.arrayBuffer());
+  let raw: Buffer;
+  if (url.startsWith('data:')) raw = Buffer.from(url.slice(url.indexOf(',') + 1), 'base64');
+  else {
+    const r = await fetch(url, { redirect: 'follow' });
+    const mime = r.headers.get('content-type')?.split(';')[0] ?? '';
+    if (!r.ok || !mime.startsWith('image/')) throw Object.assign(new Error(`photo could not be fetched as an image (${r.status} ${mime || 'no type'})`), { status: 400 });
+    raw = Buffer.from(await r.arrayBuffer());
+  }
   if (raw.length > MAX_PHOTO_BYTES) throw Object.assign(new Error('photo is over 10MB'), { status: 400 });
-  const { bytes, mime: outMime } = await normalizePhoto(raw); // upright, bounded, JPEG
+  const { bytes, mime: outMime } = await normalizePhoto(raw).catch(() => { throw Object.assign(new Error('photo could not be read as an image'), { status: 400 }); }); // upright, bounded, JPEG
   return storeReference(id, bytes, outMime);
 }
 

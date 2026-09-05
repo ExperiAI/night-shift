@@ -4,6 +4,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, latestCritiques } from './_lib/store.js';
 import { STUDIO_CAP, acceptedToday, isHeld } from './_lib/desk.js';
 import { ARTIST } from './_lib/artist.js';
+import { audience } from './_lib/zernio.js';
 
 export async function studioStatus() {
   const docs = (await all()).filter(c => !c.seed);
@@ -13,11 +14,13 @@ export async function studioStatus() {
   const spentToday = today.reduce((s, c) => s + (c.cost ?? 0), 0);
   const last = posted.sort((a, b) => (b.painted ?? '').localeCompare(a.painted ?? ''))[0];
   const critiques = await latestCritiques(1).catch(() => []);
+  const aud = await audience().catch(() => null);
   return {
     artist: ARTIST.name, instagram: `https://www.instagram.com/${ARTIST.handle}/`,
     queue: { waiting: docs.filter(c => c.status === 'queued' && !isHeld(c)).length, held: docs.filter(isHeld).length, painting: docs.filter(c => c.status === 'painting').length },
     today: { accepted: acceptedToday(docs), cap: STUDIO_CAP, declined: today.filter(c => c.status === 'declined').length, failed: today.filter(c => c.status === 'failed').length, cancelled: today.filter(c => c.cancelled).length, renderSpendUsd: Number(spentToday.toFixed(3)) },
     allTime: { posted: posted.length, renderSpendUsd: Number(docs.reduce((s, c) => s + (c.cost ?? 0), 0).toFixed(2)), photoCommissions: docs.filter(c => c.photo).length, fromInstagram: docs.filter(c => c.source).length },
+    audience: aud, // followers/follows/posts — Zernio's daily snapshot; baseline 2026-09-05: 1 follower
     lastPosted: last ? { id: last.id, title: last.take.title, at: last.painted, instagram: last.instagram } : null,
     lastCritique: critiques[0] ? { date: critiques[0].date, paintings: critiques[0].paintings, patterns: critiques[0].patterns } : null,
     limits: { perSenderPerDay: 3, perAddressPerDay: 5, studioPerDay: STUDIO_CAP },

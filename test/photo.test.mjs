@@ -6,12 +6,13 @@ import { readFileSync } from 'node:fs';
 import { validatePhotoUrl } from '../api/_lib/desk.ts';
 import { photoFrom } from '../api/_lib/react.ts';
 
-test('a photo must be an https URL; anything else is refused with a 400', () => {
+test('a photo is an https URL or an inline image data URL; anything else is refused with a 400', () => {
   assert.equal(validatePhotoUrl('https://x.test/a.jpg'), 'https://x.test/a.jpg');
   assert.equal(validatePhotoUrl(undefined), null);
   assert.equal(validatePhotoUrl(''), null);
-  for (const bad of ['http://x.test/a.jpg', 'ftp://x/a', 'data:image/png;base64,AAAA', 'not a url', 'x'.repeat(3000)]) {
-    assert.throws(() => validatePhotoUrl(bad), e => e.status === 400, bad);
+  assert.equal(validatePhotoUrl('data:image/jpeg;base64,/9j/4AAQ'), 'data:image/jpeg;base64,/9j/4AAQ'); // issue #14: the form and hostless agents send the bytes inline
+  for (const bad of ['http://x.test/a.jpg', 'ftp://x/a', 'data:text/plain;base64,AAAA', 'data:image/svg+xml;base64,AAAA', 'data:image/png,notbase64', 'not a url', 'x'.repeat(3000), 'data:image/png;base64,' + 'A'.repeat(4 * 1024 * 1024)]) {
+    assert.throws(() => validatePhotoUrl(bad), e => e.status === 400, bad.slice(0, 40));
   }
 });
 

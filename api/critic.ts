@@ -6,7 +6,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, allFeedback, saveFeedback, saveCritique, latestCritiques, newId, type Critique } from './_lib/store.js';
 import { ARTIST } from './_lib/artist.js';
-import { instagramAccount, publishStory, canPost } from './_lib/zernio.js';
+import { instagramAccount, audience, publishStory, canPost } from './_lib/zernio.js';
 import { openDoorStory } from './_lib/compose.js';
 import { put } from '@vercel/blob';
 
@@ -46,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const human = (await allFeedback()).filter(f => f.channel !== 'critic' && Date.parse(f.created) > since);
 
   // Reactions per post, from the same inbox listing the reactor uses (likes/comments per media id).
-  let likes = 0, comments = 0; const reactions = new Map<string, { likes: number; comments: number }>();
+  let likes = 0, comments = 0, followers: number | undefined; const reactions = new Map<string, { likes: number; comments: number }>();
   try {
     const acct = await instagramAccount();
     if (acct) {
@@ -55,10 +55,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       for (const c of posted) { const x = c.mediaId ? reactions.get(c.mediaId) : undefined; likes += x?.likes ?? 0; comments += x?.comments ?? 0; }
     }
   } catch { /* reactions are a nice-to-have */ }
+  followers = (await audience().catch(() => null))?.followers; // the number every lever in #11 is measured against
 
   const date = new Date().toISOString().slice(0, 10);
   const door = posted.length === 0 ? await openDoor() : false; // idle day: a Story keeps the door lit
-  const signals = { posted: posted.length, failed: failed.length, declined: declined.length, likes, comments, humanFeedback: human.length };
+  const signals = { posted: posted.length, failed: failed.length, declined: declined.length, likes, comments, humanFeedback: human.length, ...(followers != null ? { followers } : {}) };
   if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: [door ? 'nothing to review; the open-door Story went up' : 'nothing to review'], next_painter: [], this_painter: [], signals }; await saveCritique(empty); return res.json(empty); }
 
   const content: any[] = [{ type: 'text', text: [

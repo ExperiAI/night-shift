@@ -43,6 +43,10 @@
   form{display:grid;gap:12px;max-width:640px}
   textarea,input{width:100%;background:#0f1d20;border:1px solid var(--line);color:var(--ink);padding:12px 14px;font:inherit;border-radius:4px}
   textarea{min-height:110px;resize:vertical}
+  .file{display:block;background:#0f1d20;border:1px dashed var(--line);color:var(--dim);padding:12px 14px;border-radius:4px;cursor:pointer;font-size:15px}
+  .file input{position:absolute;width:1px;height:1px;opacity:0}
+  .file.has{border-style:solid;color:var(--ink)}
+  .file:focus-within{border-color:var(--amber)}
   button{justify-self:start;background:var(--amber);color:#1a1205;border:0;padding:12px 20px;font:15px system-ui,sans-serif;border-radius:4px;cursor:pointer}
   button:disabled{opacity:.5;cursor:wait}
   .reply{border-left:3px solid var(--amber);padding:10px 14px;color:var(--ink);background:#0f1d20;white-space:pre-wrap}
@@ -73,7 +77,7 @@
       <h2>Commission a painting</h2>
       <form id="form">
         <textarea name="text" maxlength="600" placeholder="Tell me what happened. A moment, a memory, a feeling. Not what to paint — that part is mine."></textarea>
-        <input name="photo" type="url" maxlength="2048" placeholder="Or a public link to a photograph of the place (optional) — I paint that place after everyone left">
+        <label class="file"><input name="photo" type="file" accept="image/jpeg,image/png,image/webp"><span>Or add a photograph of the place (optional) — I paint that place after everyone left</span></label>
         <input name="from" maxlength="80" placeholder="Your name, or your agent's (optional — goes in the caption)">
         <button type="submit">Send the commission</button>
         <div id="reply" class="reply" hidden></div>
@@ -85,7 +89,7 @@
       <pre id="mcp">https://nightshift.experiai.com/api/mcp</pre>
       <details>
         <summary>Tools, plain HTTP, and how I work</summary>
-        <p>Tools: <code>commission_painting</code> (text, optional <code>photo_url</code>, optional <code>anonymous</code>), <code>check_commission</code>, <code>cancel_commission</code>, <code>recent_paintings</code>, <code>leave_feedback</code>, <code>studio_status</code>.</p>
+        <p>Tools: <code>commission_painting</code> (text, optional <code>photo_url</code> — https or an inline <code>data:image/jpeg;base64</code> URL under 4MB, optional <code>anonymous</code>), <code>check_commission</code>, <code>cancel_commission</code>, <code>recent_paintings</code>, <code>leave_feedback</code>, <code>studio_status</code>.</p>
         <pre id="curl" style="margin:10px 0 0">curl -X POST https://nightshift.experiai.com/api/commission \
   -H 'content-type: application/json' \
   -d '{"text":"the night we decided to close the company","from":"your-agent","photo":"https://…/place.jpg"}'</pre>
@@ -132,15 +136,34 @@ document.addEventListener('click', e => { if (!e.target.closest('figure')) docum
 function thumb(u, w) { return '/_vercel/image?url=' + encodeURIComponent(u) + '&w=' + w + '&q=80'; }
 function esc(s) { return String(s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m])); }
 
+// A phone photo is 4–12MB; the studio takes 4MB inline. Shrink it here: 1600px on the long side is
+// more than the painter needs as a reference. Browsers apply the photo's orientation when drawing.
+const FILE_LABEL = document.querySelector('.file span').textContent;
+document.querySelector('.file input').addEventListener('change', e => {
+  const file = e.target.files[0], l = e.target.closest('.file');
+  l.classList.toggle('has', Boolean(file)); l.querySelector('span').textContent = file ? file.name + ' — attached' : FILE_LABEL;
+});
+async function shrink(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+    const s = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.85);
+  } finally { URL.revokeObjectURL(url); }
+}
 document.getElementById('form').addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.target, btn = f.querySelector('button'), out = document.getElementById('reply');
   btn.disabled = true; out.hidden = false; out.textContent = '…';
   try {
-    const r = await fetch(origin + '/api/commission', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: f.text.value, from: f.from.value || undefined, photo: f.photo.value || undefined }) });
+    let photo;
+    if (f.photo.files[0]) { try { photo = await shrink(f.photo.files[0]); } catch { out.textContent = 'I could not read that photograph. A JPEG or PNG works.'; btn.disabled = false; return; } }
+    const r = await fetch(origin + '/api/commission', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: f.text.value, from: f.from.value || undefined, photo }) });
     const j = await r.json();
     out.textContent = j.error ? j.error : `${j.note}${j.departures ? '\n\n' + j.departures : ''}\n\n${j.status === 'queued' ? 'Queued. Follow it at ' + j.statusUrl : ''}`;
-    if (j.status === 'queued') { f.reset(); refresh(); }
+    if (j.status === 'queued') { f.reset(); document.querySelector('.file').classList.remove('has'); document.querySelector('.file span').textContent = FILE_LABEL; refresh(); }
   } catch (err) { out.textContent = 'Something went wrong on my side. Try again in a minute.'; }
   btn.disabled = false;
 });

@@ -1,0 +1,34 @@
+// Issue #11: grow an audience the way a painter would. The levers Zernio can carry, and the number
+// they are measured against.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { collaboratorHandle, postOptions } from '../api/_lib/zernio.ts';
+import { HASHTAGS } from '../api/_lib/artist.ts';
+
+test('hashtags go in the first comment, never in the caption prompt', () => {
+  assert.match(HASHTAGS, /^(#[a-z]+ ?){3,5}$/);
+  assert.match(HASHTAGS, /#aiart/); // the account says what it is
+  const artist = readFileSync(new URL('../api/_lib/artist.ts', import.meta.url), 'utf8');
+  assert.ok(!/caption:.*#/.test(artist.split('HASHTAGS')[0]), 'no hashtag in the caption instructions');
+  assert.equal(postOptions({}).firstComment, HASHTAGS);
+});
+
+test('a public comment under a handle is invited as a collaborator; DMs, names and the fallback are not', () => {
+  assert.deepEqual(postOptions({ source: { channel: 'instagram-comment', handle: 'kiaora.healing' } }).collaborators, ['kiaora.healing']);
+  assert.equal(postOptions({ source: { channel: 'instagram-dm', handle: 'kiaora.healing' } }).collaborators, undefined);
+  assert.equal(postOptions({ source: { channel: 'instagram-comment', handle: 'someone' } }).collaborators, undefined);
+  assert.equal(postOptions({ source: { channel: 'instagram-comment', handle: 'Valentina Rossi' } }).collaborators, undefined);
+  assert.equal(collaboratorHandle('@Night.Shift_1'), 'Night.Shift_1');
+  assert.equal(collaboratorHandle('a'.repeat(31)), null);
+  assert.equal(collaboratorHandle(null), null);
+});
+
+test('both publish paths carry the post options, and the daily record keeps the follower count', () => {
+  const paint = readFileSync(new URL('../api/paint.ts', import.meta.url), 'utf8');
+  assert.equal((paint.match(/postOptions\(/g) ?? []).length, 2);
+  const critic = readFileSync(new URL('../api/critic.ts', import.meta.url), 'utf8');
+  assert.match(critic, /followers/);
+  const status = readFileSync(new URL('../api/status.ts', import.meta.url), 'utf8');
+  assert.match(status, /audience: aud/);
+});

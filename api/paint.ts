@@ -2,7 +2,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, save, storeImage } from './_lib/store.js';
 import { renderImage, inspectImage } from './_lib/openrouter.js';
-import { publish, publishStory, canPost } from './_lib/zernio.js';
+import { publish, publishStory, canPost, postOptions } from './_lib/zernio.js';
 
 /** New work also goes up as a 24h Story. Best effort: a Story that fails never touches the post. */
 async function alsoStory(c: { image?: string; story?: string }) {
@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!b || dry || !canPost()) return res.json({ painted: null, queued: 0, backlog: backlog.length });
     b.postAttempt = new Date().toISOString();
     try {
-      const post = await publish(b.slides ?? b.image!, b.take.caption ?? b.take.title ?? 'Night Shift');
+      const post = await publish(b.slides ?? b.image!, b.take.caption ?? b.take.title ?? 'Night Shift', postOptions(b));
       b.instagram = post.permalink; b.mediaId = post.mediaId; b.status = 'posted'; delete b.error;
       await tellSource(b);
       await alsoStory(b);
@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     c.cost = img.cost ?? undefined;
     c.painted = new Date().toISOString();
     if (!dry && canPost()) {
-      const post = await publish(c.slides ?? c.image, c.take.caption ?? c.take.title ?? 'Night Shift');
+      const post = await publish(c.slides ?? c.image, c.take.caption ?? c.take.title ?? 'Night Shift', postOptions(c));
       c.instagram = post.permalink;
       c.mediaId = post.mediaId;
       c.status = 'posted';

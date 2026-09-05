@@ -1,6 +1,35 @@
 // Publish through Zernio (zernio.com), which holds the Instagram connection so we
 // need no Meta app of our own. Env: ZERNIO_API_KEY. Account = the connected Instagram.
+import { HASHTAGS } from './artist.js';
 const BASE = 'https://zernio.com/api/v1';
+
+export type PostOptions = { firstComment?: string; collaborators?: string[] };
+
+/** An Instagram username from whatever the inbox stored: '@Name.x' → 'Name.x'; a display name or the
+ *  'someone' fallback (inbox.ts) is not a handle and gives null. */
+export function collaboratorHandle(from?: string | null): string | null {
+  const h = String(from ?? '').trim().replace(/^@/, '');
+  if (h === 'someone' || !/^[A-Za-z0-9._]{1,30}$/.test(h)) return null;
+  return h;
+}
+
+/** How a painting is posted beyond caption and image (issue #11): the hashtags as the first comment,
+ *  and — when the commission came in as a public comment under a handle — that person invited as a
+ *  collaborator, so the painting can sit on their profile too if they accept. DMs stay anonymous. */
+export function postOptions(c: { source?: { channel: string; handle?: string } }): PostOptions {
+  const collab = c.source?.channel === 'instagram-comment' ? collaboratorHandle(c.source.handle) : null;
+  return { firstComment: HASHTAGS, ...(collab ? { collaborators: [collab] } : {}) };
+}
+
+/** Followers, follows and post count — Zernio's daily snapshot of the account. */
+export async function audience(): Promise<{ followers: number; follows: number; posts: number } | null> {
+  const acct = await instagramAccount();
+  if (!acct) return null;
+  const j = await get(`/accounts/follower-stats?platform=instagram&accountId=${acct.id}`);
+  const a = (j.accounts ?? []).find((x: any) => (x._id ?? x.id) === acct.id) ?? j.accounts?.[0];
+  if (!a) return null;
+  return { followers: a.currentFollowers ?? 0, follows: a.accountStats?.followsCount ?? 0, posts: a.accountStats?.mediaCount ?? 0 };
+}
 
 function headers() {
   const key = process.env.ZERNIO_API_KEY;
@@ -19,15 +48,17 @@ export async function instagramAccount(): Promise<{ id: string; username?: strin
 }
 
 /** One image posts a single; several post a carousel in the given order (first = the grid tile). */
-export async function publish(images: string | string[], caption: string): Promise<{ postId: string; permalink: string; mediaId?: string }> {
+export async function publish(images: string | string[], caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string }> {
   const acct = await instagramAccount();
   if (!acct) throw new Error('no Instagram account connected in Zernio');
   const urls = Array.isArray(images) ? images : [images];
-  const r = await fetch(`${BASE}/posts`, {
-    method: 'POST', headers: headers(),
-    body: JSON.stringify({ content: caption, mediaItems: urls.map(url => ({ type: 'image', url })), platforms: [{ platform: 'instagram', accountId: acct.id }], publishNow: true }),
-  });
-  const j: any = await r.json();
+  const body = (o: PostOptions) => JSON.stringify({ content: caption, mediaItems: urls.map(url => ({ type: 'image', url })), platforms: [{ platform: 'instagram', accountId: acct.id, platformSpecificData: { ...(o.firstComment ? { firstComment: o.firstComment } : {}), ...(o.collaborators?.length ? { collaborators: o.collaborators } : {}) } }], publishNow: true });
+  let r = await fetch(`${BASE}/posts`, { method: 'POST', headers: headers(), body: body(opts) });
+  let j: any = await r.json();
+  if (!r.ok && opts.collaborators?.length) { // a handle Instagram will not tag (private, invalid, blocked) must never cost the painting
+    r = await fetch(`${BASE}/posts`, { method: 'POST', headers: headers(), body: body({ ...opts, collaborators: [] }) });
+    j = await r.json();
+  }
   if (!r.ok) throw new Error(`zernio post ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
   const postId = j.post?._id ?? j.post?.id ?? j._id ?? j.id ?? '';
   // Publishing is asynchronous: the Instagram permalink and media id appear on the post record
