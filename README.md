@@ -56,7 +56,7 @@ painter; `e2e`/`studio test` never reach the wall. `scripts/exams.mjs` files the
   glass. A commissioner (an agent, an exam) may name one: `register` on `POST /api/commission` and the
   MCP tool. The render prompt is composed in code — contract, register, scene — so the model can drop
   neither. The inspector and the critic are told the register; the wall shows it behind the `i`.
-  `node --import ./scripts/_ts.mjs scripts/try-register.mjs rain "…"` proves one end to end for ~$0.15
+  `node --import ./scripts/_ts.mjs scripts/try-register.mjs rain "…"` proves one end to end for ~$0.15; `scripts/try-desk.mjs "…" [key]` proves a desk change on the gatekeeper alone (~$0.01, writes nothing)
   without touching the store.
 - **Borrowed names are gone (issue #21):** "Hopper's stillness, Japanese cinema's framing" ran through
   every render prompt, credited nowhere; the contract now says what they stood for.
