@@ -8,7 +8,7 @@
     "test": "node --import ./scripts/_ts.mjs --test",
     "refs": "node scripts/commission.mjs night-shift",
     "dev": "vercel dev",
-    "prepare": "lefthook install"
+    "prepare": "if git rev-parse --git-dir >/dev/null 2>&1; then lefthook install; fi"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",

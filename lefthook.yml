@@ -1,4 +1,5 @@
-# Git hooks. `npm install` wires them (prepare script); `lefthook install` by hand.
+# Git hooks. `npm install` wires them (prepare script, only inside a git checkout: Vercel's build sandbox has no .git
+# and `lefthook install` exits 128 there — it broke the 2026-09-05 deploy); `lefthook install` by hand.
 # Skip once with LEFTHOOK=0 git commit; never remove a hook to make a commit go through.
 # Why: commit c44a4da landed on a red test because a shell chain used `;` (issue #24).
 
