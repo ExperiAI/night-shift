@@ -125,8 +125,10 @@ linked to the profile, the reply to the commissioner carried the wrong link, the
 was never asked (it needs the media id), and the critic counted 0 likes on everything. Not fixed by
 waiting longer: `reconcile()` (`api/_lib/reconcile.ts`) runs at the top of every paint cron — Zernio's
 post id when we have it, else the caption matched among posts Instagram still lists (a repost wins
-over its deleted twin) — fills the ids, and then asks any anonymous DM commissioner the credit
-question they were owed. `?dry=1` repairs records and sends nothing.
+over its deleted twin) — fills the ids. It sends nothing. The **one** reply to the commissioner
+(`tellSource`: link, departures, credit question together) waits until the link is a real post link
+and goes out on the next run — never a reply with the profile link and then a "here is the real one".
+Diego, 2026-09-05, after V got two messages for one painting: *ensure you don't spam people.*
 
 ## The door as well as the wall
 

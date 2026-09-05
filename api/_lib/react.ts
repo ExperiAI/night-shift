@@ -85,10 +85,15 @@ export function awaitingCredit<T extends Credit>(docs: T[], conversationId: stri
   return docs.find(c => c.status === 'posted' && c.anonymous && c.creditAsked && !c.credited && c.mediaId && c.source?.channel === 'instagram-dm' && c.source.conversationId === conversationId) ?? null;
 }
 
-/** Once a commission that came from Instagram is posted, answer in the thread it came from. */
+/** Once a commission that came from Instagram is posted, answer in the thread it came from — ONE
+ *  message, carrying the link, the departures and (DMs) the credit question together. It waits for a
+ *  real post link: publish() can return the profile link when Instagram is slow, and a reply with the
+ *  wrong link followed by a "here is the real one" is two messages to a person who asked for a
+ *  painting (Diego, 2026-09-05: V got exactly that). The paint cron retries on the next run. */
 export async function tellSource(c: import('./store.js').Commission): Promise<void> {
   if (!c.source || c.sourceReplied || !c.instagram) return;
-  const { instagramAccount, replyToComment, sendMessage } = await import('./zernio.js');
+  const { instagramAccount, replyToComment, sendMessage, isPostLink } = await import('./zernio.js');
+  if (!isPostLink(c.instagram)) return; // not yet: reconcile() fills it, the next run replies once
   const acct = await instagramAccount();
   if (!acct) return;
   const askCredit = c.source.channel === 'instagram-dm' && c.anonymous && c.mediaId;

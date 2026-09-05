@@ -24,6 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const docs = await all();
   const fixed = await reconcile(docs, { dry }).catch(e => ({ error: String(e.message).slice(0, 120) })); // finish what an earlier publish() started
+  if (!dry) for (const d of docs.filter(d => d.status === 'posted' && d.source && !d.sourceReplied)) { await tellSource(d); if (d.sourceReplied) await save(d); } // the one reply, once the link is real
   const queue = docs.filter(c => c.status === 'queued' && !isHeld(c)).sort((a, b) => a.created.localeCompare(b.created)); // held work waits for its stop window
   const c = queue[0];
   if (!c) {
