@@ -87,11 +87,16 @@ export async function listPublished(accountId: string): Promise<PublishedPost[]>
     .map(p => ({ postId: p._id ?? p.id, content: p.content, permalink: p.platforms?.[0]?.platformPostUrl, mediaId: p.platforms?.[0]?.platformPostId, createdAt: p.createdAt }));
 }
 
-/** Media ids Instagram itself still lists for the account — a Zernio record can outlive a deleted post. */
-export async function liveMediaIds(accountId: string): Promise<Set<string>> {
+export type LivePost = { permalink?: string; caption: string; likes: number; comments: number };
+/** What Instagram itself still lists for the account, by media id, with the caption AS PUBLISHED — the
+ *  read-back that turns "we sent this caption" into "this caption is on the post" (issue #22). A Zernio
+ *  record can outlive a deleted post; this listing cannot. */
+export async function livePosts(accountId: string): Promise<Map<string, LivePost>> {
   const j = await get(`/inbox/comments?platform=instagram&accountId=${accountId}&minComments=0&limit=50`);
-  return new Set(((j.data ?? []) as any[]).map(p => String(p.id)));
+  return new Map(((j.data ?? []) as any[]).map(p => [String(p.id), { permalink: p.permalink, caption: String(p.content ?? ''), likes: p.likeCount ?? 0, comments: p.commentCount ?? 0 }]));
 }
+/** Media ids Instagram itself still lists for the account. */
+export async function liveMediaIds(accountId: string): Promise<Set<string>> { return new Set((await livePosts(accountId)).keys()); }
 
 /** One post by Zernio id: its permalink and media id once Instagram has them. */
 export async function lookupPost(postId: string): Promise<{ permalink?: string; mediaId?: string; failed: boolean }> {

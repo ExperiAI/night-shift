@@ -49,3 +49,23 @@ test('reconcile repairs records and never messages anyone; the one reply is tell
   const paint = readFileSync(new URL('../api/paint.ts', import.meta.url), 'utf8');
   assert.match(paint, /d\.status === 'posted' && d\.source && !d\.sourceReplied\)\) \{ await tellSource\(d\)/);
 });
+
+// Issue #22: after the first canvas under the second contract posted, the only proof its caption carried the
+// sign-off was our own record. The caption is now read back from Instagram (Zernio's inbox listing carries it
+// per media id) and kept beside the one we sent; the critic is told when they differ.
+test('the caption is read back from the post and compared word for word, whitespace aside', async () => {
+  const { captionMatches, needsReadback } = await import('../api/_lib/reconcile.ts');
+  const take = { caption: 'Title\nA line.\n\n“x” — commissioned by y' };
+  assert.equal(captionMatches({ take }), null, 'not read back yet');
+  assert.equal(captionMatches({ take, postedCaption: 'Title\nA line.\n\n“x” — commissioned by y' }), true);
+  assert.equal(captionMatches({ take, postedCaption: 'Title A line. “x” — commissioned by y' }), true, 'whitespace is Instagram\'s');
+  assert.equal(captionMatches({ take, postedCaption: 'Title\nA line.' }), false, 'a missing sign-off is a mismatch');
+  assert.equal(needsReadback({ status: 'posted', mediaId: '1' }), true);
+  assert.equal(needsReadback({ status: 'posted', mediaId: '1', postedCaption: '' }), false, 'an empty caption read back is still a read-back');
+  assert.equal(needsReadback({ status: 'posted' }), false);
+  assert.equal(needsReadback({ status: 'painted', mediaId: '1' }), false);
+  const rec = readFileSync(new URL('../api/_lib/reconcile.ts', import.meta.url), 'utf8');
+  assert.match(rec, /c\.postedCaption = p\.caption/);
+  assert.match(readFileSync(new URL('../api/status.ts', import.meta.url), 'utf8'), /captionOnInstagram/);
+  assert.match(readFileSync(new URL('../api/critic.ts', import.meta.url), 'utf8'), /CAPTION ON INSTAGRAM DIFFERS/);
+});

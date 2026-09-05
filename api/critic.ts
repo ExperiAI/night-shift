@@ -8,6 +8,7 @@ import { all, allFeedback, saveFeedback, saveCritique, latestCritiques, newId, t
 import { ARTIST, isTestSender } from './_lib/artist.js';
 import { instagramAccount, audience, publishStory, canPost } from './_lib/zernio.js';
 import { openDoorStory } from './_lib/compose.js';
+import { captionMatches } from './_lib/reconcile.js';
 import { put } from '@vercel/blob';
 
 /** No new painting in a day: the door still shows a light. Best effort. */
@@ -32,6 +33,7 @@ export function criticSystemPrompt(): string {
     'You review one day of work. For each painting you see the commission (what was asked), the artist\'s stated departures, the finished canvas, and the reactions it drew.',
     'Judge two things honestly: did the painting honour the INTENT of the commission (yes / partly / no), and what did the reinterpretation cost the person who asked. Then name craft problems you see (composition, light, legibility at grid size, sameness across the day).',
     'Then: patterns across the day; concrete contract changes for the NEXT painter (a different artist that may paint people and follow instructions literally — what should its rules be, given what people asked for and how they reacted); and concrete changes to THIS painter\'s contract (its style text, its inspector, its caption) that a human will read and merge — say exactly what to change and why, and name the canvas that proves it. A signature that is not the studio\'s, a legible digit, a second light source or a frame on a posted canvas is a failure of the inspector: say so.',
+    'A painting whose caption on Instagram differs from the one sent is flagged in its block: name it under this_painter — the sign-off and the invite must be on the post, not only in our record.',
     'Be specific and short. No praise for its own sake. Respond ONLY with JSON:',
     '{"observations":[{"id":string,"title":string,"honoured":"yes"|"partly"|"no","note":string}],"patterns":[string],"next_painter":[string],"this_painter":[string]}',
   ].join('\n');
@@ -72,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   ].join('\n\n') }];
   for (const c of posted) {
     const x = c.mediaId ? reactions.get(c.mediaId) : undefined;
-    content.push({ type: 'text', text: `--- id ${c.id} — "${c.take.title}" — from ${c.anonymous ? 'anonymous' : c.from ?? 'anonymous'} via ${c.source?.channel ?? 'api'}${c.photo ? ' (with a photograph of the place)' : ''}\nCommission: ${c.text}\nDepartures: ${c.take.departures ?? 'none stated'}\nReactions: ${x ? `${x.likes} likes, ${x.comments} comments` : 'unknown'}` });
+    content.push({ type: 'text', text: `--- id ${c.id} — "${c.take.title}" — from ${c.anonymous ? 'anonymous' : c.from ?? 'anonymous'} via ${c.source?.channel ?? 'api'}${c.photo ? ' (with a photograph of the place)' : ''}\nCommission: ${c.text}\nDepartures: ${c.take.departures ?? 'none stated'}\nReactions: ${x ? `${x.likes} likes, ${x.comments} comments` : 'unknown'}${captionMatches(c) === false ? `\nCAPTION ON INSTAGRAM DIFFERS from the one sent (issue #22). On the post: ${c.postedCaption!.slice(0, 300)}` : ''}` });
     content.push({ type: 'image_url', image_url: { url: c.image } });
   }
   const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {

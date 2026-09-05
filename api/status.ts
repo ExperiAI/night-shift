@@ -5,6 +5,7 @@ import { all, latestCritiques } from './_lib/store.js';
 import { STUDIO_CAP, acceptedToday, isHeld } from './_lib/desk.js';
 import { ARTIST } from './_lib/artist.js';
 import { audience } from './_lib/zernio.js';
+import { captionMatches } from './_lib/reconcile.js';
 
 export async function studioStatus() {
   const docs = (await all()).filter(c => !c.seed);
@@ -22,7 +23,8 @@ export async function studioStatus() {
     today: { accepted: acceptedToday(docs), cap: STUDIO_CAP, declined: today.filter(c => c.status === 'declined').length, failed: today.filter(c => c.status === 'failed').length, cancelled: today.filter(c => c.cancelled).length, renderSpendUsd: Number(spentToday.toFixed(3)) },
     allTime: { posted: posted.length, renderSpendUsd: Number(docs.reduce((s, c) => s + (c.cost ?? 0), 0).toFixed(2)), photoCommissions: docs.filter(c => c.photo).length, fromInstagram: docs.filter(c => c.source).length },
     audience: aud, // followers/follows/posts — Zernio's daily snapshot; baseline 2026-09-05: 1 follower
-    lastPosted: last ? { id: last.id, title: last.take.title, at: last.painted, instagram: last.instagram } : null,
+    lastPosted: last ? { id: last.id, title: last.take.title, at: last.painted, instagram: last.instagram, captionOnInstagram: captionMatches(last) == null ? 'not read back yet' : captionMatches(last) ? 'matches what was sent' : 'DIFFERS from what was sent' } : null, // issue #22: a publish that cannot be read back is a claim
+    captionMismatches: posted.filter(c => captionMatches(c) === false).map(c => c.id),
     lastCritique: critiques[0] ? { date: critiques[0].date, paintings: critiques[0].paintings, patterns: critiques[0].patterns } : null,
     limits: { perSenderPerDay: 3, perAddressPerDay: 5, studioPerDay: STUDIO_CAP },
   };

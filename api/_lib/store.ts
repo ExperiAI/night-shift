@@ -32,6 +32,7 @@ export type Commission = {
   credited?: string;     // the @handle now in a comment under the painting
   cost?: number;
   rejects?: { image: string; reason: string }[]; // canvases the inspector refused, kept and shown: the cost of the work (docs/stance.md)
+  postedCaption?: string; // the caption AS INSTAGRAM SHOWS IT, read back after publishing (issue #22): a publish that cannot be read back is a claim
   outbound?: import('./outbound.js').Outbound; // one message per event to the commissioner, ever (issue #16); written only by sendOnce()
 };
 
