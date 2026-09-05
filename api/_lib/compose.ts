@@ -1,7 +1,7 @@
 // Slides for a photo commission's carousel. Instagram gives every slide the first slide's
 // aspect, and the first slide is the painting (4:5, 1080×1350) so the grid stays the wall.
-// Slide 2: the photograph, labelled as what was sent. Slide 3: sent and painted, side by side,
-// as two equal tiles — the story of the transformation has to read at phone size.
+// Slide 2: sent and painted side by side as two equal tiles — the transformation has to read at
+// phone size. Slide 3: the photograph whole, labelled as what was sent (the pair slide crops it).
 import sharp from 'sharp';
 import { readFileSync } from 'node:fs';
 

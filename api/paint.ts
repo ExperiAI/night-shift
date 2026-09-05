@@ -57,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (c.photo) { // a photo commission posts as a carousel: painting, the original, the two side by side
       const photo = Buffer.from(await (await fetch(c.photo)).arrayBuffer());
       const [ps, pr] = await Promise.all([photoSlide(photo), pairSlide(photo, img.bytes)]);
-      c.slides = [c.image, await storeImage(c.id, ps, 'image/jpeg', '-photo'), await storeImage(c.id, pr, 'image/jpeg', '-pair')];
+      c.slides = [c.image, await storeImage(c.id, pr, 'image/jpeg', '-pair'), await storeImage(c.id, ps, 'image/jpeg', '-photo')]; // painting, comparison, original
     }
     c.cost = img.cost ?? undefined;
     c.painted = new Date().toISOString();

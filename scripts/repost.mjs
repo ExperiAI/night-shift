@@ -17,7 +17,7 @@ const get = async u => Buffer.from(await (await fetch(u)).arrayBuffer());
 if (c.photo) {
   const [photo, painting] = await Promise.all([get(c.photo), get(c.image)]);
   const [ps, pr] = await Promise.all([photoSlide(photo), pairSlide(photo, painting)]);
-  c.slides = [c.image, await storeImage(c.id, ps, 'image/jpeg', '-photo'), await storeImage(c.id, pr, 'image/jpeg', '-pair')];
+  c.slides = [c.image, await storeImage(c.id, pr, 'image/jpeg', '-pair'), await storeImage(c.id, ps, 'image/jpeg', '-photo')];
   c.take.caption = withPhotoLine(c.take.caption ?? c.take.title ?? 'Night Shift', c.anonymous || !c.from ? 'someone' : c.from);
 }
 const post = await publish(c.slides ?? c.image, c.take.caption ?? c.take.title ?? 'Night Shift');
