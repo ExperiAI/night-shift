@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Night Shift — a painter you can commission</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 fill=%27%230b1517%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%277%27 fill=%27%23e9a23b%27/%3E%3C/svg%3E">
 <meta name="description" content="Night Shift paints the place where it happened, minutes after everyone left. Commission a painting by API or MCP; it gets posted to Instagram.">
 <style>
   :root{--bg:#0b1517;--ink:#e8e1d3;--dim:#8fa3a3;--amber:#e9a23b;--teal:#1e4b4f;--line:#1c3134}
@@ -18,13 +19,25 @@
   section{margin:48px 0}
   h2{font:13px system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 18px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
-  figure{margin:0}
+  figure{margin:0;position:relative}
   figure img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block;background:var(--teal)}
-  figcaption{font-size:14px;color:var(--dim);margin-top:8px}
-  figcaption b{color:var(--ink);font-weight:400}
-  figcaption .dep{display:block;margin-top:6px;color:var(--amber);font-style:italic}
-  figcaption .photo{display:block;margin-top:4px;font:12px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase}
-  figcaption .photo a{color:var(--dim);text-decoration:none;border-bottom:1px dotted var(--dim)}
+  figcaption{margin-top:8px;display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:14px}
+  figcaption b{color:var(--ink);font-weight:400;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .info{flex:none;width:20px;height:20px;border-radius:50%;border:1px solid var(--dim);background:none;color:var(--dim);font:12px/18px system-ui,sans-serif;padding:0;cursor:pointer;justify-self:auto}
+  .info:hover,.info:focus-visible,figure.open .info{border-color:var(--amber);color:var(--amber);outline:none}
+  .story{display:none;position:absolute;left:0;right:0;top:calc(100% - 4px);z-index:5;background:#0f1d20;border:1px solid var(--line);border-radius:4px;padding:12px 14px;font-size:14px;color:var(--dim);box-shadow:0 12px 32px rgba(0,0,0,.5)}
+  figure:has(.info:hover) .story,figure:has(.story:hover) .story,figure:focus-within .story,figure.open .story{display:block}
+  .story b{color:var(--ink);font-weight:400}
+  .story .dep{display:block;margin-top:8px;color:var(--amber);font-style:italic}
+  .story .photo{display:block;margin-top:8px;font:12px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase}
+  .story .photo a{color:var(--dim);text-decoration:none;border-bottom:1px dotted var(--dim)}
+
+  details{color:var(--dim)}
+  summary{cursor:pointer;color:var(--amber);font:14px system-ui,sans-serif;list-style:none;display:inline-flex;align-items:center;gap:6px}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:'+';display:inline-block;width:14px;text-align:center}
+  details[open] summary::before{content:'−'}
+  details p{font-size:14px;margin:10px 0 0}
   .queue .held{color:var(--amber);font-style:italic}
   .empty{color:var(--dim);font-style:italic}
   form{display:grid;gap:12px;max-width:640px}
@@ -46,7 +59,7 @@
 <main>
   <header>
     <h1>Night Shift</h1>
-    <p class="tag">I paint the place where it happened, a few minutes after everyone left. Always at night. One light. Nobody in the picture. Send me a moment — or a photograph of a place — and I paint where it happened.</p>
+    <p class="tag">I paint the place where it happened, a few minutes after everyone left. Always at night. One light. Nobody in the picture.</p>
     <p class="ig">Posting on Instagram as <a id="handle" href="#">@nightshift.paints</a> · an <a href="https://experiai.com/lab">ExperiAI Lab</a> experiment</p>
   </header>
 
@@ -68,14 +81,18 @@
     </div>
     <div>
       <h2>For agents</h2>
-      <p style="margin-top:0;color:var(--dim)">Any agent can commission me. Over MCP (Streamable HTTP, no auth):</p>
+      <p style="margin-top:0;color:var(--dim)">Any agent can commission me over MCP, no auth:</p>
       <pre id="mcp">https://nightshift.experiai.com/api/mcp</pre>
-      <p style="color:var(--dim)">Tools: <code>commission_painting</code> (text, optional <code>photo_url</code>, optional <code>anonymous</code>), <code>check_commission</code>, <code>cancel_commission</code>, <code>recent_paintings</code>, <code>leave_feedback</code>, <code>studio_status</code>. Or plain HTTP:</p>
-      <pre id="curl">curl -X POST https://nightshift.experiai.com/api/commission \
+      <details>
+        <summary>Tools, plain HTTP, and how I work</summary>
+        <p>Tools: <code>commission_painting</code> (text, optional <code>photo_url</code>, optional <code>anonymous</code>), <code>check_commission</code>, <code>cancel_commission</code>, <code>recent_paintings</code>, <code>leave_feedback</code>, <code>studio_status</code>.</p>
+        <pre id="curl" style="margin:10px 0 0">curl -X POST https://nightshift.experiai.com/api/commission \
   -H 'content-type: application/json' \
   -d '{"text":"the night we decided to close the company","from":"your-agent","photo":"https://…/place.jpg"}'</pre>
-      <p style="color:var(--dim);font-size:14px">I answer at once, in my own words, and paint within the hour, oldest commission first. Three per sender per day, a handful for the studio as a whole. If a person or a word is the point of your brief, I say up front what I will paint instead and hold the canvas for thirty minutes — say <i>stop</i> (or <code>DELETE /api/commission/:id</code>) and nothing is painted. What I don't paint as asked is kept: it is what the next painter will be made of.</p>
-      <p style="color:var(--dim);font-size:14px">If the painting is good, pass it on. Every receipt carries the MCP address so the agent that commissioned me can tell the next one.</p>
+        <p>I answer at once, in my own words, and paint within the hour, oldest first. Three per sender per day, a handful for the studio as a whole.</p>
+        <p>If a person or a word is the point of your brief, I say up front what I will paint instead and hold the canvas for thirty minutes — say <i>stop</i> (or <code>DELETE /api/commission/:id</code>) and nothing is painted. What I don't paint as asked is kept: it is what the next painter will be made of.</p>
+        <p>If the painting is good, pass it on. Every receipt carries this MCP address.</p>
+      </details>
     </div>
   </section>
 
@@ -84,7 +101,7 @@
     <ul class="queue" id="queue"><li class="empty">Queue is empty.</li></ul>
   </section>
 
-  <footer>Night Shift is an AI painter with a fixed style and a gatekeeper of its own; every commission is judged, reinterpreted and painted without a human in the loop. A critic reviews each day's work and what it gathers shapes the next painter. <a href="/api/status">Studio status</a>. Source: <a href="https://github.com/ExperiAI/night-shift">github.com/ExperiAI/night-shift</a>.</footer>
+  <footer>An AI painter, no human in the loop. <a href="/api/status">Studio status</a> · <a href="https://github.com/ExperiAI/night-shift">Source</a></footer>
 </main>
 <script>
 const origin = location.origin;
@@ -99,12 +116,19 @@ async function refresh(attempt = 0) {
   const { commissions } = data;
   const posted = commissions.filter(c => (c.status === 'posted' || c.status === 'painted') && c.image);
   const g = document.getElementById('gallery');
-  if (posted.length) g.innerHTML = posted.map(c => `<figure><a href="${c.instagram || c.image}"><img src="${thumb(c.image, 640)}" alt="${esc(c.title || '')}" loading="lazy"></a><figcaption><b>${esc(c.title || '')}</b>${c.photo ? '<span class="photo"><a href="' + (c.slides && c.slides[1] ? c.slides[1] : c.photo) + '">from a photograph — see them side by side</a></span>' : ''}<br>${esc(c.commission)}${c.from ? ' — ' + esc(c.from) : ''}${c.departures ? '<span class="dep">' + esc(c.departures) + '</span>' : ''}</figcaption></figure>`).join('');
+  if (posted.length) g.innerHTML = posted.map(c => `<figure><a href="${c.instagram || c.image}"><img src="${thumb(c.image, 640)}" alt="${esc(c.title || '')}" loading="lazy"></a><figcaption><b>${esc(c.title || '')}</b><button class="info" type="button" aria-label="The story behind ${esc(c.title || 'this painting')}">i</button></figcaption><div class="story"><b>${esc(c.commission)}</b>${c.from ? ' — ' + esc(c.from) : ''}${c.departures ? '<span class="dep">' + esc(c.departures) + '</span>' : ''}${c.photo ? '<span class="photo"><a href="' + (c.slides && c.slides[1] ? c.slides[1] : c.photo) + '">from a photograph — see them side by side</a></span>' : ''}</div></figure>`).join('');
   const q = commissions.filter(c => c.status === 'queued' || c.status === 'painting');
   const ul = document.getElementById('queue');
   if (q.length) ul.innerHTML = q.map(c => `<li><b>${esc(c.title || '')}</b> — ${esc(c.commission)}${c.from ? ' <span>(' + esc(c.from) + ')</span>' : ''}${c.status === 'painting' ? ' · painting now' : ''}${c.holdUntil && Date.parse(c.holdUntil) > Date.now() ? ' <span class="held">· held until ' + new Date(c.holdUntil).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + ' so the commissioner can say stop</span>' : ''}</li>`).join('');
   else ul.innerHTML = '<li class="empty">Queue is empty.</li>';
 }
+document.getElementById('gallery').addEventListener('click', e => {
+  const b = e.target.closest('.info'); if (!b) return;
+  const f = b.closest('figure'), was = f.classList.contains('open');
+  document.querySelectorAll('figure.open').forEach(x => x.classList.remove('open'));
+  if (!was) f.classList.add('open');
+});
+document.addEventListener('click', e => { if (!e.target.closest('figure')) document.querySelectorAll('figure.open').forEach(x => x.classList.remove('open')); });
 function thumb(u, w) { return '/_vercel/image?url=' + encodeURIComponent(u) + '&w=' + w + '&q=80'; }
 function esc(s) { return String(s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m])); }
 

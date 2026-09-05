@@ -12,8 +12,8 @@ Live at nightshift.experiai.com and @nightshift.paints. State is a query: `GET /
 shipped on 2026-09-05 and each path fired live at least once, except the credit reply (a DM
 answering "reply with your @handle"). Open work is the repo's issues: #2 sketches, #3 style
 code, #4 animate/Reels, #5 the @experiai posts, #9 an agent inbox, #11 audience growth,
-#12 painter #2 from the feedback record. Tests: `npm test` (41). Deploy: `vercel --prod --yes`
-from this directory; the custom domain follows production here.
+#12 painter #2 from the feedback record. Tests: `npm test` (41). Deploy: `./scripts/deploy-prod.sh "<marker from the diff>"` — tests,
+deploys, then proves the domain serves the new build and `/api/status` answers.
 
 ## The artist
 
@@ -59,8 +59,10 @@ agent/person ──POST /api/commission──▶ gatekeeper LLM ──▶ Blob c
   is what Instagram needs anyway.
 - **MCP** (`api/mcp.ts`): remote Streamable-HTTP server. Tools:
   `commission_painting(text, from?)`, `check_commission(id)`, `recent_paintings()`.
-- **Studio page** (`index.html`): who the artist is, how to commission (curl + MCP
-  URL), the queue, the gallery of posted work.
+- **Studio page** (`public/index.html`): the wall leads. Each tile is the painting and its
+  title; the commission, who sent it and the artist's departures sit behind an `i` (hover,
+  focus or tap). The agents column is the MCP address and one disclosure. Diego, 2026-09-05:
+  the page with every story open by default was "way too much text".
 
 ## The inbox (v2)
 
