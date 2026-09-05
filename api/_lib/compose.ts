@@ -60,26 +60,38 @@ function seeded(seed: string): () => number { // mulberry32 over a string hash: 
 export function signatureChoice(seed: string, w: number, h: number) {
   const r = seeded(seed);
   const file = SIGNATURES[Math.floor(r() * SIGNATURES.length)];
-  const width = Math.round(w * (0.13 + r() * 0.04));           // 13–17% of the canvas width: reads on a phone, small on the wall
+  const width = Math.round(w * (0.19 + r() * 0.05));           // 19–24% of the canvas width: a phone shows the canvas ~400px wide, so the mark must read there (Diego, 2026-09-05: "almost invisible")
   const angle = -3.5 + r() * 5;                                 // a slight slant, mostly downhill to the right
   const right = r() < 0.85;                                     // lower right, as most painters sign; sometimes left
   const mx = Math.round(w * (0.03 + r() * 0.025)), my = Math.round(h * (0.025 + r() * 0.02));
-  const opacity = 0.82 + r() * 0.14;                            // pressure: a lighter or a fuller brush
+  const opacity = 0.9 + r() * 0.1;                              // pressure: a fuller or a slightly lighter brush, never faint
   return { file, width, angle, right, mx, my, opacity };
+}
+const lumOf = (rgb: number[]) => 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
+/** The tone of the paint the painter signs with: amber as painted, pale cream on a dark passage, umber on a lit one.
+ *  Chosen by measured contrast against the patch under the mark, never by a fixed threshold. */
+export function signatureTone(patchLum: number): { name: 'amber' | 'cream' | 'umber'; mul: number[]; add: number[] } {
+  const tones = [
+    { name: 'amber' as const, mul: [1, 1, 1], add: [0, 0, 0], lum: 150 },          // the paint as it was signed (~150 lum)
+    { name: 'cream' as const, mul: [1.35, 1.35, 1.3], add: [40, 40, 30], lum: 235 },
+    { name: 'umber' as const, mul: [0.3, 0.25, 0.2], add: [0, 0, 0], lum: 40 },
+  ];
+  return tones.map(t => ({ ...t, d: Math.abs(t.lum - patchLum) })).sort((a, b) => b.d - a.d)[0];
 }
 export async function signPainting(painting: Buffer, seed = 'night-shift'): Promise<Buffer> {
   const m = await sharp(painting).metadata();
   const w = m.width ?? W, h = m.height ?? H;
   const c = signatureChoice(seed, w, h);
   const mark = await sharp(readFileSync(new URL(`../../public/signatures/${c.file}`, import.meta.url)))
-    .resize({ width: c.width }).rotate(c.angle, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .ensureAlpha().linear([1, 1, 1, c.opacity], [0, 0, 0, 0]).png().toBuffer();
+    .resize({ width: c.width }).rotate(c.angle, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).ensureAlpha().png().toBuffer();
   const ms = await size(mark);
   const left = c.right ? w - ms.w - c.mx : c.mx, top = h - ms.h - c.my;
-  // A painter signing a lit passage reaches for umber, not amber: on a bright patch the mark goes dark.
-  const patch = await sharp(painting).extract({ left, top, width: ms.w, height: ms.h }).removeAlpha().stats();
-  const lum = patch.channels.slice(0, 3).reduce((a, ch) => a + ch.mean, 0) / 3;
-  const ink = lum > 120 ? await sharp(mark).linear([0.42, 0.36, 0.3, 1], [0, 0, 0, 0]).png().toBuffer() : mark;
+  // sharp's stats() ignores an extract() in the same pipeline and measures the whole image (learned 2026-09-05: every
+  // patch read as dark and a pale signature went out on a lit pavement), so the crop is read as raw pixels.
+  const { data: px, info } = await sharp(painting).extract({ left, top, width: ms.w, height: ms.h }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const sum = [0, 0, 0]; for (let i = 0; i < px.length; i += info.channels) { sum[0] += px[i]; sum[1] += px[i + 1]; sum[2] += px[i + 2]; }
+  const tone = signatureTone(lumOf(sum.map(v => v / (px.length / info.channels))));
+  const ink = await sharp(mark).linear([...tone.mul, c.opacity], [...tone.add, 0]).png().toBuffer();
   return sharp(painting).composite([{ input: ink, left, top }]).png().toBuffer();
 }
 

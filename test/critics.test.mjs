@@ -10,7 +10,7 @@ import { ARTIST, SIGNOFF, gatekeeperSystemPrompt, isTestSender } from '../api/_l
 import { inspectorSystemPrompt } from '../api/_lib/openrouter.ts';
 import { needsDepartures, publicView } from '../api/_lib/desk.ts';
 import { reactionSystemPrompt } from '../api/_lib/react.ts';
-import { signPainting, signatureChoice } from '../api/_lib/compose.ts';
+import { signPainting, signatureChoice, signatureTone } from '../api/_lib/compose.ts';
 import sharp from 'sharp';
 import { criticSystemPrompt } from '../api/critic.ts';
 
@@ -65,13 +65,15 @@ test('a painted signature is a reject; the painter signs in its own hand, differ
   const a = signatureChoice('mtnf4vmn-0oi2if', 928, 1152), b = signatureChoice('mto66k5s-1mdu15', 928, 1152);
   assert.deepEqual(a, signatureChoice('mtnf4vmn-0oi2if', 928, 1152), 'the same id always signs the same way');
   assert.ok(a.file !== b.file || a.angle !== b.angle || a.width !== b.width, 'two paintings never carry the same mark');
-  assert.ok(a.width >= 120 && a.width <= 160 && Math.abs(a.angle) < 4 && a.opacity > 0.8);
+  assert.ok(a.width >= 176 && a.width <= 223 && Math.abs(a.angle) < 4 && a.opacity >= 0.9, 'big enough to read on a phone, never faint');
+  // the tone is chosen by contrast against the patch under the mark (Diego, 2026-09-05: "almost invisible")
+  assert.equal(signatureTone(30).name, 'cream'); assert.equal(signatureTone(200).name, 'umber'); assert.equal(signatureTone(125).name, 'cream');
   const blank = await sharp({ create: { width: 928, height: 1152, channels: 3, background: { r: 12, g: 26, b: 32 } } }).png().toBuffer();
   const signed = await signPainting(blank, 'mtnf4vmn-0oi2if');
   const m = await sharp(signed).metadata();
   assert.equal(m.width, 928); assert.equal(m.height, 1152);
   const band = await sharp(signed).removeAlpha().extract({ left: 0, top: 1000, width: 928, height: 152 }).raw().toBuffer();
-  assert.ok([...band].filter((v, i) => i % 3 === 0 && v > 90).length > 200, 'the mark sits in the lower band');
+  assert.ok([...band].filter((v, i) => i % 3 === 0 && v > 90).length > 800, 'the mark sits in the lower band, cream on a dark ground');
   const top = await sharp(signed).removeAlpha().extract({ left: 0, top: 0, width: 928, height: 900 }).raw().toBuffer();
   assert.equal([...top].filter((v, i) => i % 3 === 0 && v > 90).length, 0, 'nothing else on the canvas changes');
 });
