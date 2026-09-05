@@ -62,6 +62,18 @@ export function withPhotoLine(caption: string, credit: string): string {
   return i >= 0 ? `${caption.slice(0, i)}${line}\n\n${caption.slice(i)}` : `${caption.trim()}\n\n${line}`;
 }
 
+/** The critic, 2026-09-05 night: to the public, a departure the commissioner heard in private looked like silent
+ *  erasure ("What the Anger Left"). The stance says limits are stated as limits — so a departure is said on the post
+ *  too, right before the sign-off, in the painter's words. Not for a private commission: what was sent stays with the
+ *  sender, and a departure names it. */
+export function withDepartures(caption: string, departures: string | undefined, anonymous: boolean): string {
+  if (!departures || anonymous) return caption;
+  const line = departures.trim();
+  if (caption.includes(line)) return caption;
+  const i = caption.lastIndexOf(SIGNOFF);
+  return i >= 0 ? `${caption.slice(0, i).trimEnd()}\n\n${line}\n\n${caption.slice(i)}` : `${caption.trim()}\n\n${line}`;
+}
+
 /** Words that name what this painter will not paint as asked. When one is in the commission and the take says
  *  nothing about leaving it out, the substitution would be silent — the engineer's and the philosopher's bar. */
 const ASKS_FOR_A_PERSON = /\b(girl|boy|man|woman|men|women|people|person|everyone|crowd|friend|mother|father|grandmother|grandfather|nonna|nonno|mom|dad|child|children|kid|kids|family|couple|face|portrait|figure|someone|anyone|myself|me and|us)\b/i;
@@ -139,6 +151,22 @@ export function repeatsToday(docs: Pick<Commission, 'created' | 'status' | 'take
   return hit ? `${norm(hit.take.light!)} on ${norm(hit.take.anchor!)}`.replace(/^/, 'a ').replace(' on ', ' on a ') : null;
 }
 
+/** The critic, 2026-09-05 night: one glove, one curling sticker, one blank board, across unrelated commissions. A
+ *  trace already painted today is a repeat, named so the gatekeeper can be told — the light-and-anchor rule (#20)
+ *  extended to the things left behind. Matching is loose on purpose ("one glove" repeats "a single glove"). */
+const traceKey = (s: string) => norm(s).replace(/\b(old|worn|cold|single|empty|half|curling|blank|wet|dry|left|forgotten)\b/g, '').replace(/s\b/g, '').replace(/\s+/g, ' ').trim();
+export function repeatsTraces(docs: Pick<Commission, 'created' | 'status' | 'take' | 'seed'>[], take: Pick<Take, 'traces'>, now = Date.now()): string | null {
+  if (!take.traces?.length) return null;
+  const since = now - 86_400_000;
+  const painted = new Map<string, string>();
+  for (const c of docs) {
+    if (c.seed || c.status === 'declined' || c.status === 'failed' || Date.parse(c.created) <= since) continue;
+    for (const t of c.take?.traces ?? []) { const k = traceKey(t); if (k) painted.set(k, t); }
+  }
+  for (const t of take.traces) { const k = traceKey(t); if (k && painted.has(k)) return `a ${k}`; }
+  return null;
+}
+
 /** Issue #23: the register least recently painted (never painted first, in list order), over the studio's accepted
  *  work. Rotation is enforced here, before the model is asked — the model cannot vary what it does not see, and it
  *  cannot be trusted to vary what it does. */
@@ -193,12 +221,18 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
     const again = take.accepted ? repeatsToday(docs, take) : null;
     if (again) await saveFeedback({ id: newId(), text: `For this painter: asked twice, it still reached for ${again} (commission: "${text.slice(0, 80)}").`, from: 'the desk', channel: 'api', about: 'repeat', created: new Date().toISOString() });
   }
+  const traceRepeat = take.accepted ? repeatsTraces(docs, take) : null;
+  if (traceRepeat) { // the same trace twice in a day is the model's habit, not the commission's; asked once more, then painted anyway and filed
+    take = await chatJSON<Take>(system, `${brief}\n\nThe studio already painted ${traceRepeat} today. Choose different traces of what happened: none of ${take.traces!.join(', ')}.`, undefined, photo);
+    if (take.accepted && repeatsTraces(docs, take)) await saveFeedback({ id: newId(), text: `For this painter: asked twice, it still reached for ${repeatsTraces(docs, take)} as a trace (commission: "${text.slice(0, 80)}").`, from: 'the desk', channel: 'api', about: 'repeat', created: new Date().toISOString() });
+  }
   if (needsDepartures(text, take, exception)) { // asked once more, then fail closed: no silent substitution reaches the wall
     take = await chatJSON<Take>(system, `${brief}\n\nYour previous take left out part of this commission (a person, a number or words) and said nothing about it. departures required: name what you left out and what stands in for it.`, undefined, photo);
     if (needsDepartures(text, take, exception)) throw Object.assign(new Error('The painter could not say what it left out of this commission, so it will not paint it silently. Ask again, or ask for the place without the person or the words.'), { status: 422 });
   }
   if (take.accepted) { take.register = register.key; take.prompt = composePrompt(register, take.prompt || take.scene || text, exception); } // the contract and the register are the studio's, not the model's
   if (anonymous && take.caption) take.caption = privateCaption(take.caption, text); // fail closed: never the sender's sentence in public
+  if (take.caption) take.caption = withDepartures(take.caption, take.departures, anonymous); // a limit is stated on the post too (critic, 2026-09-05)
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
   if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out
   const holdUntil = take.accepted ? holdFor(take.core_conflict) : undefined;

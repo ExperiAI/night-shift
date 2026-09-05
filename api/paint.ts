@@ -13,7 +13,7 @@ async function alsoStory(c: { image?: string; story?: string }) {
 import { tellSource } from './_lib/react.js';
 import { PHOTO, registerByKey } from './_lib/artist.js';
 import { isHeld, expiredHolds, cancel } from './_lib/desk.js';
-import { photoSlide, pairSlide, signPainting } from './_lib/compose.js';
+import { photoSlide, pairSlide, signPainting, avoidLine } from './_lib/compose.js';
 
 export const config = { maxDuration: 300 };
 
@@ -57,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, intended, c.exception);
     if (!check.ok) { // one more try, told what went wrong; the refused canvas is kept and shown (docs/stance.md)
       c.rejects = [...(c.rejects ?? []), { image: await storeImage(c.id, img.bytes, img.mime, `-reject${(c.rejects?.length ?? 0) + 1}`), reason: check.reason.slice(0, 300) }];
-      img = await renderImage(`${prompt}\n\nAvoid: ${check.reason}`, { refs });
+      img = await renderImage(`${prompt}\n\n${avoidLine(check.reason)}`, { refs });
       check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, intended, c.exception);
       if (!check.ok) {
         c.rejects.push({ image: await storeImage(c.id, img.bytes, img.mime, `-reject${c.rejects.length + 1}`), reason: check.reason.slice(0, 300) });

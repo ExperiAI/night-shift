@@ -238,6 +238,16 @@ the whole point of a brief erased instead of echoed. Two changes to this painter
   with the usual hold. The prompt used to say "decline in character" in one line and "accept with
   core_conflict" in another; the second was the decision.
 
+The second review (2026-09-05 night), three more, filtered against the standing decisions (never refuse;
+always night — the critic proposed both again and both stay):
+
+- **A departure is said on the post too** (`withDepartures`, before the sign-off): to the public, a
+  departure the commissioner heard in private read as silent erasure. Never on a private commission.
+- **Traces rotate like light and anchor** (`repeatsTraces`, #20 extended): the take names its two or
+  three traces; a trace painted today is named to the gatekeeper once, then painted and filed.
+- **A retry after a legible-text refusal says what a blank screen is** (`avoidLine`): the renderer
+  wrote "0.00 USDC" twice past a prompt that forbade it and "Avoid: legible text" did not move it.
+
 Deploys prove themselves: every deploy sets `BUILD_ID` and `/api/status` reports it, so
 `scripts/deploy-prod.sh` needs no hand-picked marker.
 

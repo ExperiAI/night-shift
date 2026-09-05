@@ -119,3 +119,13 @@ export async function openDoorStory(): Promise<Buffer> {
     ])
     .jpeg({ quality: 88 }).toBuffer();
 }
+
+/** The line appended to a render prompt after the inspector refused a canvas. A refusal for legible text gets
+ *  more than "avoid": on 2026-09-05 the renderer wrote "0.00 USDC" on a screen twice past a prompt that forbade
+ *  it, and "Avoid: legible text" did not move it. The retry says in render terms what the blank thing IS. */
+export function avoidLine(reason: string): string {
+  const legible = /\b(legible|text|letter|letters|character|characters|digit|digits|number|numbers|word|words|sign|label|writing)\b/i.test(reason);
+  return legible
+    ? `Avoid: ${reason}\nEvery screen, monitor, sign, page and label in the picture is a blank lit surface: an even glow with no characters, no digits, no symbols, no marks of any kind on it. If the brief named a number or a word, its place is an empty glow.`
+    : `Avoid: ${reason}`;
+}

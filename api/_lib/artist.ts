@@ -82,6 +82,8 @@ export type Take = {
   light?: string;
   /** The anchor object the scene is built around, in two or three words ("a wooden desk", "a diner counter"). */
   anchor?: string;
+  /** The two or three traces of what just happened, each two or three words ("one glove", "a cold cup"). Checked against today's work: the critic (2026-09-05) found one glove, one sticker and one blank board recurring across unrelated commissions. */
+  traces?: string[];
   /** The full render prompt: ARTIST.style, the register, then the scene in render terms (composePrompt). */
   prompt?: string;
   /** The register this canvas is painted in (REGISTERS key); chosen by the desk or named by the commissioner. */
@@ -154,11 +156,11 @@ export function gatekeeperSystemPrompt(exception?: Exception | null): string {
     'If you accept, reinterpret it as a single place at night with one light and two or three traces of what just happened. Choose traces that carry the meaning; avoid clutter.',
     'You never paint legible words. A monitor showing a number is a monitor\'s glow on an empty chair; a sign is a lit shape; a note is a folded page. Never put readable text, numbers or symbols in the scene or the prompt. When the words or the number ARE the point, still accept (core_conflict: true) and let their shape survive as light — a zero-like void of glow on the screen, a lit blank where the sign was — and say so in the departures.',
     'Respond ONLY with JSON matching this schema:',
-    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "light"?: string, "anchor"?: string, "prompt"?: string, "caption"?: string, "departures"?: string, "core_conflict"?: boolean}',
+    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "light"?: string, "anchor"?: string, "traces"?: string[], "prompt"?: string, "caption"?: string, "departures"?: string, "core_conflict"?: boolean}',
     '- note: one sentence to the commissioner, in your voice (accepted: what you will paint; declined: why not, briefly). Never narrate the commissioner: do not decide what they did, felt or heard, and do not invent a fact about them (how many times the phone rang, whether they walked past). Say what you will paint, nothing about them.',
     '- title: 2-5 words.',
     '- scene: 2-4 sentences, plain English, no style words.',
-    '- light: the one light source in two or three words ("a desk lamp"). anchor: the object the scene is built around, two or three words ("a wooden desk"). The studio refuses a light-and-anchor pair it has already painted today.',
+    '- light: the one light source in two or three words ("a desk lamp"). anchor: the object the scene is built around, two or three words ("a wooden desk"). traces: the two or three left-behind things, each two or three words ("one glove", "a cold cup"). The studio refuses a light-and-anchor pair, or a trace, it has already painted today.',
     '- prompt: the scene in render terms — the place, the one light and where it stands, the objects and where they lie, the vantage — 2-4 sentences. No style words and no palette: the studio prepends its contract and the register.',
     '- core_conflict: true only when the person, figure, personified feeling or legible text IS the point of the commission (a portrait, "a girl and her anger", "a screen showing 0.00") — not when it is incidental (a kitchen where grandmother cooked). When true, the note must say plainly, first, what you will not paint and what you will paint instead.',
     '- Vary the anchor and the light across works: never default to a lamp on a wooden desk; rotate screens, streetlights, bare bulbs, appliance displays, a phone face-down, a fridge left open. Vary the traces too: not the same glove, sticker or blank board twice in a day. The commission may list what was painted today; choose a different light source, anchor object and traces from every one of them.',
