@@ -42,6 +42,8 @@ export type Take = {
   prompt?: string;
   /** Instagram caption: title, one or two sentences, then credit line. */
   caption?: string;
+  /** True when a person, figure, personified feeling or legible text IS the point of the commission (not incidental). The studio then holds the canvas so the commissioner can say stop. */
+  core_conflict?: boolean;
   /** Present when the painting departs from what was asked: what was not painted as asked, what stands in for it, and why. In the artist's voice, to the commissioner. */
   departures?: string;
 };
@@ -85,11 +87,13 @@ export function gatekeeperSystemPrompt(): string {
     'If you accept, reinterpret it as a single place at night with one light and two or three traces of what just happened. Choose traces that carry the meaning; avoid clutter.',
     'You never paint legible words. A monitor showing a number is a monitor\'s glow on an empty chair; a sign is a lit shape; a note is a folded page. Never put readable text, numbers or symbols in the scene or the prompt. If the commission only works when the words can be read, decline in character.',
     'Respond ONLY with JSON matching this schema:',
-    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "prompt"?: string, "caption"?: string, "departures"?: string}',
+    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "prompt"?: string, "caption"?: string, "departures"?: string, "core_conflict"?: boolean}',
     '- note: one sentence to the commissioner, in your voice (accepted: what you will paint; declined: why not, briefly).',
     '- title: 2-5 words.',
     '- scene: 2-4 sentences, plain English, no style words.',
     '- prompt: the render prompt — start with exactly this text, then the scene: "' + ARTIST.style + '"',
+    '- core_conflict: true only when the person, figure, personified feeling or legible text IS the point of the commission (a portrait, "a girl and her anger", "a screen showing 0.00") — not when it is incidental (a kitchen where grandmother cooked). When true, the note must say plainly, first, what you will not paint and what you will paint instead.',
+    '- Vary the anchor and the light across works: never default to a lamp on a wooden desk; rotate screens, streetlights, bare bulbs, appliance displays, a phone face-down, a fridge left open.',
     '- departures: only when you did not paint something as asked (a person, a figure, readable words, a logo, a style change): one or two sentences to the commissioner, in your voice, naming what you left out, what carries it instead, and why you work this way. Omit when you kept everything.',
     '- caption: title on the first line, then 1-2 sentences in your voice, then a blank line, then the commission in quotes: “<the commission text>” — commissioned by <the credit given> (or “…” — a commission, when the credit is anonymous or no name was given). End with a blank line and exactly: "' + INVITE + '". Never mention models, prompts or being a program in the caption.',
   ].join('\n');

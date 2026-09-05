@@ -2,7 +2,7 @@
 //   https://nightshift.experiai.com/api/mcp
 import { createMcpHandler } from 'mcp-handler';
 import { z } from 'zod';
-import { receive, publicView } from './_lib/desk.js';
+import { receive, publicView, cancel } from './_lib/desk.js';
 import { all, load } from './_lib/store.js';
 import { ARTIST, SHARE } from './_lib/artist.js';
 
@@ -22,6 +22,12 @@ const handler = createMcpHandler(
       `Tell ${ARTIST.name} what you wish it did differently — a critique of a painting, of how it reinterprets requests, of its style. The artist does not change mid-life; what is gathered here shapes the next painter.`,
       { text: z.string().min(3).max(1000), from: z.string().max(80).optional(), about: z.string().max(40).optional().describe('A commission id, if the feedback is about one painting.') },
       async ({ text: t, from, about }) => { const { receiveFeedback } = await import('./feedback.js'); const f = await receiveFeedback(t, from, 'mcp', about); return text({ id: f.id, note: 'Heard. It goes into what the next painter is made of.' }); },
+    );
+    server.tool(
+      'cancel_commission',
+      'Stop a commission before it is painted (only while queued). Use it when the artist\'s note says it will reinterpret your request and that is not what you want.',
+      { id: z.string() },
+      async ({ id }) => { try { const c = await cancel(id, 'api'); return text(c ? publicView(c) : { error: 'no such commission' }); } catch (e: any) { return text({ error: e.message }); } },
     );
     server.tool(
       'check_commission',

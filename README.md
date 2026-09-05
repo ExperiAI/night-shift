@@ -92,6 +92,17 @@ the painting — "Commissioned by @handle" — which notifies and links them exa
 would (Instagram's API cannot edit captions after posting). Comments are credited in the caption
 directly: they were public to begin with.
 
+## Never refuse, never substitute silently
+
+Diego, 2026-09-05: *be sure we're not creating a bad experience where we're constantly refusing.*
+So the artist declines only what is harmful. When a person, figure or legible text IS the point of
+the brief (`core_conflict` from the gatekeeper), the note says first what will not be painted and
+what will be painted instead, the canvas is **held 30 minutes** (`holdUntil`; the painter skips
+held work), and a "stop" — in a DM or comment, `DELETE /api/commission/:id`, or the MCP tool
+`cancel_commission` — cancels it at no cost, answered warmly. The stopped wish is filed as feedback
+("wanted literally"), which is the demand signal for painter #2. Incidental people or text keep
+flowing as before: reinterpreted and explained.
+
 ## Feedback shapes the next painter
 
 V, 2026-09-05: it is frustrating that the artist changes what you explicitly asked for. Night Shift

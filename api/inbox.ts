@@ -7,8 +7,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { chatJSON } from './_lib/openrouter.js';
 import { instagramAccount, listComments, listMessages, replyToComment, sendMessage, commentOnPost } from './_lib/zernio.js';
 import { loadInboxState, saveInboxState, all, load, save } from './_lib/store.js';
+import { cancel, isHeld } from './_lib/desk.js';
 import type { Receipt } from './_lib/desk.js';
-import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
+import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, isStop, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
 
 export const config = { maxDuration: 300 };
 
@@ -55,6 +56,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   for (const it of fresh) {
     if (!it.text.trim() && !it.photo) continue;
+    // "stop" from someone whose commission is still held: nothing is painted, the wish is kept.
+    if (isStop(it.text)) {
+      const held = docs.find(c => isHeld(c) && c.source && (it.kind === 'dm' ? c.source.conversationId === it.ref.conversationId : c.source.handle === it.handle));
+      if (held) {
+        if (!dry) {
+          try {
+            const c = await cancel(held.id, 'stop');
+            const reply = c?.take.note ?? "Understood. I won't paint it.";
+            if (it.kind === 'comment' && it.ref.postId && it.ref.commentId) await replyToComment(acct.id, it.ref.postId, it.ref.commentId, reply);
+            else if (it.ref.conversationId) await sendMessage(acct.id, it.ref.conversationId, reply);
+          } catch (e: any) { log.push({ id: it.id, error: String(e.message).slice(0, 200) }); continue; }
+        }
+        log.push({ id: it.id, from: it.handle, kind: 'stop', commission: held.id, replied: true });
+        continue;
+      }
+    }
     // A DM answering CREDIT_ASK with a handle: name them in a comment under their painting.
     const handle = it.kind === 'dm' && !it.photo ? creditHandle(it.text) : null;
     const owed = handle && it.ref.conversationId ? awaitingCredit(docs, it.ref.conversationId) : null;

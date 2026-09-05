@@ -20,6 +20,8 @@ export type Commission = {
   photo?: string;       // our copy of the photograph the commission came with (references/<id>)
   slides?: string[];    // carousel for a photo commission: painting, the photo, both side by side
   seed?: string;        // written by scripts/seed.mjs: made outside the pipeline, not a commission
+  holdUntil?: string;   // core-conflict commissions wait this long so the commissioner can say stop
+  cancelled?: string;   // when the commissioner stopped it before painting
   requeued?: string;    // put back in the queue after a gatekeeper fix (scripts/requeue.mjs)
   source?: { channel: 'instagram-comment' | 'instagram-dm'; handle: string; postId?: string; commentId?: string; conversationId?: string };
   sourceReplied?: string; // when the artist answered in the source thread with the finished painting

@@ -11,6 +11,7 @@ async function alsoStory(c: { image?: string; story?: string }) {
 }
 import { tellSource } from './_lib/react.js';
 import { PHOTO } from './_lib/artist.js';
+import { isHeld } from './_lib/desk.js';
 import { photoSlide, pairSlide } from './_lib/compose.js';
 
 export const config = { maxDuration: 300 };
@@ -21,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const dry = req.query.dry === '1';
 
   const docs = await all();
-  const queue = docs.filter(c => c.status === 'queued').sort((a, b) => a.created.localeCompare(b.created));
+  const queue = docs.filter(c => c.status === 'queued' && !isHeld(c)).sort((a, b) => a.created.localeCompare(b.created)); // held work waits for its stop window
   const c = queue[0];
   if (!c) {
     // Nothing to paint: put one already-painted work on Instagram, oldest first.

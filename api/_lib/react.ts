@@ -64,6 +64,12 @@ export function reactionSystemPrompt(): string {
   ].join('\n');
 }
 
+/** "stop", "no", "cancel", "don't" as an answer — not as a word inside a scene. */
+export function isStop(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return /^(stop|cancel|no|nope|don't|dont|do not)\b/.test(t) && t.length <= 60 && !/\b(kitchen|room|table|paint the|scene)\b/.test(t.slice(3));
+}
+
 /** Asked once, with the finished painting, to a DM commissioner (their post is anonymous until they answer). */
 export const CREDIT_ASK = "If you'd like your name under it, reply with your @handle and I'll add it.";
 

@@ -1,7 +1,7 @@
 // The commission desk: what happens when someone asks for a painting.
 import { gatekeeperSystemPrompt, INVITE, PHOTO, SHARE, type Take } from './artist.js';
 import { chatJSON } from './openrouter.js';
-import { all, newId, save, storeReference, type Commission } from './store.js';
+import { all, load, newId, save, saveFeedback, storeReference, type Commission } from './store.js';
 import { normalizePhoto } from './compose.js';
 
 const MAX_PER_SENDER_PER_DAY = 3;
@@ -9,10 +9,31 @@ const MAX_PER_IP_PER_DAY = 5;
 /** Paintings the studio accepts per day, all senders together. Budget: ~$0.15–0.30 each. */
 export const STUDIO_CAP = Number(process.env.MAX_PAINTINGS_PER_DAY ?? 8);
 export const INTERNAL = 'internal';
+/** How long a core-conflict commission waits before painting, so the commissioner can say stop. */
+export const HOLD_MINUTES = 30;
+export const STOP_HINT = `If that is not what you want, say "stop" within ${HOLD_MINUTES} minutes and nothing will be painted.`;
+export function holdFor(coreConflict: boolean | undefined, now = Date.now()): string | undefined {
+  return coreConflict ? new Date(now + HOLD_MINUTES * 60_000).toISOString() : undefined;
+}
+export function isHeld(c: { status: string; holdUntil?: string }, now = Date.now()): boolean {
+  return c.status === 'queued' && Boolean(c.holdUntil) && Date.parse(c.holdUntil!) > now;
+}
 const MAX_TEXT = 600;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
 export type Receipt = { id: string; status: Commission['status']; note: string; departures?: string; statusUrl: string; share?: typeof SHARE & { wall: string } };
+
+/** Cancel a commission that has not been painted yet. The wish is kept: it is what the next painter is made of. */
+export async function cancel(id: string, why: 'stop' | 'api'): Promise<Commission | null> {
+  const c = await load(id);
+  if (!c) return null;
+  if (c.status !== 'queued') throw Object.assign(new Error(`too late — it is already ${c.status}`), { status: 409 });
+  c.status = 'declined'; c.take.note = why === 'stop' ? "Understood. I won't paint it. I keep the request for the painter who paints people." : 'Cancelled by the commissioner.';
+  c.cancelled = new Date().toISOString();
+  await save(c);
+  await saveFeedback({ id: newId(), text: `Wanted literally, not reinterpreted: "${c.text}"`, from: c.from, channel: c.source?.channel ?? 'api', about: c.id, created: c.cancelled });
+  return c;
+}
 
 /** The caption of a photo commission says so, right before the invite, so the carousel reads as a story. */
 export function withPhotoLine(caption: string, credit: string): string {
@@ -68,9 +89,11 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const take = await chatJSON<Take>(system, `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}`, undefined, photo);
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
   if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out
+  const holdUntil = take.accepted ? holdFor(take.core_conflict) : undefined;
+  if (holdUntil) take.note = `${take.note} ${STOP_HINT}`;
   const c: Commission = {
     id, text, from, created: new Date().toISOString(),
-    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}),
+    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}), ...(holdUntil ? { holdUntil } : {}),
   };
   await save(c);
   const receipt: Receipt = { id: c.id, status: c.status, note: take.note, ...(take.departures ? { departures: take.departures } : {}), statusUrl: `${origin}/api/commission/${c.id}` };
