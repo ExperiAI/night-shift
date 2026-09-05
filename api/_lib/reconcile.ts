@@ -9,6 +9,11 @@ import { CREDIT_ASK } from './react.js';
 
 export const needsReconcile = (c: Pick<Commission, 'status' | 'instagram' | 'mediaId'>) => c.status === 'posted' && (!c.mediaId || !isPostLink(c.instagram));
 
+/** A DM commission that is up, with a real link, whose commissioner was never asked about credit —
+ *  because the link was not there when the artist replied. */
+export const owesCreditAsk = (c: Pick<Commission, 'status' | 'instagram' | 'mediaId' | 'source' | 'anonymous' | 'creditAsked' | 'credited' | 'sourceReplied'>) =>
+  c.status === 'posted' && Boolean(c.mediaId) && isPostLink(c.instagram) && c.source?.channel === 'instagram-dm' && Boolean(c.source.conversationId) && Boolean(c.anonymous) && Boolean(c.sourceReplied) && !c.creditAsked && !c.credited;
+
 /** The Zernio post whose caption is this commission's, and which Instagram still lists. Newest wins:
  *  a painting posted twice (a repost after a deletion) has one live copy. */
 export function matchPost(c: Pick<Commission, 'take'>, posts: PublishedPost[], live: Set<string>): PublishedPost | null {
@@ -22,7 +27,7 @@ export function matchPost(c: Pick<Commission, 'take'>, posts: PublishedPost[], l
 export async function reconcile(docs: Commission[], opts: { dry?: boolean } = {}): Promise<{ checked: number; fixed: string[]; creditAsked: string[] }> {
   const todo = docs.filter(needsReconcile);
   const out = { checked: todo.length, fixed: [] as string[], creditAsked: [] as string[] };
-  if (!todo.length) return out;
+  if (!todo.length && (opts.dry || !docs.some(owesCreditAsk))) return out;
   const acct = await instagramAccount();
   if (!acct) return out;
   let posts: PublishedPost[] | null = null, live: Set<string> | null = null;
@@ -36,13 +41,13 @@ export async function reconcile(docs: Commission[], opts: { dry?: boolean } = {}
     if (!found?.mediaId || !found.permalink) continue;
     c.mediaId = found.mediaId; c.instagram = found.permalink;
     await save(c); out.fixed.push(c.id);
-    // A DM commission got "it's up" with the profile link and no credit question. Now it can be asked.
-    if (!opts.dry && c.source?.channel === 'instagram-dm' && c.source.conversationId && c.anonymous && !c.creditAsked && !c.credited) {
-      try {
-        await sendMessage(acct.id, c.source.conversationId, `${c.take.title ?? 'Your painting'} — the link, now that it has one: ${c.instagram}\n\n${CREDIT_ASK}`);
-        c.creditAsked = new Date().toISOString(); await save(c); out.creditAsked.push(c.id);
-      } catch { /* the wall is right; the question can wait for the next run */ }
-    }
+  }
+  // A DM commission got "it's up" with the profile link and no credit question. Now it can be asked.
+  if (!opts.dry) for (const c of docs.filter(owesCreditAsk)) {
+    try {
+      await sendMessage(acct.id, c.source!.conversationId!, `${c.take.title ?? 'Your painting'} — the link, now that it has one: ${c.instagram}\n\n${CREDIT_ASK}`);
+      c.creditAsked = new Date().toISOString(); await save(c); out.creditAsked.push(c.id);
+    } catch { /* the wall is right; the question can wait for the next run */ }
   }
   return out;
 }

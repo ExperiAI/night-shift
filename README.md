@@ -117,6 +117,17 @@ follows, posts — Zernio's daily snapshot) and `signals.followers` in each day'
 - **Not possible through Zernio:** following people back (no Instagram follow endpoint; only
   `follow-status`). **Parked with #4:** Reels.
 
+## Publishing is asynchronous; every cron run finishes it
+
+`publish()` waits up to 60s for Instagram's permalink and media id, and Instagram is sometimes
+slower. Found 2026-09-05: 8 of 11 posted paintings had the profile link and no media id, so the wall
+linked to the profile, the reply to the commissioner carried the wrong link, the credit question
+was never asked (it needs the media id), and the critic counted 0 likes on everything. Not fixed by
+waiting longer: `reconcile()` (`api/_lib/reconcile.ts`) runs at the top of every paint cron — Zernio's
+post id when we have it, else the caption matched among posts Instagram still lists (a repost wins
+over its deleted twin) — fills the ids, and then asks any anonymous DM commissioner the credit
+question they were owed. `?dry=1` repairs records and sends nothing.
+
 ## The door as well as the wall
 
 Every posted painting also goes up as a 24h Story (`publishStory`, best effort, never blocks the

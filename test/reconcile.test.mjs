@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { matchPost, needsReconcile } from '../api/_lib/reconcile.ts';
+import { matchPost, needsReconcile, owesCreditAsk } from '../api/_lib/reconcile.ts';
 import { isPostLink } from '../api/_lib/zernio.ts';
 
 test('a profile link is not a post link', () => {
@@ -39,4 +39,15 @@ test('the paint cron reconciles first and keeps Zernio\'s post id on publish', (
   const paint = readFileSync(new URL('../api/paint.ts', import.meta.url), 'utf8');
   assert.match(paint, /await reconcile\(docs, \{ dry \}\)/);
   assert.equal((paint.match(/zernioPostId = post\.postId/g) ?? []).length, 2);
+});
+
+test('an anonymous DM commission that is up with a real link and was never asked about credit is owed the question', () => {
+  const base = { status: 'posted', instagram: 'https://www.instagram.com/p/x/', mediaId: '1', source: { channel: 'instagram-dm', handle: 'v', conversationId: 'c1' }, anonymous: true, sourceReplied: '2026-09-05T00:00:00Z' };
+  assert.equal(owesCreditAsk(base), true);
+  assert.equal(owesCreditAsk({ ...base, creditAsked: 'x' }), false);
+  assert.equal(owesCreditAsk({ ...base, credited: 'x' }), false);
+  assert.equal(owesCreditAsk({ ...base, instagram: 'https://www.instagram.com/nightshift.paints/' }), false); // not until the link is real
+  assert.equal(owesCreditAsk({ ...base, source: { channel: 'instagram-comment', handle: 'v' } }), false); // comments are credited in the caption
+  assert.equal(owesCreditAsk({ ...base, anonymous: false }), false);
+  assert.equal(owesCreditAsk({ ...base, sourceReplied: undefined }), false); // tellSource asks itself on the first reply
 });
