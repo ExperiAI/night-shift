@@ -47,4 +47,7 @@ test('the reactor speaks as the artist and answers in one JSON shape', () => {
   // V's first comment, "I love this one 🌀🌊", was ignored under the old wording (2026-09-05).
   assert.match(p, /compliment.*always gets a reply/i);
   assert.match(p, /"ignore": only spam, a message with no words at all/);
+  // V's DM "paint a girl and the personification of her anger" was answered with words (2026-09-05).
+  assert.match(p, /Even a person, a figure, a feeling, a portrait .* STILL a commission/);
+  assert.match(p, /Never answer a painting request with words alone/);
 });

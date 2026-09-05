@@ -68,7 +68,9 @@ export const PHOTO = {
     'Describe the place from the photo in the scene. Never describe faces, names or anything that identifies a person.',
   render:
     'The last reference image is a photograph of the place to paint. Keep its layout and main objects; remove every person; ' +
-    'one light source; render it entirely in the oil-painting style described, not as a photo.',
+    'one light source; render it entirely in the oil-painting style described, not as a photo. ' +
+    'Every sign, menu board, poster, screen, label and exit sign in the photo becomes a blank lit shape or is left out: ' +
+    'no readable letters, numbers or symbols anywhere on the canvas.',
 };
 
 export function gatekeeperSystemPrompt(): string {
