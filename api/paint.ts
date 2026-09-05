@@ -13,7 +13,7 @@ async function alsoStory(c: { image?: string; story?: string }) {
 import { tellSource } from './_lib/react.js';
 import { PHOTO } from './_lib/artist.js';
 import { isHeld } from './_lib/desk.js';
-import { photoSlide, pairSlide } from './_lib/compose.js';
+import { photoSlide, pairSlide, signPainting } from './_lib/compose.js';
 
 export const config = { maxDuration: 300 };
 
@@ -52,11 +52,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const prompt = c.photo ? `${c.take.prompt!}\n\n${PHOTO.render}` : c.take.prompt!;
     let img = await renderImage(prompt, { refs });
     let check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, c.take.scene ?? '');
-    if (!check.ok) { // one more try, told what went wrong
+    if (!check.ok) { // one more try, told what went wrong; the refused canvas is kept and shown (docs/stance.md)
+      c.rejects = [...(c.rejects ?? []), { image: await storeImage(c.id, img.bytes, img.mime, `-reject${(c.rejects?.length ?? 0) + 1}`), reason: check.reason.slice(0, 300) }];
       img = await renderImage(`${prompt}\n\nAvoid: ${check.reason}`, { refs });
       check = await inspectImage(`data:${img.mime};base64,${img.bytes.toString('base64')}`, c.take.scene ?? '');
-      if (!check.ok) throw new Error(`inspector refused twice: ${check.reason}`);
+      if (!check.ok) {
+        c.rejects.push({ image: await storeImage(c.id, img.bytes, img.mime, `-reject${c.rejects.length + 1}`), reason: check.reason.slice(0, 300) });
+        throw new Error(`inspector refused twice: ${check.reason}`);
+      }
     }
+    img = { ...img, bytes: await signPainting(img.bytes, c.id), mime: 'image/png' }; // the painter's own signature, varied per canvas; the only one
     c.image = await storeImage(c.id, img.bytes, img.mime);
     if (c.photo) { // a photo commission posts as a carousel: painting, the original, the two side by side
       const photo = Buffer.from(await (await fetch(c.photo)).arrayBuffer());

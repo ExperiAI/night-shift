@@ -1,5 +1,5 @@
 // The commission desk: what happens when someone asks for a painting.
-import { gatekeeperSystemPrompt, INVITE, PHOTO, SHARE, type Take } from './artist.js';
+import { gatekeeperSystemPrompt, INVITE, SIGNOFF, PHOTO, SHARE, type Take } from './artist.js';
 import { chatJSON } from './openrouter.js';
 import { all, load, newId, save, saveFeedback, storeReference, type Commission } from './store.js';
 import { normalizePhoto } from './compose.js';
@@ -44,8 +44,17 @@ export async function cancel(id: string, why: 'stop' | 'api'): Promise<Commissio
 export function withPhotoLine(caption: string, credit: string): string {
   const line = PHOTO.caption.replace('%credit%', credit);
   if (caption.includes(line)) return caption;
-  const i = caption.lastIndexOf(INVITE);
+  const i = caption.lastIndexOf(SIGNOFF) >= 0 ? caption.lastIndexOf(SIGNOFF) : caption.lastIndexOf(INVITE);
   return i >= 0 ? `${caption.slice(0, i)}${line}\n\n${caption.slice(i)}` : `${caption.trim()}\n\n${line}`;
+}
+
+/** Words that name what this painter will not paint as asked. When one is in the commission and the take says
+ *  nothing about leaving it out, the substitution would be silent — the engineer's and the philosopher's bar. */
+const ASKS_FOR_A_PERSON = /\b(girl|boy|man|woman|men|women|people|person|everyone|crowd|friend|mother|father|grandmother|grandfather|nonna|nonno|mom|dad|child|children|kid|kids|family|couple|face|portrait|figure|someone|anyone|myself|me and|us)\b/i;
+const ASKS_FOR_WORDS = /\d|\b(word|words|text|sign|says|saying|written|writes|letter|number|reads|showing|display)\b/i;
+export function needsDepartures(text: string, take: Pick<Take, 'accepted' | 'departures' | 'core_conflict'>): boolean {
+  if (!take.accepted || take.departures) return false;
+  return Boolean(take.core_conflict) || ASKS_FOR_A_PERSON.test(text) || ASKS_FOR_WORDS.test(text);
 }
 
 /** A commissioner's photo is a public https URL or an inline data URL; the desk copies it, never trusts it to last. */
@@ -110,7 +119,12 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const photo = photoUrl ? await copyPhoto(id, photoUrl) : undefined;
   const system = photo ? `${gatekeeperSystemPrompt()}\n${PHOTO.gatekeeper}` : gatekeeperSystemPrompt();
   const credit = anonymous || !from ? 'anonymous — write “…” — a commission' : from;
-  const take = await chatJSON<Take>(system, `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}${recentWorkLine(docs)}`, undefined, photo);
+  const brief = `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}${recentWorkLine(docs)}`;
+  let take = await chatJSON<Take>(system, brief, undefined, photo);
+  if (needsDepartures(text, take)) { // asked once more, then fail closed: no silent substitution reaches the wall
+    take = await chatJSON<Take>(system, `${brief}\n\nYour previous take left out part of this commission (a person, a number or words) and said nothing about it. departures required: name what you left out and what stands in for it.`, undefined, photo);
+    if (needsDepartures(text, take)) throw Object.assign(new Error('The painter could not say what it left out of this commission, so it will not paint it silently. Ask again, or ask for the place without the person or the words.'), { status: 422 });
+  }
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
   if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out
   const holdUntil = take.accepted ? holdFor(take.core_conflict) : undefined;
@@ -150,6 +164,7 @@ export function publicView(c: Commission) {
     id: c.id, status: c.status, created: c.created, from: c.anonymous ? null : c.from,
     commission: c.text, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene,
     image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides, holdUntil: c.holdUntil,
+    ...(c.rejects?.length ? { rejects: c.rejects } : {}), // what the inspector refused on the way to this canvas
     ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),
     ...(c.status === 'failed' && c.error ? { reason: c.error.slice(0, 200) } : {}), // so an agent can rephrase (#8)
   };

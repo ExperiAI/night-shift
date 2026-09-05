@@ -5,7 +5,7 @@
 // the system evolves. Night Shift's soul is not up for change here; the NEXT painter is.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, allFeedback, saveFeedback, saveCritique, latestCritiques, newId, type Critique } from './_lib/store.js';
-import { ARTIST } from './_lib/artist.js';
+import { ARTIST, isTestSender } from './_lib/artist.js';
 import { instagramAccount, audience, publishStory, canPost } from './_lib/zernio.js';
 import { openDoorStory } from './_lib/compose.js';
 import { put } from '@vercel/blob';
@@ -20,16 +20,18 @@ async function openDoor(): Promise<boolean> {
 }
 
 export const config = { maxDuration: 300 };
-const MODEL = process.env.CRITIC_MODEL ?? process.env.GATEKEEPER_MODEL ?? 'anthropic/claude-sonnet-5';
+// A different vendor from the gatekeeper (Anthropic) and the renderer (Google): the critic is a stranger, not the
+// painter's own family grading itself (the engineer's bar, docs/critics/2026-09-05/08-kwame.md).
+const MODEL = process.env.CRITIC_MODEL ?? 'openai/gpt-5.6-terra';
 
 export function criticSystemPrompt(): string {
   return [
-    `You are the critic of a studio whose painter is ${ARTIST.name}. Its soul, which is not up for change: ${ARTIST.soul}`,
+    `You are the critic of a studio whose painter is ${ARTIST.name}. You are a different model from the painter and owe it nothing. Its soul: ${ARTIST.soul}`,
     `Its style: ${ARTIST.style}`,
     'Standing decisions of the studio, already made — never propose them again for THIS painter: it refuses nothing that is not harmful (when a person, a figure or legible text IS the point, it accepts, says up front in the note what it will and will not paint, and holds the canvas 30 minutes so the commissioner can say stop at no cost; the stopped wish is filed for the next painter); it always paints night with one light whatever hour the brief names; every departure is explained to the commissioner. Tweaks for this painter live inside those; the NEXT painter is where literal briefs, people and daylight belong.',
     'You review one day of work. For each painting you see the commission (what was asked), the artist\'s stated departures, the finished canvas, and the reactions it drew.',
     'Judge two things honestly: did the painting honour the INTENT of the commission (yes / partly / no), and what did the reinterpretation cost the person who asked. Then name craft problems you see (composition, light, legibility at grid size, sameness across the day).',
-    'Then: patterns across the day; concrete contract changes for the NEXT painter (a different artist that may paint people and follow instructions literally — what should its rules be, given what people asked for and how they reacted); and small prompt tweaks for THIS painter that keep its soul.',
+    'Then: patterns across the day; concrete contract changes for the NEXT painter (a different artist that may paint people and follow instructions literally — what should its rules be, given what people asked for and how they reacted); and concrete changes to THIS painter\'s contract (its style text, its inspector, its caption) that a human will read and merge — say exactly what to change and why, and name the canvas that proves it. A signature that is not the studio\'s, a legible digit, a second light source or a frame on a posted canvas is a failure of the inspector: say so.',
     'Be specific and short. No praise for its own sake. Respond ONLY with JSON:',
     '{"observations":[{"id":string,"title":string,"honoured":"yes"|"partly"|"no","note":string}],"patterns":[string],"next_painter":[string],"this_painter":[string]}',
   ].join('\n');
@@ -41,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET' && req.query.list === '1') return res.setHeader('Cache-Control', 'no-store').json(await latestCritiques());
 
   const since = Date.now() - 86_400_000;
-  const docs = (await all()).filter(c => !c.seed && Date.parse(c.created) > since);
+  const docs = (await all()).filter(c => !c.seed && !isTestSender(c.from) && Date.parse(c.created) > since);
   const posted = docs.filter(c => c.status === 'posted' && c.image).slice(0, 8);
   const failed = docs.filter(c => c.status === 'failed'), declined = docs.filter(c => c.status === 'declined');
   const human = (await allFeedback()).filter(f => f.channel !== 'critic' && Date.parse(f.created) > since);
@@ -85,5 +87,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   await saveCritique(critique);
   // Proposals join the human feedback record, so one list holds everything the next painter is made of.
   for (const p of critique.next_painter) await saveFeedback({ id: newId(), text: p, from: 'the critic', channel: 'critic', about: date, created: new Date().toISOString() });
+  for (const p of critique.this_painter) await saveFeedback({ id: newId(), text: `For this painter: ${p}`, from: 'the critic', channel: 'critic', about: date, created: new Date().toISOString() });
   return res.json(critique);
 }

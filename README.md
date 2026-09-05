@@ -15,15 +15,27 @@ code, #4 animate/Reels, #5 the @experiai posts, #9 an agent inbox, #11 audience 
 #12 painter #2 from the feedback record. Tests: `npm test` (41). Deploy: `./scripts/deploy-prod.sh` — tests, deploys with a build id,
 then proves `/api/status` on the domain reports that build (an optional marker checks a page).
 
+## The second contract (2026-09-05)
+
+Ten hostile critics reviewed the first twelve canvases (`docs/critics/2026-09-05/`, consolidated in
+`consolidated.md`). All ten found a stranger's signature "R" on *Last Meeting* and a legible clock in
+*After the Toast*, passed by an inspector whose prompt said incidental numbers were fine. The answer is
+`docs/stance.md`: **Night Shift says what it is, states its limits as limits, shows its rejects, and sits
+the sceptics' exams in public.** In code: every caption ends with `SIGNOFF` ("I am an AI. No hand held
+this brush. Argue with the painting.") before the invite; the inspector enforces the artist's own
+contract (digits, a signature, a second light, a frame, a face → reject); `departures` fail closed; the
+studio lays its own mark on every canvas (`signPainting`) and rejects any painted one; refused canvases
+are kept and shown behind the `i`; the critic is a different vendor and may propose changes to this
+painter; `e2e`/`studio test` never reach the wall. `scripts/exams.mjs` files the exams.
+
 ## The artist
 
 - **Signature, never changes:** oil painting, an empty place at night, one
   artificial light source, warm amber against deep blue-green darkness, thick
   brushwork in the highlights and soft edges in the dark. Hopper's stillness,
   Japanese cinema's framing. **Never a person in frame** — only the evidence.
-- **Soul:** arrives too late, on purpose. Reinterprets every commission as a
-  place and a trace; never paints the thing itself. Declines in character
-  ("I don't paint that") rather than erroring.
+- **Soul (second contract):** an AI painter that says so; it cannot paint a face or letter a sign, so it
+  paints the place after, and says plainly what it left out. Declines only what is harmful.
 - **Rule that keeps it legible at grid size:** few objects, one light.
   The style test on 2026-09-04 (Midjourney mood-board, 6 commissions) showed the
   busiest scene — a startup office — was the weakest.

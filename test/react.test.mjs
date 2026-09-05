@@ -45,7 +45,7 @@ test('the reactor speaks as the artist and answers in one JSON shape', () => {
   assert.match(p, /Night Shift/);
   assert.match(p, /"kind": "reply" \| "commission" \| "feedback" \| "ignore"/);
   assert.match(p, /"feedback": a critique, a complaint or a wish/);
-  assert.match(p, /never (say|mention) .*model|program/i);
+  assert.match(p, /an AI painter/); // docs/stance.md: asked what it is, it says so
   // V's first comment, "I love this one 🌀🌊", was ignored under the old wording (2026-09-05).
   assert.match(p, /compliment.*always gets a reply/i);
   assert.match(p, /"ignore": only spam, a message with no words at all/);

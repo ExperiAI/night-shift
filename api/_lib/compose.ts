@@ -3,7 +3,7 @@
 // Slide 2: sent and painted side by side as two equal tiles — the transformation has to read at
 // phone size. Slide 3: the photograph whole, labelled as what was sent (the pair slide crops it).
 import sharp from 'sharp';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 export const W = 1080, H = 1350;
 const NIGHT = { r: 12, g: 26, b: 32 }; // the artist's deep blue-green dark
@@ -44,6 +44,43 @@ export async function pairSlide(photo: Buffer, painting: Buffer): Promise<Buffer
       { input: lg, left: Math.round((W - sg.w) / 2), top: H - sg.h - 36 }, // the signature: this slide travels alone when shared
     ])
     .jpeg({ quality: 90 }).toBuffer();
+}
+
+/** The painter's signature, laid on every canvas by the studio once the inspector has passed it. It is PAINTED,
+ *  not typeset: the renderer signed in its own hand — dry-brush lowercase "night shift" in thin amber oil — and
+ *  signed again with small natural differences; scripts/make-signatures.mjs keyed those into public/signatures/.
+ *  Per painting the seed (the commission id) picks one signing and varies its size, slant, corner and pressure, so
+ *  no two canvases carry the same mark (Diego, 2026-09-05: "vary position and signature slightly every new painting").
+ *  The renderer is told to paint no signature and the inspector rejects one; this is the only signature. */
+const SIGNATURES = readdirSync(new URL('../../public/signatures/', import.meta.url)).filter(f => /^\d\d\.png$/.test(f)).sort();
+function seeded(seed: string): () => number { // mulberry32 over a string hash: the same id always signs the same way
+  let h = 2166136261; for (const ch of seed) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return () => { h = (h + 0x6D2B79F5) | 0; let t = Math.imul(h ^ (h >>> 15), 1 | h); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+export function signatureChoice(seed: string, w: number, h: number) {
+  const r = seeded(seed);
+  const file = SIGNATURES[Math.floor(r() * SIGNATURES.length)];
+  const width = Math.round(w * (0.13 + r() * 0.04));           // 13–17% of the canvas width: reads on a phone, small on the wall
+  const angle = -3.5 + r() * 5;                                 // a slight slant, mostly downhill to the right
+  const right = r() < 0.85;                                     // lower right, as most painters sign; sometimes left
+  const mx = Math.round(w * (0.03 + r() * 0.025)), my = Math.round(h * (0.025 + r() * 0.02));
+  const opacity = 0.82 + r() * 0.14;                            // pressure: a lighter or a fuller brush
+  return { file, width, angle, right, mx, my, opacity };
+}
+export async function signPainting(painting: Buffer, seed = 'night-shift'): Promise<Buffer> {
+  const m = await sharp(painting).metadata();
+  const w = m.width ?? W, h = m.height ?? H;
+  const c = signatureChoice(seed, w, h);
+  const mark = await sharp(readFileSync(new URL(`../../public/signatures/${c.file}`, import.meta.url)))
+    .resize({ width: c.width }).rotate(c.angle, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .ensureAlpha().linear([1, 1, 1, c.opacity], [0, 0, 0, 0]).png().toBuffer();
+  const ms = await size(mark);
+  const left = c.right ? w - ms.w - c.mx : c.mx, top = h - ms.h - c.my;
+  // A painter signing a lit passage reaches for umber, not amber: on a bright patch the mark goes dark.
+  const patch = await sharp(painting).extract({ left, top, width: ms.w, height: ms.h }).removeAlpha().stats();
+  const lum = patch.channels.slice(0, 3).reduce((a, ch) => a + ch.mean, 0) / 3;
+  const ink = lum > 120 ? await sharp(mark).linear([0.42, 0.36, 0.3, 1], [0, 0, 0, 0]).png().toBuffer() : mark;
+  return sharp(painting).composite([{ input: ink, left, top }]).png().toBuffer();
 }
 
 /** A commissioner's photograph, upright and bounded. Phones store photos sideways and rely on an

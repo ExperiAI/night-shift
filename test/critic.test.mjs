@@ -1,4 +1,4 @@
-// The critic judges intent, not obedience, and proposes for the next painter without touching this one's soul.
+// The critic judges intent, not obedience, and proposes for the next painter and for this one (a human merges).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,7 +9,7 @@ test('the critic asks whether the intent was honoured and what the reinterpretat
   assert.match(p, /honour the INTENT/);
   assert.match(p, /what did the reinterpretation cost/);
   assert.match(p, /NEXT painter/);
-  assert.match(p, /keep its soul/);
+  assert.match(p, /THIS painter/); // docs/stance.md: the critic may propose changes to this painter, a human merges
 });
 
 test('the critic runs daily and its proposals join the feedback record', () => {

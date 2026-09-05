@@ -4,10 +4,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-test('the gatekeeper prompt asks for the commission in quotes and forbids model talk', () => {
+test('the gatekeeper prompt asks for the commission in quotes and signs off as what it is', () => {
   const src = readFileSync(new URL('../api/_lib/artist.ts', import.meta.url), 'utf8');
   assert.match(src, /“<the commission text>”/);
-  assert.match(src, /Never mention models, prompts or being a program/);
+  assert.match(src, /exactly: "' \+ SIGNOFF \+ '"/); // docs/stance.md: the disclosure is on the canvas surface, not in a hashtag
 });
 
 test('every caption ends by inviting people to commission in plain words, DM first (V, 2026-09-05)', () => {

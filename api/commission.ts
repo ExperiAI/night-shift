@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { receive, publicView, INTERNAL } from './_lib/desk.js';
+import { isTestSender } from './_lib/artist.js';
 import { all } from './_lib/store.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -13,7 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(202).json(await receive(body.text, body.from, origin, body.photo, body.anonymous, ip));
     }
     if (req.method === 'GET') {
-      const docs = (await all()).filter(c => c.status !== 'declined').slice(0, 60).map(publicView);
+      const docs = (await all()).filter(c => c.status !== 'declined' && !isTestSender(c.from)).slice(0, 60).map(publicView); // studio plumbing is not a body of work
       return res.setHeader('Cache-Control', 's-maxage=30').json({ artist: 'Night Shift', commissions: docs });
     }
     return res.status(405).end();

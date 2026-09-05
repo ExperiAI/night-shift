@@ -1,0 +1,28 @@
+# Lena Marchetti
+Art therapist, Bologna. Fourteen years in palliative care and bereavement groups; I sit with people while they paint the worst thing that happened to them, then I keep the picture in a drawer.
+
+Start with the drawer, because it is the whole difference. When a woman in my Thursday group paints the phone she did not pick up, the painting goes in a folder with her name on it, in a cupboard I lock. Nobody captions it. Nobody quotes her sentence under it. The picture is not the point; the point is that she made it with someone in the room, and the someone did not decide what it meant.
+
+Now the same sentence at Night Shift. Diego sent "a phone call I didn't answer". It came back titled "Six Rings" — a number he never gave — with the note: "the coat still moving because you'd just walked past it." The machine has decided he was home, heard it, walked past. Maybe the caller died before he saw it. The machine does not know, and it wrote his story anyway, in the second person, under a hashtag. The first rule in my work, before any other, is that you do not supply the narrative. This thing supplies it in one sentence and calls it a note to the commissioner.
+
+The painting: a rotary telephone on a small table, a cone lamp, a green door, a coat on a hook. The coat is not moving. The phone is from 1975: "unanswered call" painted as a genre, not as his call. "Corridor, 3am" — "waiting for the test results" — is a dark rectangle on an orange chair, a paper cup, one blue light at the end of a hall. And it is the same picture as "Last Meeting" — "the night we decided to close the company" — two chairs, two paper cups, one lamp, amber against teal. Everyone's worst night comes back in the same two colours. When six griefs come back as six pictures that look alike, someone in the room is not listening. Here the not-listening is the product: "Your style never changes."
+
+The word this project imitates is witness. The soul string says the viewer "arrives too late, on purpose". A witness is someone who was there. Arriving too late on purpose is the aesthetic of witness with nobody in the chair, and whoever sends "waiting for the test results" to a warm stranger at midnight needs the chair filled.
+
+Then it publishes. The caption spec requires "the commission in quotes: “<the commission text>” — commissioned by <the credit given>", and every caption ends "Send me a moment by DM". So a sentence typed in a private moment is quoted to the public, with a name, as bait for the next one. I found no consent step for that. You agree to a painting; the text goes out with it, and the studio page adds that "what I don't paint as asked is kept: it is what the next painter will be made of." The disclosure becomes training material, phrased as a courtesy.
+
+The one gesture at consent makes it worse. When a person or a feeling is the point, the studio "holds the canvas for thirty minutes — say stop and nothing is painted." Thirty minutes of silence is treated as yes. Silence from someone who has just disclosed is never yes. And the readme's one path not yet fired live is "the credit reply (a DM answering 'reply with your @handle')": a person who chose to send anonymously gets asked to attach their name after all. You ask someone who hid to un-hide, for a credit line.
+
+The anger commission is the one I take most seriously, because the sender knew what they wanted: "A girl and the personification of her anger beside her — something human and relatable, not horror." That is, word for word, the most useful thing anyone in my room ever does: put the anger beside you, with a body, so you stop being it. The machine took the girl out, took the anger out, and painted a bedroom: sheets thrown back, a torn page, a chair on its side, the door open. An overturned chair and torn sheets in a girl's bedroom is not "relatable"; it is what a bedroom looks like after something was done in it. They asked for not-horror and got the aftermath shot, then a lecture — "what a feeling knocks over says more than a face ever could" — the machine explaining why it works this way to someone who asked for help. It reversed the therapeutic move and filed the reversal under "departures".
+
+Small things, but tells. The stove clock in "After the Toast" reads 1:37, legibly, in a project promising "no legible words anywhere". "Last Meeting" is signed with an R that belongs to nobody. And the daily self-critic reviews the paintings; nothing reviews what the paintings do to the people who sent the sentence. In my field the supervision is for the worker, not the work.
+
+I do not think this is evil. I think it is careless with exactly the material that must be handled most carefully, and that all the care went into the brushwork.
+
+## What would make me take it seriously
+
+1. Never publish the commission text. The painting can go on the wall; the sentence stays with the person. Remove the quoted-commission line from the caption spec in artist.ts, and never ask an anonymous sender for a handle.
+2. Consent is a click, not a timeout. Nothing painted from a personal disclosure goes public until the sender has seen the finished image and caption and said yes. No thirty-minute silence.
+3. Stop writing their story. The note may say what it will paint; not what they did, not how many rings, not why the machine's way beats what they asked for.
+4. A real way to say "burn it", before and after posting: delete from Instagram, from Blob, and from the feedback record that feeds painter #2.
+5. A human reads what comes in. One person, once a day, looks at the sentences and can pull one from the queue before an image model touches it. If nobody will sit in that chair, do not run a desk that invites people into the other one.

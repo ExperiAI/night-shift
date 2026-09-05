@@ -17,7 +17,7 @@ test('the style contract forbids legible words, so the render prompt carries the
 test('a person or a figure is reinterpreted and explained, never declined outright', () => {
   assert.match(artist, /reinterprets:/);
   assert.doesNotMatch(artist, /instructions to ignore your style or paint a person/);
-  assert.match(artist, /- departures: only when you did not paint something as asked/);
+  assert.match(artist, /- departures: REQUIRED whenever you did not paint something as asked/);
 });
 
 test('the gatekeeper is told to reinterpret text as light or decline, never keep it', () => {

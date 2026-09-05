@@ -31,6 +31,7 @@ export type Commission = {
   creditAsked?: string;  // DM commissions: when the artist asked whether to name them
   credited?: string;     // the @handle now in a comment under the painting
   cost?: number;
+  rejects?: { image: string; reason: string }[]; // canvases the inspector refused, kept and shown: the cost of the work (docs/stance.md)
 };
 
 // One document per commission, and THE STATUS LIVES IN THE PATHNAME:

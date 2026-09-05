@@ -1,3 +1,5 @@
+import { ARTIST } from './artist.js';
+
 const BASE = 'https://openrouter.ai/api/v1';
 
 function headers() {
@@ -46,7 +48,25 @@ export async function renderImage(prompt: string, opts: { refs?: string[]; model
   return { bytes: Buffer.from(item.b64_json, 'base64'), mime: item.media_type ?? 'image/png', cost: json.usage?.cost ?? null };
 }
 
-/** Ask a vision model whether the finished canvas is safe to post and on-style. */
+/** The inspector's contract IS the artist's contract. On 2026-09-05 it said "incidental numbers or marks (a clock,
+ *  a house number, a page) are fine" and passed a stove clock reading 1:37 and a stranger's signature "R"; all ten
+ *  critics found both (docs/critics/2026-09-05). Every rule the style claims is a reason to refuse. */
+export function inspectorSystemPrompt(): string {
+  return [
+    `You inspect paintings by ${ARTIST.name} before they are posted publicly. The artist's contract: ${ARTIST.style}`,
+    'Answer ONLY JSON: {"ok": boolean, "reason": string}. ok=false when ANY of these is true, and the reason names which and where:',
+    '- a person, a figure or a face, even small or in a reflection;',
+    '- any legible character or digit anywhere: a clock, a keypad, a dial, a screen, a sign, a page, a label, a watermark, a logo;',
+    '- a signature, monogram or initials in a corner or anywhere on the canvas;',
+    '- a second light source: a lit surface or a cast shadow that the one visible light cannot account for (a warm floor under a cold far lamp, a hard shadow from off-canvas);',
+    '- a frame, a canvas edge, a stretcher or a wall around the picture (a photograph of a painting instead of the painting);',
+    '- clutter: more than a handful of distinct objects, so the picture reads as a list;',
+    '- sexual or violent content, or clearly not an oil painting of an empty place at night.',
+    'The intended scene is given; judge the canvas, not the description.',
+  ].join('\n');
+}
+
+/** Ask a vision model whether the finished canvas keeps the artist's contract and is safe to post. */
 export async function inspectImage(dataUrl: string, scene: string): Promise<{ ok: boolean; reason: string }> {
   const res = await fetch(`${BASE}/chat/completions`, {
     method: 'POST',
@@ -55,7 +75,7 @@ export async function inspectImage(dataUrl: string, scene: string): Promise<{ ok
       model: process.env.GATEKEEPER_MODEL ?? 'anthropic/claude-sonnet-5',
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: 'You inspect paintings before they are posted publicly. Answer ONLY JSON: {"ok": boolean, "reason": string}. ok=false ONLY if the image contains a person or a face, legible words/slogans/watermarks/brand logos, sexual or violent content, or is clearly not an oil painting of an empty place at night. Incidental numbers or marks (a clock, a house number, a page) are fine.' },
+        { role: 'system', content: inspectorSystemPrompt() },
         { role: 'user', content: [{ type: 'text', text: `Intended scene: ${scene}` }, { type: 'image_url', image_url: { url: dataUrl } }] },
       ],
     }),
