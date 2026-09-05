@@ -45,3 +45,11 @@ export async function pairSlide(photo: Buffer, painting: Buffer): Promise<Buffer
     ])
     .jpeg({ quality: 90 }).toBuffer();
 }
+
+/** A commissioner's photograph, upright and bounded. Phones store photos sideways and rely on an
+ *  orientation tag (Diego's first outdoor photo: 4032×3024, orientation 6); the renderer reads
+ *  pixels, not tags, so orientation is baked in here and the size is capped. Always JPEG. */
+export async function normalizePhoto(bytes: Buffer): Promise<{ bytes: Buffer; mime: string }> {
+  const out = await sharp(bytes).rotate().resize(2048, 2048, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 90 }).toBuffer();
+  return { bytes: out, mime: 'image/jpeg' };
+}

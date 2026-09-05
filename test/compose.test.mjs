@@ -30,3 +30,15 @@ test('the pair slide is 4:5 with the photo left and the painting right', async (
   const edge = (x) => { let y = 0; while (y < H && px(x, y)[0] < 150) y++; return y; };
   assert.equal(edge(40), edge(560), 'tiles share a top edge'); // tile edges, clear of the labels above
 });
+
+test('a sideways phone photo is stored upright, without relying on its orientation tag', async () => {
+  const { normalizePhoto } = await import('../api/_lib/compose.ts');
+  const tagged = await sharp({ create: { width: 300, height: 200, channels: 3, background: '#808080' } }).jpeg().withMetadata({ orientation: 6 }).toBuffer();
+  const before = await sharp(tagged).metadata();
+  assert.equal(before.orientation, 6);
+  const { bytes, mime } = await normalizePhoto(tagged);
+  const m = await sharp(bytes).metadata();
+  assert.equal(mime, 'image/jpeg');
+  assert.equal(m.width, 200); assert.equal(m.height, 300);   // rotated into place
+  assert.equal(m.orientation, undefined);                     // no tag left to misread
+});

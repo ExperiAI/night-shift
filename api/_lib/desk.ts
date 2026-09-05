@@ -2,6 +2,7 @@
 import { gatekeeperSystemPrompt, INVITE, PHOTO, SHARE, type Take } from './artist.js';
 import { chatJSON } from './openrouter.js';
 import { all, newId, save, storeReference, type Commission } from './store.js';
+import { normalizePhoto } from './compose.js';
 
 const MAX_PER_SENDER_PER_DAY = 3;
 const MAX_PER_IP_PER_DAY = 5;
@@ -35,9 +36,10 @@ async function copyPhoto(id: string, url: string): Promise<string> {
   const r = await fetch(url, { redirect: 'follow' });
   const mime = r.headers.get('content-type')?.split(';')[0] ?? '';
   if (!r.ok || !mime.startsWith('image/')) throw Object.assign(new Error(`photo could not be fetched as an image (${r.status} ${mime || 'no type'})`), { status: 400 });
-  const bytes = Buffer.from(await r.arrayBuffer());
-  if (bytes.length > MAX_PHOTO_BYTES) throw Object.assign(new Error('photo is over 10MB'), { status: 400 });
-  return storeReference(id, bytes, mime);
+  const raw = Buffer.from(await r.arrayBuffer());
+  if (raw.length > MAX_PHOTO_BYTES) throw Object.assign(new Error('photo is over 10MB'), { status: 400 });
+  const { bytes, mime: outMime } = await normalizePhoto(raw); // upright, bounded, JPEG
+  return storeReference(id, bytes, outMime);
 }
 
 export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null): Promise<Receipt> {
