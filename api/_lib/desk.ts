@@ -36,5 +36,6 @@ export function publicView(c: Commission) {
     commission: c.text, note: c.take.note, title: c.take.title, scene: c.take.scene,
     image: c.image, instagram: c.instagram, painted: c.painted,
     ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),
+    ...(c.status === 'failed' && c.error ? { reason: c.error.slice(0, 200) } : {}), // so an agent can rephrase (#8)
   };
 }

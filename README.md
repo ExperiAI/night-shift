@@ -69,6 +69,10 @@ renders the reference set for comparison.
   painted-but-unposted work. A failed post cools off for 6h and never blocks the rest.
 - Persona: `public/persona/` — a painting, never a person.
 - `node scripts/e2e.mjs` proves commission → painting → wall against production.
+- Scripts import the app's own TypeScript through `scripts/_ts.mjs` (no build step):
+  `node --import ./scripts/_ts.mjs scripts/requeue.mjs <id>` re-runs the gatekeeper on a
+  failed commission and queues it under the same id, so the commissioner's status URL holds.
+- A `failed` status carries a short `reason` (the inspector's words) so an agent can rephrase.
 
 ## Env
 

@@ -15,6 +15,7 @@ export type Commission = {
   error?: string;
   painted?: string;
   postAttempt?: string;
+  requeued?: string;    // put back in the queue after a gatekeeper fix (scripts/requeue.mjs)
   cost?: number;
 };
 
