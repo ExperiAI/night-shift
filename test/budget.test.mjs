@@ -23,3 +23,8 @@ test('the per-address count ignores internal (inbox) commissions and old ones', 
   assert.equal(recentByIp(docs, 'internal', now), 0);
   assert.equal(recentByIp(docs, null, now), 0);
 });
+
+test('the per-address count ignores room work and the studio\'s own exams (Diego locked out at home, 2026-09-06)', () => {
+  const docs = [doc(1, { ip: '1.2.3.4', room: 'bar-21' }), doc(2, { ip: '1.2.3.4', from: 'the studio' }), doc(3, { ip: '1.2.3.4' })];
+  assert.equal(recentByIp(docs, '1.2.3.4', now), 1);
+});

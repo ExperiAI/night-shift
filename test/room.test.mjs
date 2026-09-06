@@ -36,7 +36,7 @@ test('room work never counts against the studio day or the address limit; the re
   const desk = read('../api/_lib/desk.ts');
   assert.match(desk, /if \(roomCode\) \{[\s\S]*roomRefusal\([\s\S]*\} else \{[\s\S]*recentByIp[\s\S]*acceptedToday/, 'inside a room: the room\'s door; outside: the address and the studio caps');
   assert.match(desk, /\.\.\.\(roomCode \? \{ room: roomCode \} : \{\}\)/);
-  assert.equal(recentByIp(docs, '1.1.1.1', now), 2);
+  assert.equal(recentByIp(docs, '1.1.1.1', now), 1, 'a room is forty phones on one venue address; its sends never shut the public page');
   assert.equal(publicView({ id: 'x', text: 't', from: null, created, status: 'queued', take: { accepted: true, note: 'n' }, room: 'bar-21' }).room, 'bar-21');
 });
 

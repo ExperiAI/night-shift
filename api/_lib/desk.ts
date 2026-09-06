@@ -324,11 +324,15 @@ export function acceptedToday(docs: Pick<Commission, 'created' | 'status' | 'see
   return docs.filter(c => !c.seed && !c.room && c.status !== 'declined' && c.status !== 'failed' && Date.parse(c.created) > since).length;
 }
 
-/** Commissions from one address in the last 24h. The inbox is 'internal' and never limited by address. */
-export function recentByIp(docs: Pick<Commission, 'created' | 'ip'>[], ip: string | null, now = Date.now()): number {
+/** Commissions from one address in the last 24h. The inbox is 'internal' and never limited by address. Room work
+ *  is not counted either: a room has its own cap, and a room is forty phones on one venue address — counting it
+ *  would shut the public page for everyone there for a day (Diego hit this at home on 2026-09-06 after a day of
+ *  room tests: four room sends plus one studio exam from the laptop made five). The studio's own exams are the
+ *  studio's, not the address's. */
+export function recentByIp(docs: Pick<Commission, 'created' | 'ip' | 'room' | 'from'>[], ip: string | null, now = Date.now()): number {
   if (!ip || ip === INTERNAL) return 0;
   const since = now - 86_400_000;
-  return docs.filter(c => c.ip === ip && Date.parse(c.created) > since).length;
+  return docs.filter(c => c.ip === ip && !c.room && !isStudioSender(c.from) && Date.parse(c.created) > since).length;
 }
 
 /** Commissions this sender made in the last 24h. Seeded paintings are not commissions (#6). */
