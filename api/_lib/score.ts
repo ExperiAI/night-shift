@@ -49,12 +49,12 @@ export const PEN_PRESETS = {
 export type PenPreset = keyof typeof PEN_PRESETS;
 export const PEN_KEYS = Object.keys(PEN_PRESETS) as PenPreset[];
 
-/** The A/B of the opening (Diego, 2026-09-06, reading After the Offering's retention graph: 57 % gone by 0:02, while
- *  the screen is black with a sentence typing; 86 % of its views were strangers in the Reels tab). `dark` is the
- *  opening as designed. `lit` shows the room from the first frame: the blurred fill is up at once, the canvas
- *  surfaces over it from 0 s, and the sentence types on a scrim that lifts as the sentence dissolves. Assigned per
- *  painting by its id, half and half (`openingFor`), written on the record and shown in the public view, so each
- *  Reel's 3-second retention can be read against its opening. Judge on ten of each; then keep one. */
+/** The opening. `dark` is the opening as designed and THE opening (Diego, 2026-09-06 evening, having seen `lit`:
+ *  "I don't like this alternative. Best with the text coming first and the image later as if the text was input
+ *  first and then processed and turned into an img. Best for the story telling."). `lit` — the room there on the first
+ *  frame, the sentence typing on a scrim — was an A/B for one evening after After the Offering's retention graph (57 %
+ *  gone by 0:02); it stays only as a comparison switch for scripts/film.mjs --opening, never assigned to a painting.
+ *  What is open is the TRANSITION from the typed line to the picture (docs/reveal.md §3). */
 export type Opening = 'dark' | 'lit';
 export const OPENINGS = {
   dark: { fadeStart: 4.0, fadeEnd: 10.0, fromFill: false, scrim: 0, floor: 0, band: 0 },
@@ -93,7 +93,8 @@ export const SILENCES: Record<Silence, SilenceRecipe> = {
 };
 export const SILENCE_KEYS = Object.keys(SILENCES) as Silence[];
 
-export function openingFor(id: string): Opening { return seeded(`${id}:opening`)() < 0.5 ? 'lit' : 'dark'; }
+/** Every painting opens dark (Diego's call, above); the id no longer decides. Kept as the one place the choice is made. */
+export function openingFor(_id: string): Opening { return 'dark'; }
 
 export const SCORE = {
   total: TOTAL,

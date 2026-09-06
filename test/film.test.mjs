@@ -97,7 +97,7 @@ test('the film is 1080×1920, SCORE.total long, H.264 + AAC, with the signing be
   assert.match(probe, new RegExp(`h264,1080,1920,${SCORE.total.toFixed(1).replace('.', '\\.')}`)); assert.match(probe, /aac/);
 });
 
-test('the A/B of the opening: dark from black as designed, lit from the first frame; fixed per painting, half and half, carried by film, wall, record and status', () => {
+test('the opening: dark from black, for every painting (Diego, 2026-09-06); lit stays only as a comparison switch, still carried by film, wall, record and status', () => {
   const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
   const dark = scoreFor(0, 'dark'), lit = scoreFor(0, 'lit');
   assert.equal(dark.opening, 'dark'); assert.equal(dark.painting.fadeStart, SCORE.painting.fadeStart); assert.equal(dark.painting.scrim, 0);
@@ -106,7 +106,7 @@ test('the A/B of the opening: dark from black as designed, lit from the first fr
   const shifted = scoreFor(1.2, 'lit'); assert.equal(shifted.painting.fadeStart, 0, 'a long line never delays the first frame'); assert.equal(shifted.painting.fadeEnd, OPENINGS.lit.fadeEnd + 1.2);
   assert.deepEqual(SCORE.openings, OPENINGS);
   const ids = Array.from({ length: 200 }, (_, i) => `id-${i}-x`); const lits = ids.filter(id => openingFor(id) === 'lit').length;
-  assert.ok(lits > 70 && lits < 130, `half and half: ${lits}/200`); assert.equal(openingFor('mtpsj0zp-cbh1jd'), openingFor('mtpsj0zp-cbh1jd'));
+  assert.equal(lits, 0, 'no painting is ever assigned lit: text first, then the picture, is the story (Diego, 2026-09-06)');
   const f = src('api/_lib/film.ts'); assert.match(f, /scoreFor\(sentence\.shift, opening\)/); assert.match(f, /veil\.png/, 'the lit film carries the band'); assert.match(f, /stop-opacity="\$\{P\.scrim\}"/);
   assert.match(src('api/paint.ts'), /inp\.opening = c\.opening \?\? \(c\.opening = openingFor\(c\.id\)\)/, 'the record keeps the opening it was filmed with');
   assert.match(src('api/_lib/desk.ts'), /opening: c\.opening/, 'the public view says which, so the wall plays the same');

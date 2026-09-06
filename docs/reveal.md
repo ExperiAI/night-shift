@@ -182,6 +182,8 @@ first frame). The record keeps `opening`; `/api/status.openings` lists every Ree
 retention at 0:03 from its insights, grouped by opening, ten of each; then keep one. Diego, 2026-09-06: *"No need to wait for
 my approval. We can post all the different variations and view on prod."* The same mechanism carries the next variants.
 
+**The A/B is over (2026-09-06, later that evening).** Diego saw the lit render of *After Sunday Dinner* and: *"I don't like this alternative. Best with the text coming first and the image later as if the text was input first and then processed and turned into an img. Best for the story telling. We just need to polish the transition from text typing to the image."* So `openingFor` returns `dark` for every painting; `lit` stays as `scripts/film.mjs --opening lit` for comparison only; issue #36 (reading retention per opening) is moot. Open: the transition from the typed line to the picture.
+
 1. `paint.ts` stores `raw` and the record carries the signature choice → the next painting has both.
    `score.ts` + `scripts/film.mjs <id>` → an MP4 of that painting plays in QuickTime at 1080×1920,
    `SCORE.total` long, with audio, the signature writing itself in its window, and the rest matching the score to
