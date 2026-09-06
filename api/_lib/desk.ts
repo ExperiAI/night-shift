@@ -1,5 +1,5 @@
 // The commission desk: what happens when someone asks for a painting.
-import { gatekeeperSystemPrompt, INVITE, SIGNOFF, PHOTO, SHARE, REGISTERS, REGISTER_KEYS, registerByKey, composePrompt, isStudioSender, EXCEPTIONS, endLineFor, type Take, type Register, type Exception } from './artist.js';
+import { gatekeeperSystemPrompt, INVITE, SIGNOFF, PHOTO, SHARE, REGISTERS, REGISTER_KEYS, registerByKey, composePrompt, isStudioSender, EXCEPTIONS, endLineFor, type Take, type Register, type Exception, silenceFor } from './artist.js';
 import { chatJSON } from './openrouter.js';
 import { all, load, newId, save, saveFeedback, storeReference, allFeedback, deleteFeedback, filesOf, deleteFiles, type Commission } from './store.js';
 import { createHash, randomBytes } from 'node:crypto';
@@ -278,6 +278,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
     if (needsDepartures(text, take, exception)) throw Object.assign(new Error('The painter could not say what it left out of this commission, so it will not paint it silently. Ask again, or ask for the place without the person or the words.'), { status: 422 });
   }
   if (take.accepted) { take.register = register.key; take.prompt = composePrompt(register, take.prompt || take.scene || text, exception); } // the contract and the register are the studio's, not the model's
+  if (take.accepted) take.silence = silenceFor(take); // the silence of the place under the film: the gatekeeper's pick if it is one of the five, else a guess from its own words (score.ts SILENCES)
   if (take.line && !(take.line.trim().length <= SCORE.sentence.maxChars && isExcerpt(text, take.line))) delete take.line; // the film opens on the commissioner's words or on none of them (score.ts)
   if (anonymous && take.caption) take.caption = privateCaption(take.caption, text); // fail closed: never the sender's sentence in public
   if (take.caption) take.caption = withDepartures(take.caption, take.departures, anonymous); // a limit is stated on the post too (critic, 2026-09-05)
@@ -307,6 +308,7 @@ export async function retake(c: Commission, docs?: Commission[]): Promise<Commis
   const take = await chatJSON<Take>(system, `From: ${c.from ?? 'anonymous'}\nCommission: ${c.text}\nRegister for this canvas (fixed by the studio): ${register.name} — ${register.prompt}\n\nA first painting of this commission was refused by the studio's inspector${c.error ? ` (${c.error.slice(0, 200)})` : ''}: choose a different anchor object and a scene with nothing that could read as characters, keys or a second light.`, undefined, c.photo);
   if (!take.accepted) return null;
   take.register = register.key; take.prompt = composePrompt(register, take.prompt || take.scene || c.text, c.exception);
+  take.silence = silenceFor(take);
   if (take.line && !(take.line.trim().length <= SCORE.sentence.maxChars && isExcerpt(c.text, take.line))) delete take.line;
   if (c.anonymous && take.caption) take.caption = privateCaption(take.caption, c.text);
   if (take.caption) take.caption = withDepartures(take.caption, take.departures, Boolean(c.anonymous));

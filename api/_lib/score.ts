@@ -45,6 +45,36 @@ export const OPENINGS = {
    *  around the sentence only, so the words stay legible on the picture; it lifts as the sentence dissolves. */
   lit: { fadeStart: 0.0, fadeEnd: 0.5, fromFill: true, scrim: 0.5, floor: 1, band: 90 },
 } as const;
+/** The silence of the place (issue #34; Diego, 2026-09-06: "it should be the noise to make you think you are inside the
+ *  painting. Different types of silence, because it's always an empty place"). One recipe per kind of room, every one
+ *  synthesised in sound.ts, none licensed; the gatekeeper names one on the take (artist.ts) and `silenceFor` guesses
+ *  from the words for work from before. `air` is the noise floor (a peak in dB, a band, a slow drift); the rest are
+ *  the things a listener would place: a hum, a clock, the building settling, one far vehicle, drops, a trickle. */
+export type Silence = 'electric' | 'still' | 'soft' | 'open' | 'wet';
+export type SilenceRecipe = {
+  name: string;
+  air: { db: number; lowHz: number; highHz: number; driftHz: number; drift: number; grain?: number };
+  hum?: { hz: number; db: number; flicker: number };
+  ticks?: { everyS: number; jitter: number; db: number; hz: number; ms: number };
+  settle?: { count: number; db: number };
+  pass?: { db: number; lowHz: number; highHz: number; dur: number };
+  drops?: { perS: number; db: number; lowHz: number; highHz: number; ms: number };
+  trickle?: { db: number; lowHz: number; highHz: number };
+};
+export const SILENCES: Record<Silence, SilenceRecipe> = {
+  /** A bar, a shop, an office, a kitchen: a strip light's hum and air in a duct (the one room every film had until 2026-09-06). */
+  electric: { name: 'a strip light and a duct', air: { db: -26, lowHz: 70, highHz: 1100, driftHz: 0.11, drift: 0.3 }, hum: { hz: 100, db: -38, flicker: 0.25 } },
+  /** A house at night with nothing running: a fridge far off, a clock, the building settling once or twice. */
+  still: { name: 'a house at night', air: { db: -36, lowHz: 40, highHz: 320, driftHz: 0.05, drift: 0.2 }, hum: { hz: 50, db: -48, flicker: 0.1 }, ticks: { everyS: 1.0, jitter: 0.01, db: -40, hz: 2400, ms: 6 }, settle: { count: 2, db: -30 } },
+  /** A bedroom, a couch, a tatami room: cloth-soft air, a radiator's tick now and then, a road far away through the window. */
+  soft: { name: 'cloth and a far road', air: { db: -32, lowHz: 90, highHz: 600, driftHz: 0.07, drift: 0.35 }, ticks: { everyS: 3.5, jitter: 1.5, db: -42, hz: 3200, ms: 4 }, pass: { db: -34, lowHz: 50, highHz: 260, dur: 7 } },
+  /** Outdoors: wind in gusts, one vehicle passing far off, no hum anywhere. */
+  open: { name: 'wind and a far vehicle', air: { db: -25, lowHz: 60, highHz: 900, driftHz: 0.045, drift: 0.65 }, pass: { db: -30, lowHz: 60, highHz: 420, dur: 6 } },
+  /** Rain: a grainy wash on the glass, drops landing, a gutter's trickle. */
+  wet: { name: 'rain on the glass', air: { db: -30, lowHz: 400, highHz: 5200, driftHz: 0.2, drift: 0.25, grain: 0.8 }, drops: { perS: 2.2, db: -33, lowHz: 1400, highHz: 3200, ms: 12 }, trickle: { db: -38, lowHz: 200, highHz: 900 } },
+};
+export const SILENCE_KEYS = Object.keys(SILENCES) as Silence[];
+
 export function openingFor(id: string): Opening { return seeded(`${id}:opening`)() < 0.5 ? 'lit' : 'dark'; }
 
 export const SCORE = {

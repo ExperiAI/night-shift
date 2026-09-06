@@ -6,7 +6,7 @@
 // noise whose loudness follows the ink actually under the moving edge (dense where the mark is heavy, silent where the
 // pen lifts between letters), with paper under it and the pen's speed opening its brightness. The wall (public/wall.html)
 // plays the same design in WebAudio from the same SCORE.audio numbers; the design lives there, the samples here.
-import { SCORE, KEY_PRESETS, ease, seeded, type KeyPreset, type Score } from './score.js';
+import { SCORE, KEY_PRESETS, SILENCES, ease, seeded, type KeyPreset, type Score, type Silence, type SilenceRecipe } from './score.js';
 
 export const SAMPLE_RATE = 48000;
 
@@ -23,6 +23,8 @@ export type SoundInput = {
   keys?: KeyPreset;
   /** This film's score (score.ts scoreFor) when its tail runs later than SCORE; SCORE itself when unset. */
   score?: Score;
+  /** The silence of the place (score.ts SILENCES); 'electric', the one room every film had before, when unset. */
+  silence?: Silence;
 };
 
 let SC: Score | typeof SCORE = SCORE; // the score of the film being synthesised (set by synthesize)
@@ -63,24 +65,45 @@ function bed(L: Float64Array, R: Float64Array, rand: () => number): void {
   }
 }
 
-/** The room at night: air through a duct (low noise, drifting slowly, a little wider than the rest) and a strip
- *  light's hum with a faint flicker. Present the whole film, so the blanks between the keys and the pen are never empty. */
-function room(L: Float64Array, R: Float64Array, rand: () => number): void {
-  const Rm = SC.audio.room, n = L.length;
+/** The room at night — the silence of this place (score.ts SILENCES, issue #34). The air is the floor: pink noise in
+ *  the recipe's band, drifting slowly, a little wider than the rest, grainy for rain. On it, whatever the recipe names:
+ *  a hum with a faint flicker; a clock's tick; the building settling; one vehicle passing far off; drops; a trickle.
+ *  Present the whole film, so the blanks between the keys and the pen are never empty. */
+function room(L: Float64Array, R: Float64Array, rand: () => number, S: SilenceRecipe): void {
+  const Rm = SC.audio.room, n = L.length, A = S.air;
+  const env = (i: number) => { const t = i / SAMPLE_RATE; return clip01(t / Rm.fadeIn) * clip01((SC.total - t) / Rm.fadeOut); };
   const airL = pink(n, rand), airR = pink(n, rand);
-  band(airL, Rm.airLowHz, Rm.airHighHz); band(airR, Rm.airLowHz, Rm.airHighHz);
-  const ag = db(Rm.airDb) / Math.max(peak(airL), peak(airR)), hg = db(Rm.humDb), phi = rand() * Math.PI * 2;
-  let flick = 1;
+  band(airL, A.lowHz, A.highHz); band(airR, A.lowHz, A.highHz);
+  if (A.grain) { let gL = 1, gR = 1; for (let i = 0; i < n; i++) { if ((i & 63) === 0) { gL = 1 - A.grain * rand(); gR = 1 - A.grain * rand(); } airL[i] *= gL; airR[i] *= gR; } } // rain: many small arrivals, not a hiss
+  const ag = db(A.db) / Math.max(peak(airL), peak(airR)), phi = rand() * Math.PI * 2;
   for (let i = 0; i < n; i++) {
     const t = i / SAMPLE_RATE;
-    const env = clip01(t / Rm.fadeIn) * clip01((SC.total - t) / Rm.fadeOut);
-    const drift = 1 - Rm.drift * (1 + Math.sin(2 * Math.PI * Rm.driftHz * t + phi)) / 2;
-    if ((i & 1023) === 0) flick += ((1 - Rm.flicker * rand()) - flick) * 0.3; // the hum's level wanders a little, in steps too fast to hear as steps
-    const hum = (Math.sin(2 * Math.PI * Rm.humHz * t) + 0.4 * Math.sin(2 * Math.PI * Rm.humHz * 2 * t + 0.3) + 0.2 * Math.sin(2 * Math.PI * Rm.humHz * 3 * t + 1.1)) * hg * flick;
-    const a = ag * drift * env;
-    L[i] += (airL[i] * 0.7 + airR[i] * 0.3) * a + hum * env;
-    R[i] += (airR[i] * 0.7 + airL[i] * 0.3) * a + hum * env;
+    const drift = 1 - A.drift * (1 + Math.sin(2 * Math.PI * A.driftHz * t + phi)) / 2;
+    const a = ag * drift * env(i);
+    L[i] += (airL[i] * 0.7 + airR[i] * 0.3) * a;
+    R[i] += (airR[i] * 0.7 + airL[i] * 0.3) * a;
   }
+  if (S.hum) { // a strip light, a fridge far off: the level wanders a little, in steps too fast to hear as steps
+    const H = S.hum, hg = db(H.db); let flick = 1;
+    for (let i = 0; i < n; i++) {
+      const t = i / SAMPLE_RATE;
+      if ((i & 1023) === 0) flick += ((1 - H.flicker * rand()) - flick) * 0.3;
+      const hum = (Math.sin(2 * Math.PI * H.hz * t) + 0.4 * Math.sin(2 * Math.PI * H.hz * 2 * t + 0.3) + 0.2 * Math.sin(2 * Math.PI * H.hz * 3 * t + 1.1)) * hg * flick * env(i);
+      L[i] += hum; R[i] += hum;
+    }
+  }
+  const burst = (at: number, hz: number, ms: number, g: number, pan: number) => { // a short decaying sine: a tick, a drop
+    const i0 = Math.floor(at * SAMPLE_RATE), len = Math.ceil(ms / 1000 * 4 * SAMPLE_RATE);
+    for (let i = i0; i < Math.min(n, i0 + len); i++) { const t = (i - i0) / SAMPLE_RATE; const v = Math.sin(2 * Math.PI * hz * t) * Math.exp(-t / (ms / 1000)) * g * env(i); L[i] += v * (1 - pan); R[i] += v * pan; }
+  };
+  if (S.ticks) { const T = S.ticks, g = db(T.db); for (let at = 0.4 + rand() * T.everyS; at < SC.total; at += T.everyS + (rand() * 2 - 1) * T.jitter) burst(at, T.hz * (1 + (rand() - 0.5) * 0.1), T.ms, g, 0.35 + rand() * 0.3); }
+  if (S.settle) { const g = db(S.settle.db); for (let k = 0; k < S.settle.count; k++) burst(2 + rand() * (SC.total - 5), 55 + rand() * 25, 90, g, 0.3 + rand() * 0.4); } // the building, once or twice
+  if (S.pass) { // one vehicle far off: banded noise under a slow swell, centred somewhere in the film
+    const P = S.pass, buf = pink(n, rand); band(buf, P.lowHz, P.highHz); const g = db(P.db) / peak(buf), mid = 3 + rand() * (SC.total - 7), pan = rand();
+    for (let i = 0; i < n; i++) { const t = i / SAMPLE_RATE, x = (t - mid) / P.dur; if (x < -0.5 || x > 0.5) continue; const w = 0.5 * (1 + Math.cos(2 * Math.PI * x)); const v = buf[i] * g * w * w * env(i); L[i] += v * (1.2 - pan * 0.6); R[i] += v * (0.6 + pan * 0.6); }
+  }
+  if (S.drops) { const D = S.drops, g = db(D.db); for (let at = rand() / D.perS; at < SC.total; at += -Math.log(1 - rand()) / D.perS) burst(at, D.lowHz + rand() * (D.highHz - D.lowHz), D.ms * (0.6 + rand() * 0.8), g * (0.5 + rand() * 0.5), rand()); }
+  if (S.trickle) { const Tk = S.trickle, buf = pink(n, rand); band(buf, Tk.lowHz, Tk.highHz); const g = db(Tk.db) / peak(buf); for (let i = 0; i < n; i++) { const v = buf[i] * g * env(i); L[i] += v * 0.8; R[i] += v * 0.5; } }
 }
 
 /** A faint high shimmer that arrives with the light and leaves with the title: two close sines beating, tremolo. */
@@ -203,7 +226,7 @@ export function synthesize(input: SoundInput): { L: Float64Array; R: Float64Arra
   const L = new Float64Array(n), R = new Float64Array(n);
   const rand = seeded(input.id);
   bed(L, R, rand);
-  room(L, R, rand);
+  room(L, R, rand, SILENCES[input.silence ?? 'electric'] ?? SILENCES.electric);
   shimmer(L, R);
   keys(L, R, input.cues, input.spaces, rand, input.keys);
   if (input.ink && input.ink.length && input.ink.some(v => v > 0)) pen(L, R, input.ink, rand);

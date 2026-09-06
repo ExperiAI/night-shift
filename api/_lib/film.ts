@@ -8,13 +8,13 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { FRAME, CANVAS, SCORE, ease, sentenceFor, typingWeights, typingPace, scoreFor, type Score, openingFor, type Opening } from './score.js';
+import { FRAME, CANVAS, SCORE, ease, sentenceFor, typingWeights, typingPace, scoreFor, type Score, openingFor, type Opening, type Silence } from './score.js';
 import { font, fit, wrap, textFrame, blockHeight, layoutGlyphs, glyphFrame, mix, type Block } from './text.js';
 import { soundtrack } from './sound.js';
 import type { KeyPreset } from './score.js';
 import { isExcerpt, excerpt } from './score.js';
 import { chatJSON } from './openrouter.js';
-import { LINE_BRIEF, endLineFor } from './artist.js';
+import { LINE_BRIEF, endLineFor, silenceFor } from './artist.js';
 import ffmpegStatic from 'ffmpeg-static'; // the Linux binary on Vercel, this machine's locally; a string path
 
 export type FilmInput = {
@@ -33,6 +33,8 @@ export type FilmInput = {
   keys?: KeyPreset;
   /** The A/B of the opening (score.ts OPENINGS): openingFor(id) when unset. */
   opening?: Opening;
+  /** The silence of the place under the film (score.ts SILENCES): 'electric' when unset. */
+  silence?: Silence;
 };
 export type FilmOptions = { ffmpeg?: string; workDir?: string; keepWork?: boolean; preset?: string; timings?: Record<string, number> };
 
@@ -157,7 +159,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     }
     lap('signature');
 
-    await writeFile(join(dir, 'audio.wav'), soundtrack({ id: input.id, cues: sentence.cues, spaces: sentence.spaces, ink: inkCols, keys: input.keys, score: SC }));
+    await writeFile(join(dir, 'audio.wav'), soundtrack({ id: input.id, cues: sentence.cues, spaces: sentence.spaces, ink: inkCols, keys: input.keys, score: SC, silence: input.silence }));
     lap('sound');
 
     const T0 = String(SC.total);
@@ -231,9 +233,9 @@ export async function hookLine(text: string): Promise<string | null> {
 }
 
 /** The film's inputs from a commission record: fetches the canvas, the raw and the ink layer. */
-export async function filmInputFor(c: { id: string; image?: string; raw?: string; signature?: { image: string; x: number; y: number; w: number; h: number }; anonymous?: boolean; text: string; take: { title?: string; line?: string }; opening?: Opening }): Promise<FilmInput> {
+export async function filmInputFor(c: { id: string; image?: string; raw?: string; signature?: { image: string; x: number; y: number; w: number; h: number }; anonymous?: boolean; text: string; take: { title?: string; line?: string; silence?: string; register?: string; scene?: string; prompt?: string }; opening?: Opening }): Promise<FilmInput> {
   const get = async (u: string) => Buffer.from(await (await fetch(u)).arrayBuffer());
   if (!c.image) throw new Error('no painting to film');
   const [image, raw, ink] = await Promise.all([get(c.image), c.raw ? get(c.raw) : null, c.signature ? get(c.signature.image) : null]);
-  return { id: c.id, image, raw, signature: ink && c.signature ? { ink, x: c.signature.x, y: c.signature.y, w: c.signature.w, h: c.signature.h } : null, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), opening: c.opening ?? openingFor(c.id) };
+  return { id: c.id, image, raw, signature: ink && c.signature ? { ink, x: c.signature.x, y: c.signature.y, w: c.signature.w, h: c.signature.h } : null, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), opening: c.opening ?? openingFor(c.id), silence: silenceFor(c.take) };
 }

@@ -1,3 +1,4 @@
+import { SILENCE_KEYS, type Silence } from './score.js';
 // Night Shift — the artist's identity. This file is the contract: the gatekeeper
 // speaks in this voice, and the renderer paints in this style.
 
@@ -88,6 +89,8 @@ export type Take = {
   prompt?: string;
   /** The register this canvas is painted in (REGISTERS key); chosen by the desk or named by the commissioner. */
   register?: string;
+  /** The silence of the place under the film (score.ts SILENCES), named by the gatekeeper; the desk keeps a valid one and guesses otherwise (silenceFor). */
+  silence?: string;
   /** The film's opening line (docs/reveal.md §3): the commission's own words, a verbatim excerpt of at most 90 characters that carries the moment. Checked in code (score.ts isExcerpt); a rewrite is dropped. */
   line?: string;
   /** Instagram caption: title, one or two sentences, then credit line. */
@@ -168,6 +171,22 @@ export const PHOTO = {
 /** The film's opening line (docs/reveal.md §3). Diego, 2026-09-06: chosen strategically, never at random — the part
  *  of the commission that creates the most expectation and curiosity, so a stranger scrolling past stays for the
  *  painting. Verbatim, so nothing is invented. Used by the gatekeeper and, for older work, by hookLine() at film time. */
+/** The silence of the place (score.ts SILENCES): what a listener would hear standing in the empty room. The gatekeeper
+ *  names one; the desk keeps it if it is one of the five and guesses from the words otherwise (silenceFor). */
+export const SILENCE_BRIEF = 'what this empty place sounds like, exactly one of: "electric" (a bar, shop, office, kitchen, corridor — a strip light\'s hum, air in a duct), "still" (a house at night with nothing running — a fridge far off, a clock), "soft" (a bedroom, a couch, a tatami room — cloth, a radiator\'s tick, a road far away through the window), "open" (outdoors — wind, one vehicle passing far off), "wet" (rain on glass or pavement).';
+export function silenceFor(take: { silence?: string; register?: string; scene?: string; prompt?: string; title?: string }): Silence {
+  if (take.silence && (SILENCE_KEYS as string[]).includes(take.silence)) return take.silence as Silence;
+  if (take.register === 'rain') return 'wet';
+  if (take.register === 'outdoors') return 'open';
+  const w = ` ${take.title ?? ''} ${take.scene ?? ''} ${take.prompt ?? ''} `.toLowerCase();
+  const has = (...ks: string[]) => ks.some(k => w.includes(k));
+  if (has('rain', ' wet ', 'puddle', 'drizzle', 'storm', 'downpour')) return 'wet';
+  if (has('street', ' park', 'field', 'forecourt', 'platform', 'shelter', 'garden', 'yard', 'beach', 'shore', 'outdoor', 'outside', ' sky', 'pavement', 'sidewalk', 'lamppost', 'streetlight', 'mountain', 'meadow', 'lawn')) return 'open';
+  if (has(' bed', 'couch', 'sofa', 'tatami', 'pillow', 'blanket', 'bedroom', 'living room', 'nursery', 'carpet', 'cushion', 'duvet', 'armchair')) return 'soft';
+  if (has(' bar ', ' bar,', ' bar.', 'kitchen', 'office', 'shop', 'store', 'fridge', 'diner', 'neon', ' tube', 'fluorescent', 'strip light', 'counter', 'vending', 'corridor', 'gym', 'garage', ' lab', 'hospital', 'station', 'newsagent', 'cafe', 'café', 'restaurant', 'laundrette', 'laundromat', 'canteen', 'pub')) return 'electric';
+  return 'still';
+}
+
 export const LINE_BRIEF = 'the film of this painting opens on the commissioner\'s own words typing out of the dark, before the painting is shown. Choose the ONE phrase or sentence of the commission that creates the most expectation and curiosity — the thing that happened, the tension, the detail a stranger would stop for and want to see painted — never the setup, the address, an instruction or a description of the style. A VERBATIM excerpt, at most 90 characters, copied exactly (a fragment is fine, cut clean at a word); never rewrite or summarise. A commission under 90 characters is its own line.';
 
 export function gatekeeperSystemPrompt(exception?: Exception | null): string {
@@ -182,11 +201,12 @@ export function gatekeeperSystemPrompt(exception?: Exception | null): string {
     'If you accept, reinterpret it as a single place at night with one light and two or three traces of what just happened. Choose traces that carry the meaning; avoid clutter.',
     'You never paint legible words. A monitor showing a number is a monitor\'s glow on an empty chair; a sign is a lit shape; a note is a folded page. Never put readable text, numbers or symbols in the scene or the prompt. When the words or the number ARE the point, still accept (core_conflict: true) and let their shape survive as light — a zero-like void of glow on the screen, a lit blank where the sign was — and say so in the departures.',
     'Respond ONLY with JSON matching this schema:',
-    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "light"?: string, "anchor"?: string, "traces"?: string[], "prompt"?: string, "line"?: string, "caption"?: string, "departures"?: string, "core_conflict"?: boolean}',
+    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "light"?: string, "anchor"?: string, "traces"?: string[], "prompt"?: string, "line"?: string, "silence"?: string, "caption"?: string, "departures"?: string, "core_conflict"?: boolean}',
     '- note: one sentence to the commissioner, in your voice (accepted: what you will paint; declined: why not, briefly). Never narrate the commissioner: do not decide what they did, felt or heard, and do not invent a fact about them (how many times the phone rang, whether they walked past). Say what you will paint, nothing about them.',
     '- title: 2-5 words.',
     `- line: ${LINE_BRIEF}`,
     '- scene: 2-4 sentences, plain English, no style words.',
+    `- silence: ${SILENCE_BRIEF}`,
     '- light: the one light source in two or three words ("a desk lamp"). anchor: the object the scene is built around, two or three words ("a wooden desk"). traces: the two or three left-behind things, each two or three words ("one glove", "a cold cup"). The studio refuses a light-and-anchor pair, or a trace, it has already painted today.',
     '- prompt: the scene in render terms — the place, the one light and where it stands, the objects and where they lie, the vantage — 2-4 sentences. No style words and no palette: the studio prepends its contract and the register.',
     '- core_conflict: true only when the person, figure, personified feeling or legible text IS the point of the commission (a portrait, "a girl and her anger", "a screen showing 0.00") — not when it is incidental (a kitchen where grandmother cooked). When true, the note must say plainly, first, what you will not paint and what you will paint instead.',

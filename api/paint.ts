@@ -15,7 +15,7 @@ async function alsoStory(c: { image?: string; story?: string }) {
   try { await publishStory(c.image); c.story = new Date().toISOString(); } catch { /* the wall has it; the door can wait */ }
 }
 import { tellSource } from './_lib/react.js';
-import { PHOTO, registerByKey } from './_lib/artist.js';
+import { PHOTO, registerByKey, silenceFor } from './_lib/artist.js';
 
 /** The 20 s reveal of a painting (docs/reveal.md), stored at films/<id>.mp4. Never blocks the painting: a film that
  *  fails leaves the still to post as before and is retried by a later cron (filmJob). The time it took is kept on
@@ -161,7 +161,7 @@ async function paintOne(c: Commission, res: VercelResponse, started: number, dry
     c.cost = img.cost ?? undefined;
     c.painted = new Date().toISOString();
     await save(c); // the painting is safe before the film is attempted
-    if (Date.now() - started < FILM_INLINE_BUDGET_MS) await filmIt(c, { id: c.id, image: img.bytes, raw, signature: { ink: sig.ink, x: sig.left, y: sig.top, w: sig.w, h: sig.h }, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id) });
+    if (Date.now() - started < FILM_INLINE_BUDGET_MS) await filmIt(c, { id: c.id, image: img.bytes, raw, signature: { ink: sig.ink, x: sig.left, y: sig.top, w: sig.w, h: sig.h }, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), silence: silenceFor(c.take) });
     else c.filmError = `deferred: the painting took ${Math.round((Date.now() - started) / 1000)} s; the next cron films it, then posts`;
     if (!dry && canPost() && readyToPost(c)) { // a new-pipeline painting waits for its film (next cron: film first, then the backlog posts the Reel; a failed film posts the still)
       const post = await publish(mediaFor(c), c.take.caption ?? c.take.title ?? 'Night Shift', postOptions(c));
