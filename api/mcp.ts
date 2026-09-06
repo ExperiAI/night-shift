@@ -2,7 +2,7 @@
 //   https://nightshift.experiai.com/api/mcp
 import { createMcpHandler } from 'mcp-handler';
 import { z } from 'zod';
-import { receive, publicView, cancel } from './_lib/desk.js';
+import { receive, publicView, cancel, burn, keyMatches } from './_lib/desk.js';
 import { all, load } from './_lib/store.js';
 import { ARTIST, SHARE, REGISTERS, REGISTER_KEYS } from './_lib/artist.js';
 import { ORIGIN } from './_lib/origin.js';
@@ -25,9 +25,15 @@ const handler = createMcpHandler(
     );
     server.tool(
       'cancel_commission',
-      'Stop a commission before it is painted (only while queued). Use it when the artist\'s note says it will reinterpret your request and that is not what you want.',
-      { id: z.string() },
-      async ({ id }) => { try { const c = await cancel(id, 'api'); return text(c ? publicView(c) : { error: 'no such commission' }); } catch (e: any) { return text({ error: e.message }); } },
+      'Stop a commission before it is painted (only while queued). Use it when the artist\'s note says it will reinterpret your request and that is not what you want. Pass the key from your receipt.',
+      { id: z.string(), key: z.string().optional().describe('The key from the commission receipt.') },
+      async ({ id, key }) => { try { const c = await load(id); if (!c) return text({ error: 'no such commission' }); if (c.keyHash && !keyMatches(c, key)) return text({ error: 'the key from your receipt is needed for that' }); const out = await cancel(id, 'api'); return text(out ? publicView(out) : { error: 'no such commission' }); } catch (e: any) { return text({ error: e.message }); } },
+    );
+    server.tool(
+      'burn_commission',
+      'Burn a commission at any time, painted or not: the painting, your words and every record of them are deleted, and nothing is kept for the next painter. If it is on Instagram, a person takes the post down within the day. Needs the key from your receipt.',
+      { id: z.string(), key: z.string().describe('The key from the commission receipt.') },
+      async ({ id, key }) => { try { const c = await load(id); if (!c) return text({ error: 'no such commission' }); if (!keyMatches(c, key)) return text({ error: 'the key from your receipt is needed for that' }); const out = await burn(id, 'api'); return text(out ? publicView(out) : { error: 'no such commission' }); } catch (e: any) { return text({ error: e.message }); } },
     );
     server.tool(
       'check_commission',

@@ -8,7 +8,7 @@ import { save, type Commission } from './store.js';
 
 /** The events a commissioner may hear about, once each. The reactor's replies to a person's own
  *  messages (a compliment, a question) are per inbound item and stay outside the ledger. */
-export type OutboundEvent = 'receipt' | 'posted' | 'credit' | 'stop' | 'confirmed';
+export type OutboundEvent = 'receipt' | 'posted' | 'credit' | 'stop' | 'confirmed' | 'burned';
 export type Outbound = Partial<Record<OutboundEvent, { at: string; error?: string }>>;
 
 /** Zernio answered with a status: the message was not created, so a later run may try again. Any

@@ -80,6 +80,13 @@ export function isYes(text: string): boolean {
 }
 
 /** "stop", "no", "cancel", "don't" as an answer — not as a word inside a scene. */
+/** "Burn it": the commissioner wants the painting and their words gone — from Instagram, from the wall, from every record.
+ *  Distinct from a stop, which keeps the wish for the next painter (docs/stance.md, the therapist's bar). */
+export function isBurn(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return t.length <= 80 && /\b(burn (it|that|this)|delete (it|that|this|the painting|the post|my (words|sentence|message|commission))|take (it|that|this|the post|the painting) down|remove (it|that|this|the post|the painting)|forget (it|that|this|what i (said|sent|wrote))|erase (it|that|this))\b/.test(t);
+}
+
 export function isStop(text: string): boolean {
   const t = text.trim().toLowerCase();
   return /^(stop|cancel|no|nope|don't|dont|do not)\b/.test(t) && t.length <= 60 && !/\b(kitchen|room|table|paint the|scene)\b/.test(t.slice(3));

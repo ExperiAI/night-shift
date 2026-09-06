@@ -14,7 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(202).json(await receive(body.text, body.from, ORIGIN, body.photo, body.anonymous, ip, body.register, internal ? body.exception : undefined)); // the exception is the studio's alone (#17)
     }
     if (req.method === 'GET') {
-      const docs = (await all()).filter(c => c.status !== 'declined' && !isTestSender(c.from)).slice(0, 60).map(publicView); // studio plumbing is not a body of work
+      const docs = (await all()).filter(c => c.status !== 'declined' && c.status !== 'withdrawn' && !isTestSender(c.from)).slice(0, 60).map(publicView); // studio plumbing is not a body of work
       return res.setHeader('Cache-Control', 's-maxage=30').json({ artist: 'Night Shift', commissions: docs });
     }
     return res.status(405).end();

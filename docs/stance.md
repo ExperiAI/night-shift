@@ -53,6 +53,11 @@ voice and the visibility of the cost.
    for a human to merge); it is told the standing decisions, not that the soul is beyond critique.
 9. **Test fixtures never reach the public** (`commission.ts`, `critic.ts`). Senders `e2e`, `studio
    test`, `test` are studio plumbing.
+10. **A real way to say "burn it", before and after posting** (`desk.ts` `burn`, the therapist's fourth bar,
+   added 2026-09-06). The painting, the words, the photograph and every feedback row that quoted them are
+   deleted; nothing is kept for the next painter. Said from the same DM thread or handle, or with the key in
+   the receipt. The one step the studio cannot do — deleting the Instagram post — is a person's, queued on
+   `/api/status` and said to the commissioner as what it is.
 
 ## The Exams — the boundary, pushed in public
 

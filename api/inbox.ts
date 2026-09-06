@@ -5,12 +5,12 @@
 // MCP is available to people on Instagram by default, and nothing exists only for humans.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { chatJSON } from './_lib/openrouter.js';
-import { instagramAccount, listComments, listMessages, replyToComment, sendMessage, commentOnPost } from './_lib/zernio.js';
+import { instagramAccount, listComments, listMessages, replyToComment, sendMessage, commentOnPost, notifyOwner } from './_lib/zernio.js';
 import { loadInboxState, saveInboxState, all, load, save } from './_lib/store.js';
 import { ORIGIN } from './_lib/origin.js';
-import { cancel, isHeld, awaitYes } from './_lib/desk.js';
+import { cancel, burn, isHeld, awaitYes } from './_lib/desk.js';
 import type { Receipt } from './_lib/desk.js';
-import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, isStop, isYes, consentNote, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
+import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, isStop, isYes, isBurn, consentNote, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
 import { sendOnce } from './_lib/outbound.js';
 
 export const config = { maxDuration: 300 };
@@ -65,6 +65,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   for (const it of fresh) {
     if (!it.text.trim() && !it.photo) continue;
+    // "burn it" from the thread or handle that commissioned: the painting and the words go, everywhere we hold them (the therapist's bar).
+    if (isBurn(it.text)) {
+      const mine = docs.filter(c => c.status !== 'withdrawn' && c.status !== 'declined' && c.source && (it.kind === 'dm' ? c.source.conversationId === it.ref.conversationId : c.source.handle === it.handle)).sort((a, b) => b.created.localeCompare(a.created))[0];
+      if (mine) {
+        if (!dry) {
+          try {
+            const gone = (await burn(mine.id, 'instagram')) ?? mine;
+            await sendOnce(gone, 'burned', async () => {
+              if (it.kind === 'comment' && it.ref.postId && it.ref.commentId) await replyToComment(acct.id, it.ref.postId, it.ref.commentId, gone.take.note);
+              else if (it.ref.conversationId) await sendMessage(acct.id, it.ref.conversationId, gone.take.note);
+            });
+            if (gone.instagram) await notifyOwner(`Take-down: ${gone.instagram} — the commissioner asked for it to be burned. Delete the post; then mark it: POST /api/commission/${gone.id}?takedown=done (internal header).`);
+          } catch (e: any) { log.push({ id: it.id, error: String(e.message).slice(0, 200) }); continue; }
+        }
+        log.push({ id: it.id, from: it.handle, kind: 'burn', commission: mine.id, replied: true });
+        continue;
+      }
+    }
     // "stop" from someone whose commission is still held: nothing is painted, the wish is kept.
     if (isStop(it.text)) {
       const held = docs.find(c => isHeld(c) && c.source && (it.kind === 'dm' ? c.source.conversationId === it.ref.conversationId : c.source.handle === it.handle));

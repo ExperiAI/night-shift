@@ -1,7 +1,7 @@
 import { put, list, del } from '@vercel/blob';
 import type { Take } from './artist.js';
 
-export type Status = 'queued' | 'declined' | 'painting' | 'painted' | 'posted' | 'failed';
+export type Status = 'queued' | 'declined' | 'painting' | 'painted' | 'posted' | 'failed' | 'withdrawn'; // withdrawn: burned at the commissioner's word — text, take and images gone (docs/stance.md, the therapist's bar)
 
 export type Commission = {
   id: string;
@@ -35,6 +35,8 @@ export type Commission = {
   cost?: number;
   rejects?: { image: string; reason: string }[]; // canvases the inspector refused, kept and shown: the cost of the work (docs/stance.md)
   postedCaption?: string; // the caption AS INSTAGRAM SHOWS IT, read back after publishing (issue #22): a publish that cannot be read back is a claim
+  keyHash?: string;      // sha256 of the key handed back in the receipt: the only thing that lets an API commissioner cancel or burn this one
+  withdrawn?: { at: string; by: 'api' | 'instagram'; instagramDown?: string }; // burned: when, from where, and when a person took the Instagram post down
   outbound?: import('./outbound.js').Outbound; // one message per event to the commissioner, ever (issue #16); written only by sendOnce()
 };
 
@@ -124,6 +126,16 @@ const FEEDBACK = 'feedback/';
 export async function saveFeedback(f: Feedback): Promise<void> {
   await put(`${FEEDBACK}${f.id}.json`, JSON.stringify(f), { access: 'public', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 0 });
 }
+export async function deleteFeedback(id: string): Promise<void> { await del(`${FEEDBACK}${id}.json`); }
+
+/** Every stored file of one commission — the painting, its rejects, the slides, the photograph — by URL. */
+export async function filesOf(id: string): Promise<string[]> {
+  const out: string[] = [];
+  for (const prefix of [`paintings/${id}`, `references/${id}`]) for (const b of (await list({ prefix, limit: 100 })).blobs) out.push(b.url);
+  return out;
+}
+export async function deleteFiles(urls: string[]): Promise<void> { if (urls.length) await del(urls); }
+
 export async function allFeedback(): Promise<Feedback[]> {
   const out: Feedback[] = [];
   let cursor: string | undefined;

@@ -1,7 +1,8 @@
 // The commission desk: what happens when someone asks for a painting.
 import { gatekeeperSystemPrompt, INVITE, SIGNOFF, PHOTO, SHARE, REGISTERS, REGISTER_KEYS, registerByKey, composePrompt, isStudioSender, EXCEPTIONS, type Take, type Register, type Exception } from './artist.js';
 import { chatJSON } from './openrouter.js';
-import { all, load, newId, save, saveFeedback, storeReference, type Commission } from './store.js';
+import { all, load, newId, save, saveFeedback, storeReference, allFeedback, deleteFeedback, filesOf, deleteFiles, type Commission } from './store.js';
+import { createHash, randomBytes } from 'node:crypto';
 import { normalizePhoto } from './compose.js';
 
 const MAX_PER_SENDER_PER_DAY = 3;
@@ -40,7 +41,44 @@ const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const MAX_DATA_URL = 4 * 1024 * 1024;
 const DATA_URL = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 
-export type Receipt = { id: string; status: Commission['status']; note: string; departures?: string; statusUrl: string; share?: typeof SHARE & { wall: string } };
+export type Receipt = { id: string; status: Commission['status']; note: string; departures?: string; statusUrl: string; key?: string; share?: typeof SHARE & { wall: string } };
+
+/** The key in a receipt is the commissioner's proof: it cancels the commission while queued, and burns it at any time
+ *  (DELETE /api/commission/<id>?key=…&burn=1). Only its hash is stored. A commission that came in through Instagram
+ *  needs no key: the same DM thread or handle is the proof. */
+export const newKey = () => randomBytes(18).toString('base64url');
+export const hashKey = (key: string) => createHash('sha256').update(key).digest('hex');
+export function keyMatches(c: Pick<Commission, 'keyHash'>, key?: string | null): boolean {
+  return Boolean(c.keyHash && key && hashKey(key) === c.keyHash);
+}
+
+export const BURNED_NOTE = {
+  posted: 'Gone from my side: the painting and your words are deleted here and not kept for anyone, not even the next painter. The Instagram post is taken down by a person, within the day.',
+  unposted: 'Gone. Nothing was posted, the picture is deleted and your words are not kept for anyone.',
+};
+
+/** "Burn it" (docs/stance.md, the therapist's bar): the painting, its rejects, the photograph, the commission text, the
+ *  take and every feedback row that quoted it are deleted. What stays is the id, the dates, the Instagram link a person
+ *  needs in order to take the post down, and the outbound ledger (so the one reply to this stays one). Idempotent. */
+export async function burn(id: string, by: 'api' | 'instagram'): Promise<Commission | null> {
+  const c = await load(id);
+  if (!c) return null;
+  if (c.status === 'withdrawn') return c;
+  const text = c.text;
+  await deleteFiles(await filesOf(id));
+  for (const f of await allFeedback()) if (f.about === id || (text && f.text.includes(text))) await deleteFeedback(f.id);
+  const posted = Boolean(c.instagram) && (c.status === 'posted');
+  const gone: Commission = {
+    id, created: c.created, status: 'withdrawn', text: '', from: null, anonymous: true,
+    take: { accepted: c.take.accepted, note: posted ? BURNED_NOTE.posted : BURNED_NOTE.unposted },
+    ...(posted ? { instagram: c.instagram, mediaId: c.mediaId, zernioPostId: c.zernioPostId, story: c.story } : {}),
+    ...(c.source ? { source: { channel: c.source.channel, handle: '', ...(c.source.conversationId ? { conversationId: c.source.conversationId } : {}) } } : {}),
+    ...(c.keyHash ? { keyHash: c.keyHash } : {}), ...(c.outbound ? { outbound: c.outbound } : {}), ...(c.cost != null ? { cost: c.cost } : {}),
+    withdrawn: { at: new Date().toISOString(), by },
+  };
+  await save(gone);
+  return gone;
+}
 
 /** Cancel a commission that has not been painted yet. The wish is kept: it is what the next painter is made of. */
 export async function cancel(id: string, why: 'stop' | 'api' | 'silence'): Promise<Commission | null> {
@@ -237,12 +275,13 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out
   const holdUntil = take.accepted ? holdFor(take.core_conflict) : undefined;
   if (holdUntil) take.note = `${take.note} ${STOP_HINT}`;
+  const key = newKey();
   const c: Commission = {
-    id, text, from, created: new Date().toISOString(),
+    id, text, from, created: new Date().toISOString(), keyHash: hashKey(key),
     status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}), ...(holdUntil ? { holdUntil } : {}), ...(exception ? { exception } : {}),
   };
   await save(c);
-  const receipt: Receipt = { id: c.id, status: c.status, note: take.note, ...(take.departures ? { departures: take.departures } : {}), statusUrl: `${origin}/api/commission/${c.id}` };
+  const receipt: Receipt = { id: c.id, status: c.status, note: take.note, ...(take.departures ? { departures: take.departures } : {}), statusUrl: `${origin}/api/commission/${c.id}`, key };
   if (take.accepted) receipt.share = { ...SHARE, wall: origin };
   return receipt;
 }
@@ -268,6 +307,7 @@ export function recentBySender(docs: Pick<Commission, 'from' | 'created' | 'seed
 }
 
 export function publicView(c: Commission) {
+  if (c.status === 'withdrawn') return { id: c.id, status: c.status, note: c.take.note }; // burned: nothing else exists to show
   return {
     id: c.id, status: c.status, created: c.created, from: c.anonymous ? null : c.from,
     commission: c.anonymous ? null : c.text, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene, // a private sentence stays private on the wall too

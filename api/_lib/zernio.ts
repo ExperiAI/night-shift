@@ -21,6 +21,17 @@ export function postOptions(c: { source?: { channel: string; handle?: string } }
   return { firstComment: HASHTAGS, ...(collab ? { collaborators: [collab] } : {}) };
 }
 
+/** A word to the owner, as an Instagram DM in the thread the owner opened with the account (OWNER_CONVERSATION_ID).
+ *  Unset, it is a no-op: the same fact is on /api/status (`takedowns`). */
+export async function notifyOwner(message: string): Promise<boolean> {
+  const conv = process.env.OWNER_CONVERSATION_ID;
+  if (!conv) return false;
+  const acct = await instagramAccount();
+  if (!acct) return false;
+  await sendMessage(acct.id, conv, message.slice(0, 900));
+  return true;
+}
+
 /** Followers, follows and post count — Zernio's daily snapshot of the account. */
 export async function audience(): Promise<{ followers: number; follows: number; posts: number } | null> {
   const acct = await instagramAccount();

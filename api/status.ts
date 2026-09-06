@@ -22,7 +22,8 @@ export async function studioStatus() {
     instagram: `https://www.instagram.com/${ARTIST.handle}/`,
     queue: { waiting: docs.filter(c => c.status === 'queued' && !isHeld(c)).length, held: docs.filter(isHeld).length, painting: docs.filter(c => c.status === 'painting').length },
     today: { accepted: acceptedToday(docs), cap: STUDIO_CAP, declined: today.filter(c => c.status === 'declined').length, failed: today.filter(c => c.status === 'failed').length, cancelled: today.filter(c => c.cancelled).length, renderSpendUsd: Number(spentToday.toFixed(3)) },
-    allTime: { posted: posted.length, renderSpendUsd: Number(docs.reduce((s, c) => s + (c.cost ?? 0), 0).toFixed(2)), photoCommissions: docs.filter(c => c.photo).length, fromInstagram: docs.filter(c => c.source).length },
+    takedowns: docs.filter(c => c.status === 'withdrawn' && c.instagram && !c.withdrawn?.instagramDown).map(c => ({ id: c.id, instagram: c.instagram, since: c.withdrawn?.at })), // burned, and a person still has to delete the post: the one step Zernio cannot do on Instagram
+    allTime: { posted: posted.length, withdrawn: docs.filter(c => c.status === 'withdrawn').length, renderSpendUsd: Number(docs.reduce((s, c) => s + (c.cost ?? 0), 0).toFixed(2)), photoCommissions: docs.filter(c => c.photo).length, fromInstagram: docs.filter(c => c.source).length },
     audience: aud, // followers/follows/posts — Zernio's daily snapshot; baseline 2026-09-05: 1 follower
     lastPosted: last ? { id: last.id, title: last.take.title, at: last.painted, instagram: last.instagram, captionOnInstagram: captionMatches(last) == null ? 'not read back yet' : captionMatches(last) ? 'matches what was sent' : 'DIFFERS from what was sent' } : null, // issue #22: a publish that cannot be read back is a claim
     captionMismatches: posted.filter(c => captionMatches(c) === false).map(c => c.id),

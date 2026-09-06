@@ -223,6 +223,20 @@ held work), and a "stop" — in a DM or comment, `DELETE /api/commission/:id`, o
 ("wanted literally"), which is the demand signal for painter #2. Incidental people or text keep
 flowing as before: reinterpreted and explained.
 
+**"Burn it" is different from "stop"** (2026-09-06, the therapist's bar in `docs/critics/2026-09-05/07-lena.md`):
+at any time, painted or posted, the commissioner can have the painting and their words deleted — the
+image, its rejects, the slides, the photograph, the commission text, the take, and every feedback row
+that quoted it. Nothing is kept for the next painter. What remains is the id, the dates and, for a posted
+canvas, the Instagram link a person needs in order to delete the post: Zernio cannot unpublish on
+Instagram, so that one step is human and is queued as `takedowns` on `/api/status` (and DM'd to the
+owner when `OWNER_CONVERSATION_ID` is set; mark it done with `POST /api/commission/:id?takedown=done`
+behind the internal header). Who may burn: the DM thread or handle the commission came from ("burn it",
+"delete it", "take it down" — `isBurn`); at the API and MCP, the `key` every receipt now carries
+(`DELETE /api/commission/:id?key=…&burn=1`, `burn_commission`); the studio itself. Only the key's
+hash is stored. `cancel_commission` and plain `DELETE` take the same key; a commission from before
+keys still cancels while queued, and cannot be burned from the API. The reply says plainly what is gone
+and that a person takes the post down.
+
 **Silence is not consent for a private disclosure** (issue #18, decided 2026-09-05). A core-conflict
 commission that came in by DM is not painted on a timeout: the receipt asks for a **yes** instead of
 offering a stop (`consentNote`, `awaitingYes`), the inbox releases it on "yes" / "go ahead" / "paint
