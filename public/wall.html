@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Night Shift — the wall</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 fill=%27%230b1517%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%277%27 fill=%27%23e9a23b%27/%3E%3C/svg%3E">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  /* The wall (docs/reveal.md §5): a screen in a room. Left, the door: the QR and the sentences arriving. Right, the
+     stage: a 9:16 frame where each painting's reveal plays to the same score as the film. Nothing else. */
+  @font-face{font-family:'Instrument Serif';src:url(/fonts/InstrumentSerif-Regular.ttf) format('truetype');font-display:swap}
+  @font-face{font-family:'IBM Plex Mono';src:url(/fonts/IBMPlexMono-Regular.ttf) format('truetype');font-display:swap}
+  :root{--bg:#0b1517;--ink:#e8e1d3;--dim:#8fa3a3;--amber:#e9a23b;--line:#1c3134;--serif:'Instrument Serif',Georgia,serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hidden;cursor:none}
+  body{font:16px/1.5 var(--serif)}
+  #wall{display:flex;height:100%;width:100%}
+  #door{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:5vh 5vw;gap:4vh;transition:opacity 1.2s ease}
+  #wall.revealing #door{opacity:.28}
+  #ask{font-size:clamp(28px,4.2vw,64px);line-height:1.08;margin:0;max-width:14ch;font-weight:400}
+  #qr{width:min(34vh,26vw);aspect-ratio:1;background:#fff;padding:3%;border-radius:4px}
+  #qr img,#qr canvas{width:100%!important;height:100%!important;display:block}
+  #room{color:var(--dim);font-family:var(--mono);font-size:clamp(12px,1.1vw,18px);margin:0}
+  #queue{list-style:none;margin:0;padding:0;display:grid;gap:1.4vh;max-height:34vh;overflow:hidden}
+  #queue li{font-family:var(--mono);font-size:clamp(13px,1.15vw,20px);line-height:1.4;color:var(--ink);padding-left:1.2em;position:relative;transform:translateX(-40px);opacity:0;animation:arrive 1.1s cubic-bezier(.2,.7,.2,1) forwards}
+  #queue li::before{content:'';position:absolute;left:0;top:.55em;width:.5em;height:.5em;border-radius:50%;background:var(--amber)}
+  #queue li small{display:block;color:var(--dim);font-size:.82em;margin-top:.15em}
+  #queue li.next::before{box-shadow:0 0 0 .3em rgba(233,162,59,.18)}
+  @keyframes arrive{to{transform:none;opacity:1}}
+
+  #frame{flex:none;height:100%;aspect-ratio:9/16;position:relative;overflow:hidden;background:#000}
+  #stage{position:absolute;left:0;top:0;width:1080px;height:1920px;transform-origin:0 0;background:#000}
+  #fill{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(40px) brightness(.35);transform:scale(1.08)}
+  #canvas{position:absolute;left:0;top:285px;width:1080px;height:1350px;overflow:hidden;transform-origin:50% 50%}
+  #canvas img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  #sig{position:absolute;display:none}
+  #black{position:absolute;inset:0;background:#000}
+  #sentence{position:absolute;left:72px;right:72px;top:0;height:1920px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--mono);font-size:44px;line-height:1.5;color:var(--ink);will-change:transform,opacity}
+  #sentence .w{white-space:nowrap}
+  #sentence .g{opacity:0}
+  #sentence>div{position:relative;max-width:100%}
+  #cursor{position:absolute;width:.08em;height:1em;background:var(--amber);border-radius:1px;transform:translateY(.25em)}
+  #title{position:absolute;left:72px;right:72px;bottom:0;font-family:var(--serif);font-size:64px;line-height:1.1;color:#ffd58a;opacity:0}
+  #endline{position:absolute;left:72px;right:72px;bottom:72px;font-family:var(--mono);font-size:30px;line-height:1.4;color:#a2abbb;opacity:0}
+  #idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;color:var(--dim);font-family:var(--mono);font-size:30px;text-align:center;padding:120px}
+  #idle img{width:70%;opacity:.7}
+
+  #start{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;cursor:pointer;z-index:10;font-family:var(--mono);color:var(--dim);font-size:clamp(14px,1.4vw,22px);text-align:center;padding:10vw}
+  #start b{font:400 clamp(40px,7vw,120px)/1 var(--serif);color:var(--ink)}
+  #start.gone{display:none}
+  @media (prefers-reduced-motion:reduce){#queue li{animation-duration:.01s}}
+</style>
+</head>
+<body>
+<div id="start"><b>Night Shift</b><span id="startline">Tap to start the wall</span></div>
+<div id="wall">
+  <section id="door">
+    <h1 id="ask">Send one sentence about tonight.</h1>
+    <div id="qr" aria-label="QR code to the send page"></div>
+    <p id="room"></p>
+    <ul id="queue"></ul>
+  </section>
+  <div id="frame">
+    <div id="stage">
+      <div id="fill"></div>
+      <div id="canvas"><img id="painting" alt=""><img id="sig" alt=""></div>
+      <div id="black"></div>
+      <div id="title"></div>
+      <div id="endline"></div>
+      <div id="sentence"></div>
+      <div id="idle"><img src="/persona/portrait.png" alt=""><span id="idletext">Nothing painted yet tonight.</span></div>
+    </div>
+  </div>
+</div>
+<script>
+// ---- the room, the score, the state ----
+const params = new URLSearchParams(location.search);
+const ROOM = (params.get('room') || '').toLowerCase();
+const DEMO = params.get('demo') === '1';
+const origin = location.origin;
+let SCORE = null;                 // from the list endpoint: the one timeline (api/_lib/score.ts)
+const seen = new Set();           // commission ids the wall has shown arriving
+const revealed = new Set();       // ids whose reveal has played tonight
+const toReveal = [];              // painted work waiting for its reveal
+let loop = [];                    // what plays while nothing new arrives
+let playing = null;               // the reveal on stage
+let loopIndex = 0;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+const clip = x => Math.min(1, Math.max(0, x));
+const ease = x => (1 - Math.cos(Math.PI * clip(x))) / 2;
+
+// ---- layout: the stage is 1080×1920 CSS px scaled to the frame, so the score's pixels apply as written ----
+function fit() { const f = $('frame'); const s = f.clientHeight / 1920; $('stage').style.transform = `scale(${s})`; }
+addEventListener('resize', fit); fit();
+
+// ---- start: one tap unlocks audio and fullscreen, and says which room this is ----
+$('start').addEventListener('click', async () => {
+  try { await document.documentElement.requestFullscreen(); } catch {}
+  audio.init();
+  $('start').classList.add('gone');
+  tick();
+});
+if (!ROOM && !DEMO) $('startline').textContent = 'Add ?room=CODE to the address (or ?demo=1). Open a room with scripts/room.mjs.';
+if (params.get('start') === '1') { $('start').classList.add('gone'); tick(); } // headless checks: no tap, no audio
+
+// ---- the door: QR and arrivals ----
+function drawQr(url) { $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 512, height: 512, correctLevel: QRCode.CorrectLevel.M, colorDark: '#0b1517', colorLight: '#ffffff' }); }
+if (ROOM) drawQr(`${origin}/send?room=${encodeURIComponent(ROOM)}`); else drawQr(`${origin}/`);
+if (DEMO) { $('ask').textContent = 'Send one sentence about tonight.'; $('room').textContent = 'demo: tonight’s paintings, arriving again'; }
+
+function arrive(c) {
+  const li = document.createElement('li');
+  const words = c.commission ? (c.line || cut(c.commission, (SCORE && SCORE.sentence.maxChars) || 90)) : 'a sentence, sent privately';
+  li.innerHTML = `${esc(words)}<small>${esc(c.note || 'Painting it.')}</small>`;
+  li.dataset.id = c.id;
+  $('queue').prepend(li);
+  while ($('queue').children.length > 5) $('queue').lastElementChild.remove();
+  audio.arrive();
+}
+function markNext() { for (const li of $('queue').children) li.classList.toggle('next', toReveal[0] && li.dataset.id === toReveal[0].id); }
+
+// ---- polling: the room's feed, every 4 s; or the studio's last twelve in demo ----
+async function poll() {
+  try {
+    const url = DEMO ? `${origin}/api/commission` : `${origin}/api/commission?room=${encodeURIComponent(ROOM)}`;
+    const r = await fetch(url); if (!r.ok) { $('room').textContent = r.status === 404 ? `No room “${ROOM}”. Open it with scripts/room.mjs open ${ROOM}.` : `The studio did not answer (${r.status}). Trying again.`; return; }
+    const j = await r.json();
+    SCORE = j.score;
+    if (j.room) { $('room').textContent = j.room.open ? j.room.name : `${j.room.name} — closed for the night`; }
+    const list = (j.commissions || []).slice().sort((a, b) => a.created.localeCompare(b.created));
+    if (DEMO) return demoFeed(list.filter(c => c.image).slice(-12));
+    for (const c of list) {
+      if (!seen.has(c.id) && (c.status === 'queued' || c.status === 'painting')) { seen.add(c.id); arrive(c); }
+      if (c.image && (c.status === 'painted' || c.status === 'posted') && !revealed.has(c.id) && !toReveal.some(x => x.id === c.id) && playing?.id !== c.id) { seen.add(c.id); toReveal.push(c); }
+      if (c.status === 'withdrawn' || c.status === 'declined') { // burned or stopped: off the wall, now
+        revealed.delete(c.id); loop = loop.filter(x => x.id !== c.id); const i = toReveal.findIndex(x => x.id === c.id); if (i >= 0) toReveal.splice(i, 1);
+        const li = [...$('queue').children].find(l => l.dataset.id === c.id); if (li) li.remove();
+        if (playing?.id === c.id) stopReveal();
+      }
+    }
+    markNext();
+  } catch (e) { /* the next poll is 4 s away */ }
+}
+
+// demo: the last twelve paintings arrive again, one every ~25 s, sentence first, then the reveal
+let demoQueue = null, demoTimer = null;
+function demoFeed(list) {
+  if (demoQueue) return;
+  demoQueue = list.slice().reverse();
+  const next = () => { const c = demoQueue.shift(); if (!c) { demoQueue = list.slice().reverse(); return next(); } arrive(c); setTimeout(() => { toReveal.push(c); markNext(); }, 6000); demoTimer = setTimeout(next, 32000); };
+  next();
+}
+
+// ---- the stage: one clock, the score's functions of t (mirrors api/_lib/film.ts) ----
+let glyphs = [], cues = [], sigGeom = null, t0 = 0, raf = 0;
+function layoutSentence(text) {
+  const el = $('sentence'); el.innerHTML = ''; glyphs = [];
+  const S = SCORE.sentence;
+  const wrap = document.createElement('div');
+  for (const word of text.split(' ')) {
+    const w = document.createElement('span'); w.className = 'w';
+    for (const ch of word) { const g = document.createElement('span'); g.className = 'g'; g.textContent = ch; w.appendChild(g); glyphs.push(g); }
+    wrap.appendChild(w); wrap.appendChild(document.createTextNode(' '));
+  }
+  const cur = document.createElement('span'); cur.id = 'cursor'; wrap.appendChild(cur);
+  el.appendChild(wrap);
+  el.style.fontSize = S.size + 'px';
+  if (wrap.offsetHeight > S.size * 1.5 * S.maxLines + 2) el.style.fontSize = S.minSize + 'px'; // offsetHeight is in the stage's own pixels, before the scale
+  // the hand's rhythm: a breath after a comma, a longer one after a full stop; all in by typedBy
+  const chars = text.replace(/ /g, ''); let acc = 0; const cum = [];
+  for (let i = 0; i < glyphs.length; i++) { cum.push(acc); const prev = i > 0 ? glyphs[i - 1].textContent : ''; const nextW = /[.!?…]/.test(prev) ? S.pauseStop : /[,;:—–]/.test(prev) ? S.pauseComma : 1; acc += nextW; }
+  const n = Math.max(1, glyphs.length);
+  const unit = Math.min(S.maxCharInterval, (S.typedBy - S.glyphFade - S.start) / ((cum[n - 1] || 0) + 1));
+  cues = cum.map(c => S.start + c * unit);
+  return cur;
+}
+const cut = (text, max) => text.length <= max ? text : (text.slice(0, max + 1).match(/^[\s\S]*[,;:.!?](?=\s)/) || [text.slice(0, max).replace(/\s\S*$/, '')])[0].replace(/[\s,;:]+$/, '') + '…';
+
+async function startReveal(c) {
+  playing = c; document.getElementById('wall').classList.add('revealing');
+  $('idle').style.display = 'none';
+  const S = SCORE;
+  const words = c.commission ? (c.line || cut(c.commission, S.sentence.maxChars)) : 'a commission';
+  const cursor = layoutSentence(words);
+  $('fill').style.backgroundImage = `url("${c.image}")`;
+  const base = c.raw && c.signature ? c.raw : c.image;
+  const img = $('painting'); img.src = base;
+  await new Promise(ok => { if (img.complete && img.naturalWidth) ok(); else { img.onload = ok; img.onerror = ok; } });
+  const sig = $('sig'); sigGeom = null;
+  if (c.raw && c.signature && img.naturalWidth) {
+    const k = 1080 / img.naturalWidth;
+    sigGeom = { x: c.signature.x * k, y: c.signature.y * k, w: c.signature.w * k, h: c.signature.h * k };
+    sig.src = c.signature.image; Object.assign(sig.style, { left: sigGeom.x + 'px', top: sigGeom.y + 'px', width: sigGeom.w + 'px', height: sigGeom.h + 'px', display: 'block', inset: 'auto', objectFit: 'fill' });
+  } else sig.style.display = 'none';
+  $('title').textContent = c.title || 'Night Shift';
+  $('endline').textContent = c.endLine || '';
+  $('title').style.bottom = (72 + $('endline').offsetHeight + S.signoff.gap) + 'px';
+  audio.reveal();
+  t0 = performance.now(); cancelAnimationFrame(raf);
+  const frame = () => {
+    const t = (performance.now() - t0) / 1000;
+    render(t, cursor);
+    if (t < S.total) raf = requestAnimationFrame(frame); else endReveal();
+  };
+  raf = requestAnimationFrame(frame);
+}
+function render(t, cursor) {
+  const S = SCORE, P = S.painting, G = S.signature, Sn = S.sentence;
+  // the sentence
+  const sen = $('sentence');
+  let pen = -1;
+  glyphs.forEach((g, i) => { g.style.opacity = clip((t - cues[i]) / Sn.glyphFade); if (t >= cues[i]) pen = i; });
+  const last = cues.length ? cues[cues.length - 1] + Sn.glyphFade : 0;
+  cursor.style.opacity = t < last ? 1 : 0.55 + 0.45 * Math.sin(2 * Math.PI * 0.9 * (t - last));
+  const at = pen >= 0 ? glyphs[pen] : glyphs[0];
+  if (at) { cursor.style.left = (pen >= 0 ? at.offsetLeft + at.offsetWidth : at.offsetLeft) + 4 + 'px'; cursor.style.top = at.offsetTop + 'px'; }
+  const fade = clip((t - Sn.fadeStart) / (Sn.fadeEnd - Sn.fadeStart));
+  sen.style.opacity = 1 - fade;
+  sen.style.transform = `translateY(${-Sn.rise * t}px) scale(${1 + (Sn.driftScale - 1) * fade})`;
+  sen.style.display = t >= Sn.fadeEnd ? 'none' : 'flex';
+  // the painting surfaces and pushes in
+  $('black').style.opacity = 1 - clip((t - P.fadeStart) / (P.fadeEnd - P.fadeStart));
+  $('canvas').style.transform = `scale(${P.scaleFrom - (P.scaleFrom - P.scaleTo) * clip((t - P.pushStart) / (P.pushEnd - P.pushStart))})`;
+  // the painter signs
+  if (sigGeom) {
+    const p = ease((t - G.start) / (G.end - G.start));
+    const edge = -G.edgePx + (sigGeom.w + 2 * G.edgePx) * p;
+    const m = t < G.start ? 'linear-gradient(to right, transparent 0, transparent 100%)' : t >= G.end ? 'none' : `linear-gradient(to right, #000 ${edge - G.edgePx}px, transparent ${edge}px)`;
+    $('sig').style.maskImage = m; $('sig').style.webkitMaskImage = m;
+  }
+  // the title and the last words
+  $('title').style.opacity = clip((t - S.title.start) / S.title.fadeIn);
+  $('endline').style.opacity = clip((t - S.signoff.start) / S.signoff.fadeIn);
+}
+function endReveal() {
+  if (playing && !revealed.has(playing.id)) { revealed.add(playing.id); loop.push(playing); const li = [...$('queue').children].find(l => l.dataset.id === playing.id); if (li) li.remove(); }
+  playing = null; document.getElementById('wall').classList.remove('revealing');
+  setTimeout(tick, 1800);
+}
+function stopReveal() { cancelAnimationFrame(raf); playing = null; document.getElementById('wall').classList.remove('revealing'); $('black').style.opacity = 1; setTimeout(tick, 600); }
+
+// ---- what plays next: a new painting first, else the loop of tonight's, else the window ----
+function tick() {
+  if (playing) return;
+  if (toReveal.length) { markNext(); return startReveal(toReveal.shift()); }
+  if (loop.length) { const c = loop[loopIndex++ % loop.length]; return startReveal(c); }
+  $('black').style.opacity = 1; $('idle').style.display = 'flex';
+  setTimeout(tick, 4000);
+}
+setInterval(poll, 4000); poll();
+
+// ---- audio: generated, as in the film; unlocked by the first tap ----
+const audio = {
+  ctx: null,
+  init() { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch {} },
+  db: d => Math.pow(10, d / 20),
+  tone(hz, gain, at, dur, attack = 0.01, release = 0.4) {
+    const c = this.ctx; if (!c) return; const o = c.createOscillator(), g = c.createGain(); o.frequency.value = hz; o.connect(g); g.connect(c.destination);
+    const s = c.currentTime + at; g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(gain, s + attack); g.gain.setValueAtTime(gain, s + Math.max(attack, dur - release)); g.gain.linearRampToValueAtTime(0, s + dur); o.start(s); o.stop(s + dur + 0.05);
+  },
+  arrive() { this.tone(660, this.db(-30), 0, 0.25, 0.005, 0.2); },
+  reveal() {
+    const c = this.ctx; if (!c || !SCORE) return; const A = SCORE.audio, T = SCORE.total;
+    this.tone(A.drone.hz, this.db(A.drone.gainDb), 0, T, A.drone.fadeIn, A.drone.fadeOut);
+    this.tone(A.drone.hz * 2, this.db(A.drone.gainDb) * 0.35, 0, T, A.drone.fadeIn, A.drone.fadeOut);
+    // the scratch under the signature: filtered noise
+    const G = SCORE.signature, len = Math.round(c.sampleRate * (G.end - G.start)), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0; for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; b0 = 0.99765 * b0 + w * 0.099; b1 = 0.963 * b1 + w * 0.2965; b2 = 0.57 * b2 + w * 1.0526; d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.2; }
+    const src = c.createBufferSource(); src.buffer = buf; const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = A.scratch.lowHz; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = A.scratch.highHz; const g = c.createGain();
+    const s = c.currentTime + G.start; g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(this.db(A.scratch.gainDb), s + 0.2); g.gain.setValueAtTime(this.db(A.scratch.gainDb), s + (G.end - G.start) - 0.3); g.gain.linearRampToValueAtTime(0, s + (G.end - G.start));
+    src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(c.destination); src.start(s);
+    // one soft note under the title
+    const o = c.createOscillator(), ng = c.createGain(); o.frequency.value = A.note.hz; o.connect(ng); ng.connect(c.destination);
+    const n0 = c.currentTime + A.note.at; ng.gain.setValueAtTime(this.db(A.note.gainDb), n0); ng.gain.exponentialRampToValueAtTime(0.0001, n0 + A.note.decay * 1.5); o.start(n0); o.stop(n0 + A.note.decay * 1.6);
+  },
+};
+</script>
+</body>
+</html>

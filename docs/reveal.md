@@ -120,9 +120,11 @@ Three states, in one layout:
    column ("painting next").
 3. **Reveal**: when a commission reaches `painted`/`posted`, its reveal plays once, full screen, using
    the same score in HTML/CSS (typing, fade from black, push, **the signature writing itself**, title,
-   sign-off, the drone via WebAudio). The wall needs `raw` and the signature choice from the public
-   view (`publicView` exposes `raw` and `signature: { file, x, y, w }` only for room commissions, so
-   the wall can draw the beat; the studio page never uses them). Then it joins the loop.
+   last words, the drone via WebAudio). The wall needs `raw` and the ink layer from the public view
+   (`publicView` exposes `raw`, `signature: { image, x, y, w, h }`, `line` and `endLine` for every
+   commission — they are public blobs and the `?demo=1` replay needs them for studio work too; the
+   studio page never uses them). Then it joins the loop. One tap starts the wall (fullscreen and the
+   audio unlock); `&start=1` skips the tap for headless checks.
 
 `?demo=1` replays the last twelve paintings' reveals as if they were arriving, with their sentences,
 without commissioning anything: Diego's public demo on a video call, with no room and no cost.
@@ -151,6 +153,10 @@ Nothing on the wall or the ticket mentions the inspector, rejects, the critic or
    painting and its film, Share works on iOS, Burn removes it from the wall. Film the wall with a
    phone; that video is the hand-back.
 6. `tent.html` → four cards print on one A4.
+
+**Running it locally:** `node --import ./scripts/_ts.mjs scripts/dev.mjs` serves the pages and the API
+handlers on one port against the real store (`vercel dev` refuses to run here: the package's own `dev`
+script is `vercel dev`). Reads are safe; a POST writes production data.
 
 Tests follow the repo's habit: source-regex tests for the wiring (`score` shared by both stages,
 `isAiGenerated` and `instagramThumbnail` on every video post, no moderation words in `wall.html`,

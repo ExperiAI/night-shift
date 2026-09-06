@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Night Shift — table cards</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  /* Table cards (docs/reveal.md §5): four A6 on one A4, to print and cut. Open /tent?room=CODE and print. */
+  @font-face{font-family:'Instrument Serif';src:url(/fonts/InstrumentSerif-Regular.ttf) format('truetype')}
+  @font-face{font-family:'IBM Plex Mono';src:url(/fonts/IBMPlexMono-Regular.ttf) format('truetype')}
+  @page{size:A4 portrait;margin:0}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#444}
+  .sheet{width:210mm;height:297mm;margin:0 auto;background:#fff;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .card{border:.25mm dashed #bbb;padding:12mm 11mm;display:flex;flex-direction:column;justify-content:space-between;color:#0b1517;font:11pt/1.4 'Instrument Serif',Georgia,serif;position:relative}
+  .card h1{font:400 26pt/1 'Instrument Serif',Georgia,serif;margin:0 0 3mm}
+  .card p{margin:0 0 3mm}
+  .card .rule{font:9pt/1.45 'IBM Plex Mono',ui-monospace,monospace;color:#3a4a4c}
+  .card .qr{width:34mm;height:34mm}
+  .card .qr img,.card .qr canvas{width:100%!important;height:100%!important}
+  .card .foot{display:flex;align-items:flex-end;justify-content:space-between;gap:6mm}
+  .card .url{font:8pt 'IBM Plex Mono',ui-monospace,monospace;color:#3a4a4c;max-width:36mm;word-break:break-all}
+  .card .mark{position:absolute;right:11mm;top:11mm;width:7mm;height:7mm;border-radius:50%;background:#e9a23b}
+  #help{position:fixed;left:0;right:0;bottom:0;background:#0b1517;color:#8fa3a3;font:13px ui-monospace,monospace;padding:10px 16px;text-align:center}
+  @media print{#help{display:none}html,body{background:#fff}.sheet{margin:0}}
+</style>
+</head>
+<body>
+<div class="sheet" id="sheet"></div>
+<div id="help">Four A6 cards on one A4. Print at 100 %, no scaling, and cut along the dashes. Add ?room=CODE for a room’s card; without it the card points at the studio.</div>
+<script>
+const params = new URLSearchParams(location.search);
+const ROOM = (params.get('room') || '').toLowerCase();
+const url = ROOM ? `${location.origin}/send?room=${encodeURIComponent(ROOM)}` : `${location.origin}/`;
+const shown = url.replace(/^https?:\/\//, '');
+const card = `<div class="card"><span class="mark"></span><div>
+  <h1>Night Shift</h1>
+  <p>Send one sentence about tonight, or a photo of where you sit.</p>
+  <p class="rule">It paints the place after you left. Never a face. It is an AI.</p>
+  <p class="rule">The painting goes up on the wall in a few minutes. Burn it from your phone at any time.</p>
+</div><div class="foot"><div class="qr"></div><div class="url">${shown}</div></div></div>`;
+document.getElementById('sheet').innerHTML = card + card + card + card;
+for (const q of document.querySelectorAll('.qr')) new QRCode(q, { text: url, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.M, colorDark: '#0b1517', colorLight: '#ffffff' });
+</script>
+</body>
+</html>
