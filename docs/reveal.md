@@ -66,7 +66,13 @@ Fonts ship in the repo under `public/fonts/` as TTF (Instrument Serif and IBM Pl
   `gblur` and `eq`; the title and sign-off PNGs as `overlay` inputs with `format=rgba` and alpha fades;
   the generated audio as `aevalsrc` mixed with `amix`; output H.264 (`libx264`, `yuv420p`, CRF 20,
   30 fps, `+faststart`) at 1080×1920, AAC audio.
-- Measured 2026-09-06 on a laptop: 8–9 s a film, 3.0 MB. Binary: local `ffmpeg` (Homebrew) for the script; `ffmpeg-static` on Vercel. If the Vercel function
+- **Measured and decided, 2026-09-06: Vercel.** On a laptop 7–9 s a film (six cores); on the paint function
+  100–130 s, of which ffmpeg is 97 % (`filmStages` on the record). The first real painting painted, filmed
+  inline (100 s) and posted its Reel inside 184 s of the function's 300. The guard: the film is attempted
+  inline only if the painting left the budget (`FILM_INLINE_BUDGET_MS`, 110 s); otherwise the painting is
+  saved as `painted`, the next idle cron films it first (`filmJob`) and the one after posts the Reel; a failed
+  film lets the backlog post the still. `ultrafast` was benchmarked on one core: 20 % faster, five times the
+  bytes — `veryfast` stays. The GitHub Actions fallback below is not built. Binary: local `ffmpeg` (Homebrew) for the script; `ffmpeg-static` on Vercel. If the Vercel function
   cannot encode 600 frames inside `maxDuration: 300` with `memory: 3008`, the fallback is a GitHub
   Actions workflow (`.github/workflows/film.yml`, every 15 min) that asks `/api/status` for paintings
   without a film, renders with apt ffmpeg, and PUTs the MP4 to Blob with `BLOB_READ_WRITE_TOKEN` and
@@ -92,7 +98,9 @@ real Reel that `postedCaption` matches and `/api/status` shows the link.
 
 **Backfill:** the eight stills already posted stay as they are. One backfill Reel only, for the
 strongest canvas, posted as a film of an earlier painting: *Three Things, Tatami* (the floor exam,
-2026-09-06) unless Diego names another in chat. Later stills do not get Reels: the grid would double.
+2026-09-06) — **done 2026-09-06 with `scripts/reel.mjs mtpj3bel-mtnldu --go`**, recorded as `reel` on the
+record, caption opened with one line the still's did not have (Zernio's 24 h de-dupe). Later stills do not
+get Reels: the grid would double.
 
 ## 5. Stage two — the room and the wall
 
@@ -137,6 +145,12 @@ cdnjs, pinned.
 Nothing on the wall or the ticket mentions the inspector, rejects, the critic or exams (§2).
 
 ## 6. Build order, with the check that ends each step
+
+**Status 2026-09-06 evening: steps 1–6 built and live** (commits 4b55e1e…, builds 7af5ea1 → 33a0668 → the
+wall fix). Proved on the first real painting, *Last Call, Unclaimed* (room `lab-test`): film 100 s on Vercel,
+Reel at instagram.com/reel/Dc8hTa5gtiN, the gatekeeper's own hook line, the wall showing the arrival and the
+reveal. Left for Diego: the three-phones check of step 5 (Share on iOS, Burn from the ticket) and the
+caption read-back after the next cron (`/api/status` → `lastPosted.captionOnInstagram`).
 
 1. `paint.ts` stores `raw` and the record carries the signature choice → the next painting has both.
    `score.ts` + `scripts/film.mjs <id>` → an MP4 of that painting plays in QuickTime at 1080×1920,
