@@ -34,7 +34,7 @@ test('burning deletes the files, the quoting feedback, the text and the take; ke
   assert.match(desk, /status: 'withdrawn', text: '', from: null, anonymous: true/);
   assert.match(desk, /if \(c\.status === 'withdrawn'\) return \{ id: c\.id, status: c\.status, note: c\.take\.note \}/); // the public view shows nothing else
   assert.match(src('api/commission.ts'), /c\.status !== 'withdrawn'/); // off the wall
-  assert.match(src('api/_lib/store.ts'), /for \(const prefix of \[`paintings\/\$\{id\}`, `references\/\$\{id\}`\]\)/); // painting, rejects, slides, photograph
+  assert.match(src('api/_lib/store.ts'), /for \(const prefix of \[`paintings\/\$\{id\}`, `references\/\$\{id\}`, `films\/\$\{id\}`\]\)/); // painting, raw canvas, ink, rejects, slides, photograph, film
   assert.doesNotMatch(BURNED_NOTE.posted, /painter #2|is kept|next painter will/);
   assert.match(BURNED_NOTE.posted, /taken down by a person/); // the one step we cannot do is said, not implied
 });

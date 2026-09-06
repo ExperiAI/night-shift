@@ -67,18 +67,28 @@ export function signatureChoice(seed: string, w: number, h: number) {
   const opacity = 0.9 + r() * 0.1;                              // pressure: a fuller or a slightly lighter brush, never faint
   return { file, width, angle, right, mx, my, opacity };
 }
-const lumOf = (rgb: number[]) => 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-/** The tone of the paint the painter signs with: amber as painted, pale cream on a dark passage, umber on a lit one.
- *  Chosen by measured contrast against the patch under the mark, never by a fixed threshold. */
-export function signatureTone(patchLum: number): { name: 'amber' | 'cream' | 'umber'; mul: number[]; add: number[] } {
-  const tones = [
-    { name: 'amber' as const, mul: [1, 1, 1], add: [0, 0, 0], lum: 150 },          // the paint as it was signed (~150 lum)
-    { name: 'cream' as const, mul: [1.35, 1.35, 1.3], add: [40, 40, 30], lum: 235 },
-    { name: 'umber' as const, mul: [0.3, 0.25, 0.2], add: [0, 0, 0], lum: 40 },
-  ];
-  return tones.map(t => ({ ...t, d: Math.abs(t.lum - patchLum) })).sort((a, b) => b.d - a.d)[0];
+type RGB = { r: number; g: number; b: number };
+/** WCAG relative luminance and contrast ratio: contrast measured the way eyes read it, not by a fixed threshold. */
+const channel = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+export const relLum = (c: RGB) => 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
+export const contrast = (a: RGB, b: RGB) => { const x = relLum(a), y = relLum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+/** The paints the painter signs with: amber as painted, pale cream, dark umber. */
+export const TONES: { name: 'amber' | 'cream' | 'umber'; rgb: RGB }[] = [
+  { name: 'amber', rgb: { r: 214, g: 138, b: 46 } },
+  { name: 'cream', rgb: { r: 243, g: 233, b: 211 } },
+  { name: 'umber', rgb: { r: 36, g: 22, b: 10 } },
+];
+/** The tone of the paint the painter signs with, chosen by the contrast it makes against the patch under the mark
+ *  (Diego, twice: a signature the eye cannot find is no signature). The mark's brush shape is kept; only the paint
+ *  changes. Takes the patch's mean colour, or a grey luminance. */
+export function signatureTone(patch: RGB | number): { name: 'amber' | 'cream' | 'umber'; rgb: RGB; ratio: number } {
+  const p = typeof patch === 'number' ? { r: patch, g: patch, b: patch } : patch;
+  return TONES.map(t => ({ ...t, ratio: contrast(t.rgb, p) })).sort((a, b) => b.ratio - a.ratio)[0];
 }
-export async function signPainting(painting: Buffer, seed = 'night-shift'): Promise<Buffer> {
+/** The signature as a layer: the toned ink (a transparent PNG) and where it sits on this canvas. `signPainting`
+ *  composites it; the film (api/_lib/film.ts) and the wall write it on in real time from the same layer, so the
+ *  mark that appears in the reveal is the one on the canvas, pixel for pixel. Deterministic for (painting, seed). */
+export async function signatureLayer(painting: Buffer, seed = 'night-shift'): Promise<{ ink: Buffer; left: number; top: number; w: number; h: number; file: string; tone: string }> {
   const m = await sharp(painting).metadata();
   const w = m.width ?? W, h = m.height ?? H;
   const c = signatureChoice(seed, w, h);
@@ -90,8 +100,15 @@ export async function signPainting(painting: Buffer, seed = 'night-shift'): Prom
   // patch read as dark and a pale signature went out on a lit pavement), so the crop is read as raw pixels.
   const { data: px, info } = await sharp(painting).extract({ left, top, width: ms.w, height: ms.h }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
   const sum = [0, 0, 0]; for (let i = 0; i < px.length; i += info.channels) { sum[0] += px[i]; sum[1] += px[i + 1]; sum[2] += px[i + 2]; }
-  const tone = signatureTone(lumOf(sum.map(v => v / (px.length / info.channels))));
-  const ink = await sharp(mark).linear([...tone.mul, c.opacity], [...tone.add, 0]).png().toBuffer();
+  const n = px.length / info.channels;
+  const tone = signatureTone({ r: sum[0] / n, g: sum[1] / n, b: sum[2] / n });
+  // the paint through the brush: the mark's alpha (its dry-brush shape) carries a flat tone; pressure scales the alpha
+  const alpha = await sharp(mark).extractChannel(3).linear(c.opacity, 0).toBuffer();
+  const ink = await sharp({ create: { width: ms.w, height: ms.h, channels: 3, background: tone.rgb } }).joinChannel(alpha).png().toBuffer();
+  return { ink, left, top, w: ms.w, h: ms.h, file: c.file, tone: tone.name };
+}
+export async function signPainting(painting: Buffer, seed = 'night-shift'): Promise<Buffer> {
+  const { ink, left, top } = await signatureLayer(painting, seed);
   return sharp(painting).composite([{ input: ink, left, top }]).png().toBuffer();
 }
 

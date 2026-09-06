@@ -61,13 +61,14 @@ test('limits are stated as limits; the departures may not claim the reinterpreta
 
 test('a painted signature is a reject; the painter signs in its own hand, differently on every canvas', async () => {
   assert.match(ARTIST.style, /no signature/i);
-  assert.match(read('../api/paint.ts'), /signPainting\(img\.bytes, c\.id\)/);
+  assert.match(read('../api/paint.ts'), /signatureLayer\(raw, c\.id\)/); // the same ink the reveal writes on (docs/reveal.md)
   const a = signatureChoice('mtnf4vmn-0oi2if', 928, 1152), b = signatureChoice('mto66k5s-1mdu15', 928, 1152);
   assert.deepEqual(a, signatureChoice('mtnf4vmn-0oi2if', 928, 1152), 'the same id always signs the same way');
   assert.ok(a.file !== b.file || a.angle !== b.angle || a.width !== b.width, 'two paintings never carry the same mark');
   assert.ok(a.width >= 176 && a.width <= 223 && Math.abs(a.angle) < 4 && a.opacity >= 0.9, 'big enough to read on a phone, never faint');
   // the tone is chosen by contrast against the patch under the mark (Diego, 2026-09-05: "almost invisible")
-  assert.equal(signatureTone(30).name, 'cream'); assert.equal(signatureTone(200).name, 'umber'); assert.equal(signatureTone(125).name, 'cream');
+  assert.equal(signatureTone(30).name, 'cream'); assert.equal(signatureTone(200).name, 'umber');
+  for (const patch of [{ r: 150, g: 110, b: 50 }, { r: 120, g: 70, b: 20 }, 125, 90, { r: 40, g: 60, b: 70 }]) assert.ok(signatureTone(patch).ratio >= 3, `readable on ${JSON.stringify(patch)}: ${signatureTone(patch).ratio}`); // tatami straw, amber wood, mid greys, the house dark: never the paint of the patch (Diego, 2026-09-06)
   const blank = await sharp({ create: { width: 928, height: 1152, channels: 3, background: { r: 12, g: 26, b: 32 } } }).png().toBuffer();
   const signed = await signPainting(blank, 'mtnf4vmn-0oi2if');
   const m = await sharp(signed).metadata();

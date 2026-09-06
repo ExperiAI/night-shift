@@ -14,7 +14,8 @@ async function alsoStory(c: { image?: string; story?: string }) {
 import { tellSource } from './_lib/react.js';
 import { PHOTO, registerByKey } from './_lib/artist.js';
 import { isHeld, expiredHolds, cancel } from './_lib/desk.js';
-import { photoSlide, pairSlide, signPainting, avoidLine } from './_lib/compose.js';
+import { photoSlide, pairSlide, signatureLayer, avoidLine } from './_lib/compose.js';
+import sharp from 'sharp';
 
 export const config = { maxDuration: 300 };
 
@@ -64,8 +65,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         throw new Error(`inspector refused twice: ${check.reason}`);
       }
     }
-    img = { ...img, bytes: await signPainting(img.bytes, c.id), mime: 'image/png' }; // the painter's own signature, varied per canvas; the only one
+    const raw = await sharp(img.bytes).png().toBuffer(); // the canvas before signing: the reveal signs it in real time (docs/reveal.md §3)
+    const sig = await signatureLayer(raw, c.id); // the painter's own signature, varied per canvas; the only one
+    img = { ...img, bytes: await sharp(raw).composite([{ input: sig.ink, left: sig.left, top: sig.top }]).png().toBuffer(), mime: 'image/png' };
     c.image = await storeImage(c.id, img.bytes, img.mime);
+    c.raw = await storeImage(c.id, raw, 'image/png', '-raw');
+    c.signature = { image: await storeImage(c.id, sig.ink, 'image/png', '-sig'), x: sig.left, y: sig.top, w: sig.w, h: sig.h };
     if (c.photo) { // a photo commission posts as a carousel: painting, the original, the two side by side
       const photo = Buffer.from(await (await fetch(c.photo)).arrayBuffer());
       const [ps, pr] = await Promise.all([photoSlide(photo), pairSlide(photo, img.bytes)]);

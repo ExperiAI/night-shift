@@ -29,8 +29,8 @@ canvas 1080×1920, 30 fps, total **20.0 s**.
 
 | t | Layer | What happens |
 |---|---|---|
-| 0.0–3.6 | sentence | Black. The commission types out, IBM Plex Mono 44 px, centred, max three lines, a blinking block cursor. Character interval scales so any sentence finishes at 3.4 s. |
-| 3.6–4.4 | sentence | Fades out. |
+| 0.0–3.6 | sentence | Black. The commission's **line** types out, IBM Plex Mono 44 px, centred, max three lines, a thin amber cursor. Every glyph is laid out first and fades in on its own cue (no pop, no re-centring); the pace is a hand's, never faster than 85 ms a glyph, and any line is in by 3.4 s. **The line is at most 90 characters** (Diego, 2026-09-06: never an overwhelming text): the gatekeeper picks it as a VERBATIM excerpt of the commission (`take.line`, checked in code by `isExcerpt`, a rewrite is dropped); without one the commission is cut at a sentence, else a clause, else a word (`excerpt`). |
+| 3.6–4.4 | sentence | Fades out, lifting 3 % as it dissolves. |
 | 4.0–12.0 | painting | Behind: the painting scaled to fill 9:16, blurred (σ≈40) and darkened to 35 %. Front: the **unsigned** painting at 4:5, width 1080, centred. Fade from black 4.0→10.0 (the surfacing: this is a `fade` from black, not an opacity fade, so the first thing to appear is the one light). Slow push from scale 1.06 to 1.00 across 4.0–13.8. |
 | 12.0–13.8 | signature | **The painter signs, in real time** (Diego, 2026-09-06). The same signature PNG and position `signPainting` chose for this canvas (`signatureChoice(id)` is deterministic) is written onto the canvas left to right: a reveal whose edge moves across the mark with an ease-in-out over 1.8 s, the way a cursive hand crosses the paper, with a soft 24 px edge so it reads as wet ink rather than a wipe. Nothing else moves during these seconds. |
 | 13.8–16.8 | title | Instrument Serif 64 px, amber-ink `#ffd58a`, bottom-left with 72 px margins, fade in 0.6 s. The soft note sounds here. |
@@ -38,7 +38,7 @@ canvas 1080×1920, 30 fps, total **20.0 s**.
 | 19.4–20.0 | hold | Everything stays. Last frame = cover candidate (identical to the signed still). |
 | 0.0–20.0 | audio | Generated, never licensed: a low drone (sine 55 Hz, −26 dB) fading in over 2 s and out over 3 s, a faint dry scratch under the signature (filtered noise, `anoisesrc` through a band-pass, −34 dB, 12.0–13.8), plus one soft note (sine 220 Hz with a 1.2 s decay) at 13.8 s under the title. ffmpeg `aevalsrc`/`anoisesrc`; no file, no rights. `muteAudio` is not set. |
 
-**The signature needs the unsigned canvas.** Today `paint.ts` stores only the signed image. From now on it also stores the canvas before signing at `paintings/<id>-raw.png` (`raw?: string` on the record, never shown on the wall or the website) and the film composes raw + signature. A painting with no `raw` (everything before this ships) is filmed from the signed still and skips the signing beat: the push simply continues to 13.8 s. The one backfill Reel (§4) is such a painting; say so in nothing, it just does not sign.
+**The signature needs the unsigned canvas.** `paint.ts` stores the canvas before signing at `paintings/<id>-raw.png` (`raw` on the record, never shown as a painting) and the ink layer it laid on it at `paintings/<id>-sig.png` with its place (`signature: { image, x, y, w, h }`, painting pixels): `signatureLayer()` in compose.ts is the one source of the mark, `signPainting` composites it, the film and the wall write the same pixels on. **The paint of the mark is chosen by contrast** (Diego, 2026-09-06, the second time): amber as painted, cream or umber, whichever makes the highest WCAG contrast ratio against the patch under the mark; the brush shape (the alpha) is kept and only the paint changes, so a mark on tatami straw is cream, on a lit pavement umber. A painting with no `raw` (everything before this ships) is filmed from the signed still and skips the signing beat: the push simply continues to 13.8 s. The one backfill Reel (§4) is such a painting; say so in nothing, it just does not sign.
 
 The reveal in ffmpeg: the signature PNG as an overlay whose visible width grows with `crop=w='iw*clip((t-12)/1.8,0,1)'` on an eased time (`(1-cos(PI*x))/2`) and a horizontal alpha ramp of 24 px at the leading edge (`geq` on the alpha plane, or a pre-rendered gradient mask blended with `alphamerge`). On the wall the same beat is a CSS `mask-image` linear gradient whose position animates over 1.8 s with the same easing, from a shared constant in the score.
 
@@ -46,7 +46,7 @@ Copy in the film: the commission text (or, for an anonymous commission, nothing 
 on "a commission" in the same mono, since an anonymous sentence is never shown, see `publicView`), the
 title, the sign-off. No credit line, no hashtags, no departures: those stay in the caption.
 
-Colour and type are the wall's and the website's: ground `#0b1220`, ink `#ece6d8`, amber `#f0a83a`.
+Colour and type are the wall's and the website's: ground `#0b1517`, ink `#e8e1d3`, amber `#e9a23b` (`public/index.html`'s tokens, carried in `SCORE.colors`).
 Fonts ship in the repo under `public/fonts/` as TTF (Instrument Serif and IBM Plex Mono, both OFL).
 
 ## 4. Stage one — the film and the Reel
@@ -62,7 +62,7 @@ Fonts ship in the repo under `public/fonts/` as TTF (Instrument Serif and IBM Pl
   `gblur` and `eq`; the title and sign-off PNGs as `overlay` inputs with `format=rgba` and alpha fades;
   the generated audio as `aevalsrc` mixed with `amix`; output H.264 (`libx264`, `yuv420p`, CRF 20,
   30 fps, `+faststart`) at 1080×1920, AAC audio.
-- Binary: local `ffmpeg` (Homebrew) for the script; `ffmpeg-static` on Vercel. If the Vercel function
+- Measured 2026-09-06 on a laptop: 8–9 s a film, 3.0 MB. Binary: local `ffmpeg` (Homebrew) for the script; `ffmpeg-static` on Vercel. If the Vercel function
   cannot encode 600 frames inside `maxDuration: 300` with `memory: 3008`, the fallback is a GitHub
   Actions workflow (`.github/workflows/film.yml`, every 15 min) that asks `/api/status` for paintings
   without a film, renders with apt ffmpeg, and PUTs the MP4 to Blob with `BLOB_READ_WRITE_TOKEN` and

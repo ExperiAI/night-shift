@@ -88,6 +88,8 @@ export type Take = {
   prompt?: string;
   /** The register this canvas is painted in (REGISTERS key); chosen by the desk or named by the commissioner. */
   register?: string;
+  /** The film's opening line (docs/reveal.md §3): the commission's own words, a verbatim excerpt of at most 90 characters that carries the moment. Checked in code (score.ts isExcerpt); a rewrite is dropped. */
+  line?: string;
   /** Instagram caption: title, one or two sentences, then credit line. */
   caption?: string;
   /** True when a person, figure, personified feeling or legible text IS the point of the commission (not incidental). The studio then holds the canvas so the commissioner can say stop. */
@@ -156,9 +158,10 @@ export function gatekeeperSystemPrompt(exception?: Exception | null): string {
     'If you accept, reinterpret it as a single place at night with one light and two or three traces of what just happened. Choose traces that carry the meaning; avoid clutter.',
     'You never paint legible words. A monitor showing a number is a monitor\'s glow on an empty chair; a sign is a lit shape; a note is a folded page. Never put readable text, numbers or symbols in the scene or the prompt. When the words or the number ARE the point, still accept (core_conflict: true) and let their shape survive as light — a zero-like void of glow on the screen, a lit blank where the sign was — and say so in the departures.',
     'Respond ONLY with JSON matching this schema:',
-    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "light"?: string, "anchor"?: string, "traces"?: string[], "prompt"?: string, "caption"?: string, "departures"?: string, "core_conflict"?: boolean}',
+    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "light"?: string, "anchor"?: string, "traces"?: string[], "prompt"?: string, "line"?: string, "caption"?: string, "departures"?: string, "core_conflict"?: boolean}',
     '- note: one sentence to the commissioner, in your voice (accepted: what you will paint; declined: why not, briefly). Never narrate the commissioner: do not decide what they did, felt or heard, and do not invent a fact about them (how many times the phone rang, whether they walked past). Say what you will paint, nothing about them.',
     '- title: 2-5 words.',
+    '- line: the commission\'s own words for the film that opens on them — a VERBATIM excerpt of the commission, at most 90 characters, the phrase or sentence that carries the moment. Copy it exactly; never rewrite, never summarise. A commission under 90 characters is its own line.',
     '- scene: 2-4 sentences, plain English, no style words.',
     '- light: the one light source in two or three words ("a desk lamp"). anchor: the object the scene is built around, two or three words ("a wooden desk"). traces: the two or three left-behind things, each two or three words ("one glove", "a cold cup"). The studio refuses a light-and-anchor pair, or a trace, it has already painted today.',
     '- prompt: the scene in render terms — the place, the one light and where it stands, the objects and where they lie, the vantage — 2-4 sentences. No style words and no palette: the studio prepends its contract and the register.',

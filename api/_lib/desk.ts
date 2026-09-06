@@ -4,6 +4,7 @@ import { chatJSON } from './openrouter.js';
 import { all, load, newId, save, saveFeedback, storeReference, allFeedback, deleteFeedback, filesOf, deleteFiles, type Commission } from './store.js';
 import { createHash, randomBytes } from 'node:crypto';
 import { normalizePhoto } from './compose.js';
+import { isExcerpt, SCORE } from './score.js';
 
 const MAX_PER_SENDER_PER_DAY = 3;
 const MAX_PER_IP_PER_DAY = 5;
@@ -269,6 +270,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
     if (needsDepartures(text, take, exception)) throw Object.assign(new Error('The painter could not say what it left out of this commission, so it will not paint it silently. Ask again, or ask for the place without the person or the words.'), { status: 422 });
   }
   if (take.accepted) { take.register = register.key; take.prompt = composePrompt(register, take.prompt || take.scene || text, exception); } // the contract and the register are the studio's, not the model's
+  if (take.line && !(take.line.trim().length <= SCORE.sentence.maxChars && isExcerpt(text, take.line))) delete take.line; // the film opens on the commissioner's words or on none of them (score.ts)
   if (anonymous && take.caption) take.caption = privateCaption(take.caption, text); // fail closed: never the sender's sentence in public
   if (take.caption) take.caption = withDepartures(take.caption, take.departures, anonymous); // a limit is stated on the post too (critic, 2026-09-05)
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
@@ -310,7 +312,7 @@ export function publicView(c: Commission) {
   if (c.status === 'withdrawn') return { id: c.id, status: c.status, note: c.take.note }; // burned: nothing else exists to show
   return {
     id: c.id, status: c.status, created: c.created, from: c.anonymous ? null : c.from,
-    commission: c.anonymous ? null : c.text, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene, // a private sentence stays private on the wall too
+    commission: c.anonymous ? null : c.text, line: c.anonymous ? null : c.take.line, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene, // a private sentence stays private on the wall too
     image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides, holdUntil: c.holdUntil, register: c.take.register,
     ...(c.rejects?.length ? { rejects: c.rejects } : {}), // what the inspector refused on the way to this canvas
     ...(isStudioSender(c.from) ? { studio: true } : {}), // the studio's own commission (an exam), marked so the wall is not read as a client list (#18)

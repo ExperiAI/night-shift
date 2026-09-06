@@ -10,7 +10,12 @@ export type Commission = {
   created: string;
   status: Status;
   take: Take;
-  image?: string;       // public Blob URL
+  image?: string;       // public Blob URL — the signed canvas
+  raw?: string;         // the canvas before the studio signed it (paintings/<id>-raw.png); the film and the wall sign it in real time. Never shown as a painting
+  signature?: { image: string; x: number; y: number; w: number; h: number }; // the ink layer signPainting laid on `raw`, and where: what the reveal writes on (docs/reveal.md §3)
+  film?: string;        // the 20 s reveal, films/<id>.mp4 — the Reel and the wall (docs/reveal.md)
+  filmed?: string;      // when the film was made; a painting with `image` and no `film` is a job for the next cron
+  room?: string;        // the room this was sent from (rooms/<code>.json); room work has its own cap and never counts against the studio's day
   instagram?: string;   // permalink
   error?: string;
   painted?: string;
@@ -101,6 +106,11 @@ export async function storeReference(id: string, bytes: Buffer, mime: string): P
   return url;
 }
 
+export async function storeFilm(id: string, bytes: Buffer): Promise<string> {
+  const { url } = await put(`films/${id}.mp4`, bytes, { access: 'public', contentType: 'video/mp4', addRandomSuffix: false, allowOverwrite: true });
+  return url;
+}
+
 export async function storeImage(id: string, bytes: Buffer, mime: string, suffix = ''): Promise<string> {
   const ext = mime.includes('jpeg') ? 'jpg' : 'png';
   const { url } = await put(`paintings/${id}${suffix}.${ext}`, bytes, { access: 'public', contentType: mime, addRandomSuffix: false, allowOverwrite: true });
@@ -131,7 +141,7 @@ export async function deleteFeedback(id: string): Promise<void> { await del(`${F
 /** Every stored file of one commission — the painting, its rejects, the slides, the photograph — by URL. */
 export async function filesOf(id: string): Promise<string[]> {
   const out: string[] = [];
-  for (const prefix of [`paintings/${id}`, `references/${id}`]) for (const b of (await list({ prefix, limit: 100 })).blobs) out.push(b.url);
+  for (const prefix of [`paintings/${id}`, `references/${id}`, `films/${id}`]) for (const b of (await list({ prefix, limit: 100 })).blobs) out.push(b.url);
   return out;
 }
 export async function deleteFiles(urls: string[]): Promise<void> { if (urls.length) await del(urls); }
