@@ -22,10 +22,14 @@ export const SCORE = {
    *  levels of each layer against full scale; the film is meant to be quiet, a room at night, the keys and the pen the
    *  loudest things in it. */
   audio: {
-    /** A low chord: the root twice, detuned so they beat, a fifth, the octave; it breathes; a room tone under it. */
-    bed: { hz: 55, gainDb: -25, fadeIn: 2, fadeOut: 3, beatHz: 0.35, breatheHz: 0.07, breathe: 0.22, roomDb: -50, roomHz: 500 },
-    /** Every glyph cue: a soft key (a click through a band, a low body), then the key's return; small variation by seed. */
-    keys: { gainDb: -12, clickLowHz: 1500, clickHighHz: 5500, clickMs: 8, bodyHz: 230, bodyMs: 24, body: 0.9, vary: 0.14, spaceDb: -5, returnMs: 85, returnDb: -12 },
+    /** A low chord: the root twice, detuned so they beat, a fifth, the octave; it breathes. */
+    bed: { hz: 55, gainDb: -27, fadeIn: 2, fadeOut: 3, beatHz: 0.35, breatheHz: 0.07, breathe: 0.22 },
+    /** The room at night, under everything (Diego, 2026-09-06: fill the blanks between the typing and the signature):
+     *  air moving through a duct — low noise that drifts — and a strip light's hum, flickering a little. */
+    room: { airDb: -26, airLowHz: 70, airHighHz: 1100, driftHz: 0.11, drift: 0.3, humHz: 100, humDb: -38, flicker: 0.25, fadeIn: 1.5, fadeOut: 3 },
+    /** Every glyph cue: a key — a low thump (the finger landing), a short plastic click on top, the case ringing a
+     *  little — then the key's quieter return; small variation by seed (Diego, 2026-09-06: typing, not sticks). */
+    keys: { gainDb: -12, thumpLowHz: 90, thumpHighHz: 700, thumpMs: 34, clickLowHz: 2500, clickHighHz: 6000, clickMs: 4, click: 0.35, caseHz: 470, caseMs: 22, case: 0.5, vary: 0.14, spaceDb: -3, returnMs: 90, returnDb: -14 },
     /** Arrives with the light (4→10 s), leaves after the title. */
     shimmer: { hz: 440, beatHz: 2.3, gainDb: -42, tremHz: 5.5, from: 4.0, to: 10.0, until: 13.8, release: 2.2 },
     /** Under the signature: friction that follows the ink under the moving edge, paper under it, the hand's speed opening the brightness. */

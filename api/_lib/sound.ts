@@ -1,7 +1,8 @@
 // The film's sound, made from numbers and never licensed: the whole 20 s track is synthesised here into one WAV that
 // ffmpeg muxes (film.ts). Diego, 2026-09-06, on the first Reels: the typing wants sound in step with the letters, the
 // bed wants life, and the signature should sound like a hand really writing. So every glyph cue gets a soft key; the
-// bed is a low chord whose partials beat against each other and breathe, over a faint room tone; the pen is friction
+// bed is a low chord whose partials beat against each other and breathe, under the room at night (air in a duct, a
+// strip light's hum) so no second of the film is empty; the pen is friction
 // noise whose loudness follows the ink actually under the moving edge (dense where the mark is heavy, silent where the
 // pen lifts between letters), with paper under it and the pen's speed opening its brightness. The wall (public/wall.html)
 // plays the same design in WebAudio from the same SCORE.audio numbers; the design lives there, the samples here.
@@ -53,7 +54,6 @@ function pink(n: number, rand: () => number): Float64Array {
 /** The bed: a low chord that beats and breathes, a room under it. Fades with the film. */
 function bed(L: Float64Array, R: Float64Array, rand: () => number): void {
   const B = SCORE.audio.bed, n = L.length, g = db(B.gainDb), phi = rand() * Math.PI * 2;
-  const room = pink(n, rand); biquad(room, 'lowpass', B.roomHz); const rg = db(B.roomDb);
   for (let i = 0; i < n; i++) {
     const t = i / SAMPLE_RATE;
     const env = clip01(t / B.fadeIn) * clip01((SCORE.total - t) / B.fadeOut);
@@ -61,8 +61,28 @@ function bed(L: Float64Array, R: Float64Array, rand: () => number): void {
     // root twice, detuned so they beat slowly; a fifth; the octave; a faint third partial
     const v = Math.sin(2 * Math.PI * B.hz * t) + Math.sin(2 * Math.PI * (B.hz + B.beatHz) * t)
       + 0.45 * Math.sin(2 * Math.PI * B.hz * 1.5 * t + 0.7) + 0.3 * Math.sin(2 * Math.PI * B.hz * 2 * t) + 0.12 * Math.sin(2 * Math.PI * B.hz * 3 * t + 1.3);
-    const s = Math.tanh(v * 0.6) * g * env * breath + room[i] * rg * env;
+    const s = Math.tanh(v * 0.6) * g * env * breath;
     L[i] += s; R[i] += s;
+  }
+}
+
+/** The room at night: air through a duct (low noise, drifting slowly, a little wider than the rest) and a strip
+ *  light's hum with a faint flicker. Present the whole film, so the blanks between the keys and the pen are never empty. */
+function room(L: Float64Array, R: Float64Array, rand: () => number): void {
+  const Rm = SCORE.audio.room, n = L.length;
+  const airL = pink(n, rand), airR = pink(n, rand);
+  band(airL, Rm.airLowHz, Rm.airHighHz); band(airR, Rm.airLowHz, Rm.airHighHz);
+  const ag = db(Rm.airDb) / Math.max(peak(airL), peak(airR)), hg = db(Rm.humDb), phi = rand() * Math.PI * 2;
+  let flick = 1;
+  for (let i = 0; i < n; i++) {
+    const t = i / SAMPLE_RATE;
+    const env = clip01(t / Rm.fadeIn) * clip01((SCORE.total - t) / Rm.fadeOut);
+    const drift = 1 - Rm.drift * (1 + Math.sin(2 * Math.PI * Rm.driftHz * t + phi)) / 2;
+    if ((i & 1023) === 0) flick += ((1 - Rm.flicker * rand()) - flick) * 0.3; // the hum's level wanders a little, in steps too fast to hear as steps
+    const hum = (Math.sin(2 * Math.PI * Rm.humHz * t) + 0.4 * Math.sin(2 * Math.PI * Rm.humHz * 2 * t + 0.3) + 0.2 * Math.sin(2 * Math.PI * Rm.humHz * 3 * t + 1.1)) * hg * flick;
+    const a = ag * drift * env;
+    L[i] += (airL[i] * 0.7 + airR[i] * 0.3) * a + hum * env;
+    R[i] += (airR[i] * 0.7 + airL[i] * 0.3) * a + hum * env;
   }
 }
 
@@ -80,31 +100,33 @@ function shimmer(L: Float64Array, R: Float64Array): void {
   }
 }
 
-/** The keys: on every glyph cue a soft press (a click through a band, a low body) and, a little after, the key's
- *  return, quieter. Each press is slightly its own — gain and pitch vary by the seed — because a hand is not a clock. */
+/** The keys: on every glyph cue a key — the finger landing (a low thump), a short plastic click on top, the case
+ *  ringing a little — then the key's return, quieter and mostly click. Each press is slightly its own — level and
+ *  pitch vary by the seed — because a hand is not a clock. A space is the wide key: lower, a touch louder. */
 function keys(L: Float64Array, R: Float64Array, cues: number[], spaces: boolean[] | undefined, rand: () => number): void {
   const K = SCORE.audio.keys, n = L.length;
-  const clicks = new Float64Array(n), body = new Float64Array(n);
-  const tauClick = K.clickMs / 1000 / 3, tauBody = K.bodyMs / 1000 / 3;
+  const thumps = new Float64Array(n), clicks = new Float64Array(n), cases = new Float64Array(n);
+  const tauT = K.thumpMs / 1000 / 3, tauC = K.clickMs / 1000 / 3, tauK = K.caseMs / 1000 / 3;
   cues.forEach((c, k) => {
     if (c < 0 || c > SCORE.total) return;
     const space = Boolean(spaces?.[k]);
-    const vary = 1 + (rand() * 2 - 1) * K.vary, pitch = 1 + (rand() * 2 - 1) * K.vary, level = (space ? db(K.spaceDb) : 1) * vary;
-    const hz = K.bodyHz * (space ? 0.72 : 1) * pitch;
-    const press = (at: number, amp: number) => {
-      const i0 = Math.floor(at * SAMPLE_RATE), len = Math.ceil(0.12 * SAMPLE_RATE);
+    const level = (space ? db(K.spaceDb) : 1) * (1 + (rand() * 2 - 1) * K.vary), pitch = 1 + (rand() * 2 - 1) * K.vary;
+    const caseHz = K.caseHz * (space ? 0.8 : 1) * pitch, thumpTau = tauT * (space ? 1.3 : 1);
+    const press = (at: number, amp: number, thump: number) => {
+      const i0 = Math.floor(at * SAMPLE_RATE), len = Math.ceil(0.15 * SAMPLE_RATE);
       for (let i = i0; i < Math.min(n, i0 + len); i++) {
         const t = (i - i0) / SAMPLE_RATE;
-        clicks[i] += (rand() * 2 - 1) * Math.exp(-t / tauClick) * amp;
-        body[i] += Math.sin(2 * Math.PI * hz * t) * Math.exp(-t / tauBody) * amp * K.body;
+        thumps[i] += (rand() * 2 - 1) * Math.exp(-t / thumpTau) * amp * thump;
+        clicks[i] += (rand() * 2 - 1) * Math.exp(-t / tauC) * amp * K.click;
+        cases[i] += Math.sin(2 * Math.PI * caseHz * t) * Math.exp(-t / tauK) * amp * K.case * thump;
       }
     };
-    press(c, level);
-    press(c + K.returnMs / 1000 * (0.9 + rand() * 0.2), level * db(K.returnDb));
+    press(c, level, 1);
+    press(c + K.returnMs / 1000 * (0.85 + rand() * 0.3), level * db(K.returnDb), 0.4);
   });
-  band(clicks, K.clickLowHz, K.clickHighHz);
-  const g = db(K.gainDb) / peak(clicks, body); // gainDb is the layer's PEAK, whatever the filters left
-  for (let i = 0; i < n; i++) { const s = (clicks[i] + body[i]) * g; L[i] += s; R[i] += s; }
+  band(thumps, K.thumpLowHz, K.thumpHighHz); band(clicks, K.clickLowHz, K.clickHighHz);
+  const g = db(K.gainDb) / peak(thumps, clicks, cases); // gainDb is the layer's PEAK, whatever the filters left
+  for (let i = 0; i < n; i++) { const s = (thumps[i] + clicks[i] + cases[i]) * g; L[i] += s; R[i] += s; }
 }
 
 /** The loudest sample of the sum of some layers, never below a floor (silence stays silence). */
@@ -183,6 +205,7 @@ export function synthesize(input: SoundInput): { L: Float64Array; R: Float64Arra
   const L = new Float64Array(n), R = new Float64Array(n);
   const rand = rng(input.id);
   bed(L, R, rand);
+  room(L, R, rand);
   shimmer(L, R);
   keys(L, R, input.cues, input.spaces, rand);
   if (input.ink && input.ink.length && input.ink.some(v => v > 0)) pen(L, R, input.ink, rand);
