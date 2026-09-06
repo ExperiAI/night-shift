@@ -20,7 +20,12 @@ await page.click('button[type=submit]');
 await page.waitForSelector('.ticket.pending');
 const shown = Date.now() - t0;
 console.log(`ticket shown ${shown} ms after the tap; form hidden: ${await page.$eval('#form', f => f.hidden)}`);
+const w0 = await page.$eval('.ticket.pending .bar i', i => parseFloat(i.style.width));
+await page.waitForTimeout(2500);
+const w1 = await page.$eval('.ticket.pending .bar i', i => parseFloat(i.style.width));
+console.log(`reading bar ${w0}% -> ${w1}% over 2.5 s; elapsed shows ${await page.$eval('.ticket.pending .elapsed', e => e.textContent)}`);
 await page.screenshot({ path: `${out}/send-1-reading.png` });
+if (!(w1 > w0)) { console.log('FAIL: the bar does not move'); process.exit(1); }
 await page.waitForSelector('.ticket:not(.pending) .note', { timeout: 10000 });
 console.log(`note arrived ${Date.now() - t0} ms after the tap; pending left: ${await page.$$eval('.ticket.pending', a => a.length)}`);
 await page.screenshot({ path: `${out}/send-2-note.png` });

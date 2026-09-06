@@ -50,7 +50,13 @@
   .steps span.now{color:var(--amber);border-color:var(--amber)}
   .steps span.now::after{content:'';position:absolute;left:50%;bottom:-6px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--amber);animation:pulse 1.6s ease-in-out infinite}
   @keyframes pulse{50%{transform:scale(.55);opacity:.6}}
-  .expect{color:var(--dim);font-size:15px}
+  .expect{color:var(--dim);font-size:15px;display:grid;gap:8px}
+  .expect .clock{display:flex;justify-content:space-between;font:14px var(--mono);color:var(--dim)}
+  .bar{height:2px;background:var(--line);border-radius:1px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--amber);transition:width 1s linear}
+  .contract .rest{display:none}
+  .contract.folded .rest{display:none} .contract.open .rest{display:inline}
+  .contract button{background:none;border:0;padding:0;color:var(--amber);font:inherit;cursor:pointer}
   .note{border-left:3px solid var(--amber);padding:8px 14px;background:var(--well);font:15px/1.5 var(--mono);color:var(--ink);white-space:pre-wrap}
   .note.reading{color:var(--dim);border-color:var(--line)}
   #again{background:none;color:var(--amber);border:1px solid var(--line);font-size:15px}
@@ -71,7 +77,7 @@
     <button type="submit">Send it to the painter</button>
     <div id="reply"></div>
   </form>
-  <p class="contract"><b>Night Shift is an AI.</b> It paints the place where it happened, minutes after everyone left. Never a face, never a name, never words on the canvas. The painting goes up on the wall here and on Instagram; you can burn it from this page at any time.</p>
+  <p class="contract" id="contract"><b>Night Shift is an AI.</b> Never a face, never a name. <button type="button" id="more">More</button><span class="rest"> It paints the place where it happened, minutes after everyone left, never words on the canvas. The painting goes up on the wall here and on Instagram; you can burn it from this page at any time.</span></p>
   <section class="tickets" id="tickets"></section>
   <p><button type="button" id="again" hidden>Send another sentence</button></p>
   <footer>Made in the <a href="https://experiai.com/lab">ExperiAI Lab</a> · <a href="/">the studio</a></footer>
@@ -115,7 +121,7 @@ $('form').addEventListener('submit', async e => {
   btn.disabled = true; out.textContent = '';
   let photo;
   if (f.photo.files[0]) { try { photo = await shrink(f.photo.files[0]); } catch { out.textContent = 'That photo could not be read. A JPEG or PNG works.'; btn.disabled = false; return; } }
-  pending = { words }; showTickets(true); renderTickets(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  pending = { words, at: Date.now() }; showTickets(true); renderTickets(); window.scrollTo({ top: 0, behavior: 'smooth' });
   let back = null; // what goes under the button if the form has to come back
   try {
     const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: words, from: f.from.value || undefined, anonymous: !f.from.value, photo, room: ROOM || undefined }) });
@@ -132,12 +138,24 @@ $('form').addEventListener('submit', async e => {
   showTickets(true); renderTickets(); refresh();
 });
 
+// ---- the wait has a shape (Diego, 2026-09-06, from his phone: "it doesn't set the expectation of how long I should wait
+// and how close it is to the next stage"): each stage shows what it usually takes, a bar that fills over that time
+// without ever claiming to be done, and the seconds elapsed. Usual times measured on 2026-09-06: the desk answers in
+// ~5-10 s; a kicked painting is on the record in ~40-60 s; its film takes ~100 s on Vercel.
+const WAIT = { reading: 10_000, painting: 60_000, filming: 120_000 };
+const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const fill = (since, expect) => Math.round(95 * (1 - Math.exp(-(Date.now() - since) / expect))); // asymptotic: never 100 until the real state arrives
+function clock(text, since, expect) { return `<div class="clock" data-since="${since}" data-expect="${expect}"><span>${esc(text)}</span></div><div class="bar"><i style="width:${fill(since, expect)}%"></i></div><div class="clock"><span class="elapsed">${mmss(Date.now() - since)}</span><span class="usual">usually ${mmss(expect)}</span></div>`; }
+function tickClocks() { for (const el of document.querySelectorAll('.clock[data-since]')) { const since = Number(el.dataset.since), expect = Number(el.dataset.expect); const bar = el.nextElementSibling?.querySelector('i'); if (bar) bar.style.width = fill(since, expect) + '%'; const e = el.nextElementSibling?.nextElementSibling?.querySelector('.elapsed'); if (e) e.textContent = mmss(Date.now() - since); } }
+setInterval(tickClocks, 1000);
+$('more').addEventListener('click', () => { $('contract').classList.add('open'); $('more').hidden = true; });
+
 // ---- the ticket: every commission sent from this phone, polled until its painting and film exist ----
 const live = new Map(); // id → last public view
 function renderTickets() {
   const tickets = load().filter(t => !ROOM || t.room === ROOM);
   const el = $('tickets');
-  const reading = pending ? `<article class="ticket pending"><div class="words">${esc(pending.words)}</div><div class="note reading">The painter is reading it…</div><div class="steps"><span class="now">Sent</span><span>Painting</span><span>On the wall</span></div></article>` : '';
+  const reading = pending ? `<article class="ticket pending"><div class="words">${esc(pending.words)}</div><div class="note reading">The painter is reading it…</div><div class="steps"><span class="now">Sent</span><span>Painting</span><span>On the wall</span></div>${clock('Reading usually takes about ten seconds.', pending.at, WAIT.reading)}</article>` : '';
   el.innerHTML = reading + tickets.map(t => {
     const c = live.get(t.id) || {};
     const done = c.image && (c.status === 'painted' || c.status === 'posted');
@@ -148,8 +166,8 @@ function renderTickets() {
     const expect = c.status === 'withdrawn' ? '<span class="gone">Burned. Nothing is kept.</span>'
       : c.status === 'declined' ? `<span class="gone">${esc(c.note || 'Not painted.')}</span>`
       : c.status === 'failed' ? '<span class="gone">The painter could not finish this one tonight. The sentence is not kept.</span>'
-      : done ? (c.film ? 'Here it is. The wall has it too.' : 'Painted. The film follows in a minute or two.')
-      : 'Usually within fifteen minutes. This page shows it when it is done, and so does the wall.';
+      : done ? (c.film ? 'Here it is. The wall has it too.' : clock('Painted. Its film takes about two minutes more.', Date.parse(c.painted || '') || t.created, WAIT.filming))
+      : clock('Painting usually takes about a minute, then the film two more. This page shows it when it is done, and so does the wall.', t.created, WAIT.painting);
     const note = t.note ? `<div class="note">${esc(t.note)}${t.departures ? '\n\n' + esc(t.departures) : ''}</div>` : '';
     return `<article class="ticket" data-id="${esc(t.id)}">
       <div class="words">${esc(t.words)}</div>
