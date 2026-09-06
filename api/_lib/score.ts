@@ -13,10 +13,18 @@ export const CANVAS = { w: 832, h: 1040, left: (1080 - 832) / 2, top: SAFE.top }
 export const CAPTION = { x: CANVAS.left, top: CANVAS.top + CANVAS.h + 48, maxW: 1080 - CANVAS.left - SAFE.right } as const;
 
 /** The beats after the painting has surfaced, in one place so they move together (Diego, 2026-09-06: the gap between
- *  the painting's arrival and the signing was too long — nothing moved). The picture is whole at 5.6 (TRANSITIONS.snap),
- *  settles to rest at PUSH_END, and the pen lands on a still canvas 0.8 s later (Diego, 2026-09-06, from the first
- *  production Reel: "the signature should only start after the painting stopped and is static"). */
-const PUSH_END = 9.8, SIGN_AT = 10.6, SIGN_END = 12.4, TITLE_AT = 12.4, SIGNOFF_AT = 15.2, HOLD_AT = 17.8, TOTAL = 18.6;
+ *  the painting's arrival and the signing was too long — nothing moved). The picture is whole at 5.0 (TRANSITIONS.snap),
+ *  settles to rest at PUSH_END, and the pen lands on a still canvas 0.6 s later (Diego, 2026-09-06, from the first
+ *  production Reel: "the signature should only start after the painting stopped and is static").
+ *
+ *  The rhythm is Instagram's, without the rush (Diego, 2026-09-06, night: "optimized for the instagram rhythm …
+ *  engaging but reflective"). What the retention research agrees on (docs/reveal.md §6, 2026-09-06 night): about half
+ *  of viewers are gone by 2–3 s, so the hook is the typing and the room's light already rising under it; a static hold
+ *  longer than ~4 s is where thumbs leave, so something new happens every ≤3.2 s — the light (2.6), the words vanishing
+ *  (3.5), the picture (3.7–5.0), the settle (to 7.6), the pen (8.2), the title and its note (9.8), the last words (11.6);
+ *  and completion decides ranking, with 7–15 s the band that completes best, so the film is 14.8 s plus the line's
+ *  shift, down from 18.6. Nothing is cut faster than before: the beats are closer, each still has its breath. */
+const PUSH_END = 7.6, SIGN_AT = 8.2, SIGN_END = 9.8, TITLE_AT = 9.8, SIGNOFF_AT = 11.6, HOLD_AT = 14.0, TOTAL = 14.8;
 
 /** How the keys sound (sound.ts keys). Four presets for Diego's ear, 2026-09-06; `SCORE.audio.keys` is the one in use.
  *  Every press is a low "thump" band, a "click" band on top and a damped "case" tone; a preset is where those sit. */
@@ -67,10 +75,12 @@ export type Opening = 'dark' | 'lit';
  *  line's shift (scoreFor moves them). `blur` is a gaussian sigma in canvas pixels; 0 means no blurred pass. */
 export type Transition = 'fade' | 'glow' | 'resolve' | 'snap';
 export const TRANSITIONS = {
-  fade: { fillStart: 4.0, fillEnd: 10.0, blur: 0, blurStart: 0, blurEnd: 0, canvasStart: 4.0, canvasEnd: 10.0, scaleFrom: 1.06 },
-  glow: { fillStart: 3.6, fillEnd: 5.2, blur: 0, blurStart: 0, blurEnd: 0, canvasStart: 5.0, canvasEnd: 8.6, scaleFrom: 1.06 },
-  resolve: { fillStart: 3.6, fillEnd: 5.0, blur: 34, blurStart: 3.9, blurEnd: 5.4, canvasStart: 5.4, canvasEnd: 8.8, scaleFrom: 1.06 },
-  snap: { fillStart: 3.7, fillEnd: 5.0, blur: 0, blurStart: 0, blurEnd: 0, canvasStart: 3.9, canvasEnd: 5.6, scaleFrom: 1.10 },
+  fade: { fillStart: 3.7, fillEnd: 7.6, blur: 0, blurStart: 0, blurEnd: 0, canvasStart: 3.7, canvasEnd: 7.6, scaleFrom: 1.06 },
+  glow: { fillStart: 3.5, fillEnd: 4.9, blur: 0, blurStart: 0, blurEnd: 0, canvasStart: 4.6, canvasEnd: 7.4, scaleFrom: 1.06 },
+  resolve: { fillStart: 3.5, fillEnd: 4.8, blur: 34, blurStart: 3.8, blurEnd: 5.2, canvasStart: 5.2, canvasEnd: 7.6, scaleFrom: 1.06 },
+  // the shipped take, on the Instagram rhythm (2026-09-06 night): the room's light rises under the last words, so the
+  // screen is no longer black for 3.7 s; the words vanish in 0.6; the picture is whole 1.3 s after it starts
+  snap: { fillStart: 2.6, fillEnd: 4.2, blur: 0, blurStart: 0, blurEnd: 0, canvasStart: 3.7, canvasEnd: 5.0, scaleFrom: 1.10 },
 } as const;
 export const TRANSITION_KEYS = Object.keys(TRANSITIONS) as Transition[];
 export const OPENINGS = {
@@ -118,14 +128,14 @@ export const SCORE = {
   /** Frame geometry the wall lays out from, so both stages move together (score.ts CANVAS/CAPTION/SAFE). */
   canvas: CANVAS, caption: CAPTION, safe: SAFE,
   /** The commission types out of the dark, then fades. Any sentence finishes typing at `typedBy`. */
-  sentence: { marginX: 72, start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, minCharInterval: 0.056, glyphFade: 0.16, driftScale: 1.0, rise: 0, ember: 0.55, emberColor: '#ffd58a' }, // the words vanish where they stand: no lift, no drift (Diego, 2026-09-06: "disappears without moving or changing position")
+  sentence: { marginX: 72, start: 0.0, typedBy: 3.4, fadeStart: 3.5, fadeEnd: 4.1, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, minCharInterval: 0.056, glyphFade: 0.16, driftScale: 1.0, rise: 0, ember: 0.55, emberColor: '#ffd58a' }, // the words vanish where they stand: no lift, no drift (Diego, 2026-09-06: "disappears without moving or changing position")
   /** The canvas surfaces from black (a fade from black: the one light appears first) and settles: one move, from
    *  scaleFrom to rest, easing out (easeOut) so it is quick while the picture is still surfacing and creeps to a stop
    *  before the pen. Diego, 2026-09-06, on the first production Reel: the push "alternating" left and right "gives a very
    *  weird vibe" — it was ffmpeg's scale filter stepping the canvas a whole pixel every six frames; the film now renders
    *  the move sub-pixel (film.ts pushFrames) and the wall's CSS transform always was. */
   /** The hand-over is `snap` (TRANSITIONS; Diego's pick 2026-09-06, "A or D": the faster one, since the retention graph left during the dark). */
-  painting: { transition: 'snap' as Transition, fadeStart: 3.9 as number, fadeEnd: 5.6 as number, fillStart: 3.7 as number, fillEnd: 5.0 as number, blur: 0 as number, blurStart: 0 as number, blurEnd: 0 as number, pushStart: 4.0, pushEnd: PUSH_END, scaleFrom: 1.10 as number, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35, fromFill: false as boolean, scrim: 0 as number, floor: 0 as number, band: 0 as number },
+  painting: { transition: 'snap' as Transition, fadeStart: 3.7 as number, fadeEnd: 5.0 as number, fillStart: 2.6 as number, fillEnd: 4.2 as number, blur: 0 as number, blurStart: 0 as number, blurEnd: 0 as number, pushStart: 3.8, pushEnd: PUSH_END, scaleFrom: 1.10 as number, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35, fromFill: false as boolean, scrim: 0 as number, floor: 0 as number, band: 0 as number },
   /** Which opening this score plays (OPENINGS); scoreFor sets it per film. */
   opening: 'dark' as Opening, openings: OPENINGS, transitions: TRANSITIONS,
   /** The painter signs, in real time: the mark is revealed left to right with a soft wet edge. */
@@ -145,7 +155,7 @@ export const SCORE = {
     room: { airDb: -26, airLowHz: 70, airHighHz: 1100, driftHz: 0.11, drift: 0.3, humHz: 100, humDb: -38, flicker: 0.25, fadeIn: 1.5, fadeOut: 3 },
     keys: KEY_PRESETS.laptop,
     /** Arrives with the light (4→10 s), leaves after the title. */
-    shimmer: { hz: 440, beatHz: 2.3, gainDb: -42, tremHz: 5.5, from: 4.0, to: 10.0, until: TITLE_AT, release: 2.2 },
+    shimmer: { hz: 440, beatHz: 2.3, gainDb: -42, tremHz: 5.5, from: 3.8, to: SIGN_AT, until: TITLE_AT, release: 2.2 },
     /** Under the signature: friction that follows the ink under the moving edge (PEN_PRESETS). Diego's pick by ear from
      *  A–D, 2026-09-06 ("D is best for the writing audio"): `hush` — the pencil at −32 dB, the signing seen more than
      *  heard. Issue #35. */
