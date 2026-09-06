@@ -159,8 +159,11 @@ experience more polished… typing noises in sync… polish the bg sound… the 
 really happening in front of you"*): the audio moved out of ffmpeg's generators into `api/_lib/sound.ts` (§3, audio row),
 each glyph lands as an ember (§3, sentence row), and the wall plays the film's own track (§5). Built and checked locally:
 `scripts/film.mjs mtpsj0zp-cbh1jd` (7.6 s on the laptop), levels per layer measured, the wall's film clock and its
-no-film fallback driven headless. **Awaiting Diego's ear on the rendered MP4 before it deploys**; when it does, watch
-`filmStages.sound` on the first record (the synth is ~1 s on six cores; the Vercel core has the 110 s inline budget).
+no-film fallback driven headless. **Approved and live, 2026-09-06 evening (build 786d3d9)** after seven check renders: laptop keys at −25 dB (his pick, C of
+A–D, "slightly lower"), the night room, the pen on the ink, the tail 1.4 s earlier, the hand's rhythm, the 56 ms pace
+floor with the film waiting for a long line. His words on the last pair: *"Last one feel best. Let's work with that."*
+Watch `filmStages.sound` on the first production record (the synth is ~1 s on six cores; the Vercel core has the
+110 s inline budget). Iteration continues from here; issue #31 (ten critiques) is the next input.
 
 1. `paint.ts` stores `raw` and the record carries the signature choice → the next painting has both.
    `score.ts` + `scripts/film.mjs <id>` → an MP4 of that painting plays in QuickTime at 1080×1920,
