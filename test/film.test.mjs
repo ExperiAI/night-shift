@@ -9,6 +9,7 @@ import { font, wrap, fit } from '../api/_lib/text.ts';
 import { sentenceFrames, captionFrames, signatureFrames, makeFilm, pushFrames, pushFrameCount } from '../api/_lib/film.ts';
 import { signatureLayer } from '../api/_lib/compose.ts';
 import { END_LINES, endLineFor } from '../api/_lib/artist.ts';
+import { bestShift, meanAbsDiff, measureMotion, report, STILL, STILL_TILE } from '../scripts/checks/motion.mjs';
 
 const alphaSum = async (png) => { const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true }); let s = 0; for (let i = 3; i < data.length; i += info.channels) s += data[i]; return s; };
 
@@ -122,17 +123,58 @@ test('the signature writes itself: nothing at the start of its window, the whole
 
 const ffmpeg = process.env.FFMPEG_PATH ?? ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg'].find(existsSync);
 test('the film is 1080×1920, SCORE.total long, H.264 + AAC, with the signing beat', { skip: !ffmpeg && 'no ffmpeg on this machine' }, async () => {
-  const raw = await sharp({ create: { width: 928, height: 1152, channels: 3, background: '#1b2a33' } }).composite([{ input: await sharp({ create: { width: 200, height: 200, channels: 3, background: '#f0a83a' } }).png().toBuffer(), left: 364, top: 300 }]).png().toBuffer();
+  // a picture with edges all over it, so the settle is something the measurement below can see move (a flat canvas reads still while it zooms)
+  const texture = Array.from({ length: 48 }, (_, i) => `<rect x="${(i % 8) * 116 + 20}" y="${Math.floor(i / 8) * 190 + 30}" width="${40 + (i * 37) % 50}" height="${30 + (i * 53) % 60}" fill="#${['4a5a6a', '8a7a5a', '3a6a5a', '6a4a7a'][i % 4]}"/>`).join('');
+  const raw = await sharp({ create: { width: 928, height: 1152, channels: 3, background: '#1b2a33' } }).composite([{ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="928" height="1152">${texture}<rect x="364" y="300" width="200" height="200" fill="#f0a83a"/></svg>`), left: 0, top: 0 }]).removeAlpha().png().toBuffer();
   const s = await signatureLayer(raw, 'film-test');
   const image = await sharp(raw).composite([{ input: s.ink, left: s.left, top: s.top }]).png().toBuffer();
-  const mp4 = await makeFilm({ id: 'film-test', image, raw, signature: { ink: s.ink, x: s.left, y: s.top, w: s.w, h: s.h }, commission: 'a test', title: 'A Test', endLine: endLineFor('film-test') }, { ffmpeg, preset: 'ultrafast' });
+  // a line long enough to shift the tail (1.91 s here) so that signature.start × fps has a fraction under a half, as in
+  // production (mtq6q0rr-fdap4r: 269.1): the reveal's stream is padded to the rounded frame, and a full-mark overlay that
+  // started at the ceiling of signature.end left one frame with no mark — the blink film.ts now closes (eof_action=repeat).
+  // A shift of 0, or one whose fraction rounds up, hides that seam and the measurement below could not fail on it.
+  const commission = 'A long test line typed at the pace of a hand, so the tail of the film moves later.';
+  const { shift } = await sentenceFrames(commission, null, 'film-test'); const SC = scoreFor(shift);
+  const frac = SC.signature.start * FRAME.fps - Math.floor(SC.signature.start * FRAME.fps);
+  assert.ok(frac > 0.05 && frac < 0.45, `the seam is off the frame grid, rounding down: ${SC.signature.start * FRAME.fps}`);
+  const mp4 = await makeFilm({ id: 'film-test', image, raw, signature: { ink: s.ink, x: s.left, y: s.top, w: s.w, h: s.h }, commission, title: 'A Test', endLine: endLineFor('film-test') }, { ffmpeg, preset: 'ultrafast' });
   assert.ok(mp4.length > 50_000);
   assert.equal(mp4.subarray(4, 8).toString(), 'ftyp');
   const { execFileSync } = await import('node:child_process');
   const { writeFileSync, mkdtempSync } = await import('node:fs'); const { join } = await import('node:path'); const { tmpdir } = await import('node:os');
   const p = join(mkdtempSync(join(tmpdir(), 'film-')), 'f.mp4'); writeFileSync(p, mp4);
   const probe = execFileSync(ffmpeg.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-show_entries', 'stream=codec_name,width,height,duration', '-of', 'csv=p=0', p]).toString();
-  assert.match(probe, new RegExp(`h264,1080,1920,${SCORE.total.toFixed(1).replace('.', '\\.')}`)); assert.match(probe, /aac/);
+  assert.match(probe, new RegExp(`h264,1080,1920,${SC.total.toFixed(1).replace('.', '\\.')}`)); assert.match(probe, /aac/);
+  // the picture's motion, measured (scripts/checks/motion.mjs, issue #39): the settle is seen, has no whole-pixel jump, is still
+  // by pushEnd and stays still before the pen; and the mark, once whole, never blinks (the hold after signature.end reads still)
+  const m = await measureMotion(p);
+  assert.equal(m.frames.length, Math.round(SC.total * FRAME.fps)); assert.ok(Math.round(Math.abs(m.shift - shift) * 100) <= 1, `the film's length gives back its score to a third of a frame: ${m.shift} vs ${shift}`);
+  assert.ok(m.settleMax >= STILL, `the measurement sees the settle move: max mad ${m.settleMax.toFixed(2)}`);
+  assert.ok(m.frames.some(r => r.beat === 'pen' && r.tileMax >= STILL_TILE), 'and the pen writing');
+  assert.ok(m.ok, `the film's motion, measured:\n${report(m)}`);
+  assert.equal(m.jumps.length, 0);
+  assert.ok(m.stillFrom != null && m.stillFrom <= m.score.pushEnd, `still by pushEnd ${m.score.pushEnd}: from ${m.stillFrom}`);
+});
+
+test('the motion check itself can tell a whole-pixel jolt from a still frame, and a small thing moving from a big still picture', () => {
+  // a field of noise; two windows on it offset by (dx, dy) are one frame and the same picture moved by (dx, dy)
+  let seed = 7; const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const W = 120, H = 90, F = W + 8, field = new Uint8Array(F * (H + 8)); for (let i = 0; i < field.length; i++) field[i] = rnd() * 255;
+  const window = (ox, oy) => { const out = new Uint8Array(W * H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) out[y * W + x] = field[(y + oy) * F + x + ox]; return out; };
+  const prev = window(4, 4);
+  for (const [dx, dy] of [[0, 0], [1, 0], [0, -1], [-2, 2], [2, 1]]) {
+    const cur = window(4 - dx, 4 - dy); // cur[y][x] = prev[y - dy][x - dx]
+    const s = bestShift(prev, cur, W, H, 2, 1);
+    assert.deepEqual([s.dx, s.dy], [dx, dy], `a move of (${dx}, ${dy}) is read back`);
+  }
+  const flat = new Uint8Array(W * H).fill(40);
+  assert.deepEqual((({ dx, dy }) => [dx, dy])(bestShift(flat, flat, W, H)), [0, 0], 'a flat frame reports no shift');
+  // the whole-crop mean hides a mark blinking in one tile; the tile does not
+  const a = new Uint8Array(CANVAS.w * CANVAS.h).fill(60), b = new Uint8Array(a);
+  for (let y = 900; y < 930; y++) for (let x = 600; x < 660; x++) b[y * CANVAS.w + x] = 200; // about the mark's size (the real blink read mad 0.36, tile 33)
+  const same = meanAbsDiff(a, a); assert.equal(same.mean, 0); assert.equal(same.tileMax, 0);
+  const blink = meanAbsDiff(a, b);
+  assert.ok(blink.mean < STILL, `whole crop: ${blink.mean.toFixed(2)} reads still`);
+  assert.ok(blink.tileMax >= STILL_TILE, `one tile: ${blink.tileMax.toFixed(2)} does not`);
 });
 
 test('the opening: dark from black, for every painting (Diego, 2026-09-06); lit stays only as a comparison switch, still carried by film, wall, record and status', () => {

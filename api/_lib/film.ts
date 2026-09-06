@@ -187,9 +187,9 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
       const sg = input.signature!;
       const ink = await sharp(sg.ink).resize({ width: Math.max(1, Math.round(sg.w * k)) }).png().toBuffer();
       sx = Math.round(sg.x * k); sy = Math.round(sg.y * k);
-      const { frames, full } = await signatureFrames(ink);
+      const { frames } = await signatureFrames(ink);
       inkCols = await inkProfile(sg.ink, sg.w * k);
-      await Promise.all([...frames.map((b, i) => writeFile(join(dir, `sig_${pad3(i)}.png`), b)), writeFile(join(dir, 'sig_full.png'), full)]);
+      await Promise.all(frames.map((b, i) => writeFile(join(dir, `sig_${pad3(i)}.png`), b)));
     }
     lap('signature');
 
@@ -204,8 +204,8 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
       '-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'title.png'),    // 3
       '-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'signoff.png'),  // 4
     ];
-    if (signs) args.push('-framerate', String(FRAME.fps), '-i', join(dir, 'sig_%03d.png'), '-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'sig_full.png')); // 5, 6
-    const audioIn = signs ? 7 : 5;
+    if (signs) args.push('-framerate', String(FRAME.fps), '-i', join(dir, 'sig_%03d.png')); // 5: the mark writing itself; its last frame is the whole mark and holds
+    const audioIn = signs ? 6 : 5;
     args.push('-i', join(dir, 'audio.wav'));
     const scrimIn = audioIn + 1; // lit opening only: a soft dark band behind the sentence, riding with it and lifting as it dissolves
     if (P.fromFill) {
@@ -218,9 +218,10 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     f.push(`[1:v]format=rgba,tpad=start_duration=${P.pushStart}:start_mode=clone,tpad=stop_mode=clone:stop_duration=${T0}[cv0]`); // at scaleFrom until pushStart, at rest after pushEnd
     if (signs) {
       f.push(`[5:v]format=rgba,tpad=start_duration=${G.start}:start_mode=add:color=black@0.0[sgw]`);
-      f.push(`[cv0][sgw]overlay=x=${sx}:y=${sy}:format=auto:eof_action=pass[cv1]`);
-      f.push(`[6:v]format=rgba[sgf]`);
-      f.push(`[cv1][sgf]overlay=x=${sx}:y=${sy}:format=auto:enable='gte(t,${G.end})'[cv2]`);
+      // eof_action=repeat: the reveal's last frame (the mask past the right edge: the whole mark) holds to the end. A separate
+      // full-mark overlay enabled from G.end started one frame after this stream's last (G.end - 1/fps) and the mark blinked
+      // off for that frame — measured, not seen: scripts/checks/motion.mjs on mtq6q0rr-fdap4r, frame 317 at 10.567 s (issue #39).
+      f.push(`[cv0][sgw]overlay=x=${sx}:y=${sy}:format=auto:eof_action=repeat[cv2]`);
     } else f.push(`[cv0]null[cv2]`);
     f.push(`[cv2]null[push]`); // the signature was laid on a canvas already at rest (G.start ≥ P.pushEnd), so its place needs no scaling
     if (P.fromFill) { // lit: the fill is up from the first frame, the canvas surfaces over it, the scrim lifts with the sentence
