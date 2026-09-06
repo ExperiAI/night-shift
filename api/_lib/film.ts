@@ -3,12 +3,13 @@
 // signed in real time from the same ink layer signPainting laid on the canvas, then the title and the sign-off.
 // Audio is synthesised by sound.ts into one WAV (keys on the glyph cues, a living bed, a pen that follows the ink) — nothing licensed.
 // docs/reveal.md §3–4. Driven by scripts/film.mjs locally and by paint.ts on Vercel.
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import type { Writable } from 'node:stream';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { FRAME, CANVAS, SCORE, ease, sentenceFor, typingWeights, typingPace, scoreFor, type Score, openingFor, type Opening, type Silence } from './score.js';
+import { FRAME, CANVAS, SCORE, ease, easeOut, sentenceFor, typingWeights, typingPace, scoreFor, type Score, openingFor, type Opening, type Silence } from './score.js';
 import { font, fit, wrap, textFrame, blockHeight, layoutGlyphs, glyphFrame, mix, type Block } from './text.js';
 import { soundtrack } from './sound.js';
 import type { KeyPreset, PenPreset, Transition } from './score.js';
@@ -43,9 +44,38 @@ export type FilmInput = {
 export type FilmOptions = { ffmpeg?: string; workDir?: string; keepWork?: boolean; preset?: string; timings?: Record<string, number> };
 
 const pad3 = (n: number) => String(n).padStart(3, '0');
-const run = (bin: string, args: string[]) => new Promise<void>((resolve, reject) => {
-  execFile(bin, args, { maxBuffer: 64 * 1024 * 1024 }, (err, _out, stderr) => err ? reject(new Error(`ffmpeg: ${String(stderr).split('\n').filter(Boolean).slice(-6).join(' | ').slice(0, 900)}`)) : resolve());
+
+/** The painting's settle, one frame per film frame from pushStart to pushEnd: the canvas at scale s(t), centred, cut to
+ *  CANVAS, as raw RGB (rgb24) for ffmpeg's stdin. Rendered here in sharp (an affine with a fractional offset, bicubic)
+ *  rather than in ffmpeg, whose scale filter can only make whole-pixel sizes — over a 12 s move that was a one-pixel jolt
+ *  every six frames, and Diego saw it as the picture swaying (2026-09-06). Raw and piped, never encoded to files: at one
+ *  core a frame is the affine alone (~11 ms) and nothing touches /tmp. After pushEnd the canvas is still, and ffmpeg holds
+ *  the last frame. */
+export async function* pushFrames(canvas: Buffer, P: { pushStart: number; pushEnd: number; scaleFrom: number; scaleTo: number }, fps = FRAME.fps): AsyncGenerator<Buffer> {
+  const n = pushFrameCount(P, fps);
+  const src = await sharp(canvas).removeAlpha().raw().toBuffer({ resolveWithObject: true }); // decoded once
+  const raw = { width: src.info.width, height: src.info.height, channels: 3 as const };
+  for (let i = 0; i < n; i++) {
+    const s = P.scaleFrom - (P.scaleFrom - P.scaleTo) * easeOut(i / (n - 1));
+    if (Math.abs(s - 1) < 1e-6) { yield src.data; continue; }
+    const a = await sharp(src.data, { raw }).affine([[s, 0], [0, s]], { odx: -(s - 1) * CANVAS.w / 2, ody: -(s - 1) * CANVAS.h / 2, interpolator: 'bicubic', background: '#000' }).raw().toBuffer({ resolveWithObject: true });
+    yield await sharp(a.data, { raw: { width: a.info.width, height: a.info.height, channels: 3 } }).extract({ left: 0, top: 0, width: CANVAS.w, height: CANVAS.h }).raw().toBuffer();
+  }
+}
+export const pushFrameCount = (P: { pushStart: number; pushEnd: number }, fps = FRAME.fps) => Math.max(1, Math.round((P.pushEnd - P.pushStart) * fps)) + 1;
+
+const ffmpegError = (stderr: string) => new Error(`ffmpeg: ${stderr.split('\n').filter(Boolean).slice(-6).join(' | ').slice(0, 900)}`);
+/** Runs ffmpeg; with `feed`, its stdin is a pipe the feeder writes to (the settle's raw frames) and closes when done. */
+const run = (bin: string, args: string[], feed?: (stdin: Writable) => Promise<void>) => new Promise<void>((resolve, reject) => {
+  if (!feed) return execFile(bin, args, { maxBuffer: 64 * 1024 * 1024 }, (err, _out, stderr) => err ? reject(ffmpegError(String(stderr))) : resolve());
+  const p = spawn(bin, args, { stdio: ['pipe', 'ignore', 'pipe'] });
+  let err = ''; p.stderr.on('data', d => { err += d; });
+  p.on('error', reject);
+  p.on('close', code => code === 0 ? resolve() : reject(ffmpegError(err)));
+  p.stdin.on('error', () => { /* ffmpeg died first: 'close' reports it */ });
+  feed(p.stdin).then(() => p.stdin.end(), e => { p.kill(); reject(e); });
 });
+const writeAll = (w: Writable, b: Buffer) => new Promise<void>((resolve, reject) => w.write(b, e => e ? reject(e) : resolve()));
 
 /** The sentence typing out of the dark, one frame per film frame. Laid out once, every glyph fades in on its own
  *  cue (no pop, no re-centring), the pace never faster than the score's interval, the whole sentence in by
@@ -169,7 +199,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     const T0 = String(SC.total);
     const args: string[] = ['-y', '-hide_banner', '-loglevel', 'error',
       '-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'fill.png'),     // 0
-      '-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'canvas.png'),   // 1
+      '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${CANVAS.w}x${CANVAS.h}`, '-framerate', String(FRAME.fps), '-i', 'pipe:0', // 1: the canvas settling (pushFrames on stdin); held before and after
       '-framerate', String(FRAME.fps), '-i', join(dir, 'txt_%03d.png'),                          // 2
       '-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'title.png'),    // 3
       '-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'signoff.png'),  // 4
@@ -184,17 +214,15 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
       args.push('-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'veil.png'));
     }
 
-    const pushDur = (P.pushEnd - P.pushStart).toFixed(3);
-    const zoom = `(${P.scaleFrom}-${(P.scaleFrom - P.scaleTo).toFixed(3)}*clip((t-${P.pushStart})/${pushDur},0,1))`;
     const f: string[] = [];
-    f.push(`[1:v]format=rgba[cv0]`);
+    f.push(`[1:v]format=rgba,tpad=start_duration=${P.pushStart}:start_mode=clone,tpad=stop_mode=clone:stop_duration=${T0}[cv0]`); // at scaleFrom until pushStart, at rest after pushEnd
     if (signs) {
       f.push(`[5:v]format=rgba,tpad=start_duration=${G.start}:start_mode=add:color=black@0.0[sgw]`);
       f.push(`[cv0][sgw]overlay=x=${sx}:y=${sy}:format=auto:eof_action=pass[cv1]`);
       f.push(`[6:v]format=rgba[sgf]`);
       f.push(`[cv1][sgf]overlay=x=${sx}:y=${sy}:format=auto:enable='gte(t,${G.end})'[cv2]`);
     } else f.push(`[cv0]null[cv2]`);
-    f.push(`[cv2]scale=w='trunc(iw*${zoom}/2)*2':h=-2:eval=frame:flags=lanczos,crop=${CANVAS.w}:${CANVAS.h}:x='(iw-ow)/2':y='(ih-oh)/2'[push]`);
+    f.push(`[cv2]null[push]`); // the signature was laid on a canvas already at rest (G.start ≥ P.pushEnd), so its place needs no scaling
     if (P.fromFill) { // lit: the fill is up from the first frame, the canvas surfaces over it, the scrim lifts with the sentence
       f.push(`[push]split=2[pFloor0][pRise0]`);
       f.push(`[pFloor0]colorchannelmixer=aa=${P.floor}[pFloor]`); // already there on frame zero
@@ -228,7 +256,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     args.push('-filter_complex', f.join(';'), '-map', '[v]', '-map', `${audioIn}:a`,
       '-c:v', 'libx264', '-preset', opts.preset ?? 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-r', String(FRAME.fps),
       '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-t', T0, out);
-    await run(ffmpeg, args);
+    await run(ffmpeg, args, async (stdin) => { for await (const frame of pushFrames(canvas, P)) await writeAll(stdin, frame); }); // the settle, sub-pixel, fed as ffmpeg pulls; the pen lands only once it is over (G.start ≥ P.pushEnd, film.test.mjs)
     lap('ffmpeg');
     return await readFile(out);
   } finally {

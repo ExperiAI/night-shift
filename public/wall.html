@@ -91,6 +91,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 const clip = x => Math.min(1, Math.max(0, x));
 const ease = x => (1 - Math.cos(Math.PI * clip(x))) / 2;
+const easeOut = x => 1 - Math.pow(1 - clip(x), 3); // the painting's settle (score.ts easeOut): one move, slowing to rest before the pen
 
 // ---- layout: the stage is 1080×1920 CSS px scaled to the frame, so the score's pixels apply as written ----
 function fit() { const f = $('frame'); const s = f.clientHeight / 1920; $('stage').style.transform = `scale(${s})`; }
@@ -289,7 +290,7 @@ function render(t, cursor) {
     $('canvas').style.opacity = Math.max(blurRisen, surfaced);
     $('canvas').style.filter = P.blur > 0 && surfaced < 1 ? `blur(${(P.blur * (1 - surfaced)).toFixed(1)}px)` : '';
   }
-  $('canvas').style.transform = `scale(${P.scaleFrom - (P.scaleFrom - P.scaleTo) * clip((t - P.pushStart) / (P.pushEnd - P.pushStart))})`;
+  $('canvas').style.transform = `scale(${P.scaleFrom - (P.scaleFrom - P.scaleTo) * easeOut((t - P.pushStart) / (P.pushEnd - P.pushStart))})`; // one direction, eased to rest at pushEnd; still by the time the pen lands (film.ts pushFrames)
   // the painter signs
   if (sigGeom) {
     const p = ease((t - G.start) / (G.end - G.start));

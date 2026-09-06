@@ -4,9 +4,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import sharp from 'sharp';
-import { SCORE, FRAME, CANVAS, CAPTION, SAFE, OPENINGS, TRANSITIONS, openingFor, scoreFor, ease, sentenceFor, excerpt, isExcerpt } from '../api/_lib/score.ts';
+import { SCORE, FRAME, CANVAS, CAPTION, SAFE, OPENINGS, TRANSITIONS, openingFor, scoreFor, ease, easeOut, sentenceFor, excerpt, isExcerpt } from '../api/_lib/score.ts';
 import { font, wrap, fit } from '../api/_lib/text.ts';
-import { sentenceFrames, captionFrames, signatureFrames, makeFilm } from '../api/_lib/film.ts';
+import { sentenceFrames, captionFrames, signatureFrames, makeFilm, pushFrames, pushFrameCount } from '../api/_lib/film.ts';
 import { signatureLayer } from '../api/_lib/compose.ts';
 import { END_LINES, endLineFor } from '../api/_lib/artist.ts';
 
@@ -26,6 +26,44 @@ test('the score is consistent: beats in order, canvas centred, easing bounded', 
   assert.deepEqual(S.canvas, CANVAS); assert.deepEqual(S.caption, CAPTION);
   assert.equal(ease(0), 0); assert.ok(Math.abs(ease(1) - 1) < 1e-9); assert.ok(Math.abs(ease(0.5) - 0.5) < 1e-9);
   assert.equal(sentenceFor(null), 'a commission'); assert.equal(sentenceFor('  '), 'a commission'); assert.equal(sentenceFor('the bar'), 'the bar');
+});
+
+test('the painting settles in one move and is still before the pen lands (Diego, 2026-09-06)', async () => {
+  // the beat: pushEnd before signature.start with a breath between, whatever the line's shift and whichever transition
+  for (const shift of [0, 1.0, 2.35]) for (const tr of Object.keys(TRANSITIONS)) {
+    const S = scoreFor(shift, 'dark', tr);
+    assert.ok(S.painting.pushEnd + 0.5 <= S.signature.start, `${tr}/${shift}: pen at ${S.signature.start}, canvas still from ${S.painting.pushEnd}`);
+    assert.ok(S.painting.pushStart < S.painting.pushEnd && S.painting.pushEnd < S.title.start);
+    assert.ok(S.painting.scaleFrom > S.painting.scaleTo, 'one direction: from scaleFrom down to rest');
+  }
+  // the curve: 0→1, monotone, ends at rest (zero slope), the same function on the wall
+  assert.equal(easeOut(0), 0); assert.ok(Math.abs(easeOut(1) - 1) < 1e-9); assert.ok(Math.abs(easeOut(0.5) - 0.875) < 1e-9);
+  for (let i = 1; i <= 20; i++) assert.ok(easeOut(i / 20) > easeOut((i - 1) / 20));
+  assert.ok(easeOut(1) - easeOut(0.98) < easeOut(0.02) - easeOut(0), 'slower at the end than at the start');
+  const wall = readFileSync(new URL('../public/wall.html', import.meta.url), 'utf8');
+  assert.match(wall, /const easeOut = x => 1 - Math\.pow\(1 - clip\(x\), 3\)/);
+  assert.match(wall, /scale\(\$\{P\.scaleFrom - \(P\.scaleFrom - P\.scaleTo\) \* easeOut\(/);
+  // the film: the move is rendered sub-pixel in sharp, never by ffmpeg's whole-pixel scale (the sway Diego saw)
+  const film = readFileSync(new URL('../api/_lib/film.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(film, /\[cv2\]scale=w='trunc\(iw\*/);
+  assert.match(film, /'-f', 'rawvideo', '-pix_fmt', 'rgb24'.*'-i', 'pipe:0'/, 'the frames reach ffmpeg raw, on stdin: no encode, nothing on /tmp');
+  // the frames: one per film frame across the window, CANVAS-sized, the first at scaleFrom, the last the canvas at rest,
+  // and consecutive frames differing by a small, steady amount (no jolts)
+  const canvas = await sharp({ create: { width: CANVAS.w, height: CANVAS.h, channels: 3, background: '#000' } })
+    .composite([{ input: Buffer.from(`<svg width="${CANVAS.w}" height="${CANVAS.h}"><rect x="100" y="100" width="40" height="40" fill="#fff"/><rect x="600" y="800" width="120" height="30" fill="#8a4"/></svg>`), top: 0, left: 0 }]).removeAlpha().png().toBuffer();
+  const P = { pushStart: 4.0, pushEnd: 4.5, scaleFrom: 1.10, scaleTo: 1.0 };
+  const frames = []; for await (const f of pushFrames(canvas, P, 30)) frames.push(f);
+  assert.equal(pushFrameCount(P, 30), 16); assert.equal(frames.length, 16);
+  const bytes = CANVAS.w * CANVAS.h * 3; // rgb24, what ffmpeg is told to expect on stdin
+  assert.ok(frames.every(f => f.length === bytes), 'every frame is one raw rgb24 canvas');
+  const canvasRaw = await sharp(canvas).removeAlpha().raw().toBuffer();
+  assert.ok(frames[15].equals(canvasRaw), 'at rest the frame is the canvas itself');
+  // the white square's left edge: at 100 at rest, at 100*1.1-0.1*w/2 = 68.4 at scaleFrom
+  const edge = (f, y) => { for (let x = 0; x < CANVAS.w; x++) if (f[(y * CANVAS.w + x) * 3] > 128) return x; return -1; };
+  assert.equal(edge(frames[15], 120), 100); assert.equal(edge(frames[0], 70), 68);
+  const diffs = [];
+  for (let i = 1; i < frames.length; i++) { let d = 0; for (let k = 0; k < bytes; k += 3) d += Math.abs(frames[i][k] - frames[i - 1][k]); diffs.push(d); }
+  assert.ok(diffs.every(d => d > 0), 'every frame moves (sub-pixel: no two consecutive frames identical mid-move)');
 });
 
 test('the film never opens on a wall of text: the gatekeeper\'s verbatim line, else a cut at a sentence or clause (Diego, 2026-09-06)', () => {

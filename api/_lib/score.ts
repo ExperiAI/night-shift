@@ -13,9 +13,10 @@ export const CANVAS = { w: 832, h: 1040, left: (1080 - 832) / 2, top: SAFE.top }
 export const CAPTION = { x: CANVAS.left, top: CANVAS.top + CANVAS.h + 48, maxW: 1080 - CANVAS.left - SAFE.right } as const;
 
 /** The beats after the painting has surfaced, in one place so they move together (Diego, 2026-09-06: the gap between
- *  the painting's arrival and the signing was too long — nothing moved). The painting is fully up at 10.0; the pen
- *  lands 0.6 s later. */
-const SIGN_AT = 10.6, SIGN_END = 12.4, TITLE_AT = 12.4, SIGNOFF_AT = 15.2, HOLD_AT = 17.8, TOTAL = 18.6;
+ *  the painting's arrival and the signing was too long — nothing moved). The picture is whole at 5.6 (TRANSITIONS.snap),
+ *  settles to rest at PUSH_END, and the pen lands on a still canvas 0.8 s later (Diego, 2026-09-06, from the first
+ *  production Reel: "the signature should only start after the painting stopped and is static"). */
+const PUSH_END = 9.8, SIGN_AT = 10.6, SIGN_END = 12.4, TITLE_AT = 12.4, SIGNOFF_AT = 15.2, HOLD_AT = 17.8, TOTAL = 18.6;
 
 /** How the keys sound (sound.ts keys). Four presets for Diego's ear, 2026-09-06; `SCORE.audio.keys` is the one in use.
  *  Every press is a low "thump" band, a "click" band on top and a damped "case" tone; a preset is where those sit. */
@@ -118,9 +119,13 @@ export const SCORE = {
   canvas: CANVAS, caption: CAPTION, safe: SAFE,
   /** The commission types out of the dark, then fades. Any sentence finishes typing at `typedBy`. */
   sentence: { marginX: 72, start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, minCharInterval: 0.056, glyphFade: 0.16, driftScale: 1.0, rise: 0, ember: 0.55, emberColor: '#ffd58a' }, // the words vanish where they stand: no lift, no drift (Diego, 2026-09-06: "disappears without moving or changing position")
-  /** The canvas surfaces from black (a fade from black: the one light appears first) with a slow push in. */
+  /** The canvas surfaces from black (a fade from black: the one light appears first) and settles: one move, from
+   *  scaleFrom to rest, easing out (easeOut) so it is quick while the picture is still surfacing and creeps to a stop
+   *  before the pen. Diego, 2026-09-06, on the first production Reel: the push "alternating" left and right "gives a very
+   *  weird vibe" — it was ffmpeg's scale filter stepping the canvas a whole pixel every six frames; the film now renders
+   *  the move sub-pixel (film.ts pushFrames) and the wall's CSS transform always was. */
   /** The hand-over is `snap` (TRANSITIONS; Diego's pick 2026-09-06, "A or D": the faster one, since the retention graph left during the dark). */
-  painting: { transition: 'snap' as Transition, fadeStart: 3.9 as number, fadeEnd: 5.6 as number, fillStart: 3.7 as number, fillEnd: 5.0 as number, blur: 0 as number, blurStart: 0 as number, blurEnd: 0 as number, pushStart: 4.0, pushEnd: TITLE_AT, scaleFrom: 1.10 as number, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35, fromFill: false as boolean, scrim: 0 as number, floor: 0 as number, band: 0 as number },
+  painting: { transition: 'snap' as Transition, fadeStart: 3.9 as number, fadeEnd: 5.6 as number, fillStart: 3.7 as number, fillEnd: 5.0 as number, blur: 0 as number, blurStart: 0 as number, blurEnd: 0 as number, pushStart: 4.0, pushEnd: PUSH_END, scaleFrom: 1.10 as number, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35, fromFill: false as boolean, scrim: 0 as number, floor: 0 as number, band: 0 as number },
   /** Which opening this score plays (OPENINGS); scoreFor sets it per film. */
   opening: 'dark' as Opening, openings: OPENINGS, transitions: TRANSITIONS,
   /** The painter signs, in real time: the mark is revealed left to right with a soft wet edge. */
@@ -219,6 +224,9 @@ export function scoreFor(shift: number, opening: Opening = 'dark', transition: T
 
 /** Ease-in-out for the signing hand and the wall's mask: 0→1 over the signature's window. */
 export const ease = (x: number) => (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, x)))) / 2;
+/** Ease-out for the painting's settle (cubic): the move is quickest as the picture surfaces and slows to rest at
+ *  pushEnd, so nothing is still moving when the pen lands. The film (pushFrames) and the wall use the same curve. */
+export const easeOut = (x: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
 
 /** The sentence a film opens on (Diego, 2026-09-06: never an overwhelming text). The gatekeeper picks `line`, a
  *  verbatim excerpt of the commission at most `maxChars` long (desk.ts checks it IS an excerpt); without one, the
