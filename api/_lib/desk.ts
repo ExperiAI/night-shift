@@ -5,6 +5,7 @@ import { all, load, newId, save, saveFeedback, storeReference, allFeedback, dele
 import { createHash, randomBytes } from 'node:crypto';
 import { normalizePhoto } from './compose.js';
 import { isExcerpt, SCORE } from './score.js';
+import { validateRoomCode, loadRoom, roomCount, roomRefusal } from './room.js';
 
 const MAX_PER_SENDER_PER_DAY = 3;
 const MAX_PER_IP_PER_DAY = 5;
@@ -227,8 +228,9 @@ export function validateRegister(raw: unknown): Register | null {
   return r;
 }
 
-export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null, registerRaw?: unknown, exceptionRaw?: unknown): Promise<Receipt> {
+export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null, registerRaw?: unknown, exceptionRaw?: unknown, roomRaw?: unknown): Promise<Receipt> {
   const anonymous = anonymousRaw === true || anonymousRaw === 'true';
+  const roomCode = validateRoomCode(roomRaw);
   const exception = validateException(exceptionRaw, ip);
   const photoUrl = validatePhotoUrl(photoRaw);
   const text = String(textRaw ?? '').trim().slice(0, MAX_TEXT) || (photoUrl ? 'this place, after everyone left' : '');
@@ -240,11 +242,16 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   if (from && recent >= MAX_PER_SENDER_PER_DAY) {
     throw Object.assign(new Error(`${from} has commissioned ${recent} paintings today. Come back tomorrow.`), { status: 429 });
   }
-  if (recentByIp(docs, ip) >= MAX_PER_IP_PER_DAY) {
-    throw Object.assign(new Error('Too many commissions from where you are today. Come back tomorrow.'), { status: 429 });
-  }
-  if (acceptedToday(docs) >= STUDIO_CAP) {
-    throw Object.assign(new Error('The studio is full for today. I paint a handful each night so everyone gets a turn — ask again tomorrow.'), { status: 429 });
+  if (roomCode) { // a room has its own door and its own cap (docs/reveal.md §5); the studio's day and the address limit do not apply
+    const refusal = roomRefusal(await loadRoom(roomCode), roomCount(docs, roomCode));
+    if (refusal) throw Object.assign(new Error(refusal.message), { status: refusal.status });
+  } else {
+    if (recentByIp(docs, ip) >= MAX_PER_IP_PER_DAY) {
+      throw Object.assign(new Error('Too many commissions from where you are today. Come back tomorrow.'), { status: 429 });
+    }
+    if (acceptedToday(docs) >= STUDIO_CAP) {
+      throw Object.assign(new Error('The studio is full for today. I paint a handful each night so everyone gets a turn — ask again tomorrow.'), { status: 429 });
+    }
   }
 
   const id = newId();
@@ -280,7 +287,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const key = newKey();
   const c: Commission = {
     id, text, from, created: new Date().toISOString(), keyHash: hashKey(key),
-    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}), ...(holdUntil ? { holdUntil } : {}), ...(exception ? { exception } : {}),
+    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}), ...(holdUntil ? { holdUntil } : {}), ...(exception ? { exception } : {}), ...(roomCode ? { room: roomCode } : {}),
   };
   await save(c);
   const receipt: Receipt = { id: c.id, status: c.status, note: take.note, ...(take.departures ? { departures: take.departures } : {}), statusUrl: `${origin}/api/commission/${c.id}`, key };
@@ -288,10 +295,11 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   return receipt;
 }
 
-/** Accepted work in the last 24h, all senders: what the studio has committed to paint or has painted. */
-export function acceptedToday(docs: Pick<Commission, 'created' | 'status' | 'seed'>[], now = Date.now()): number {
+/** Accepted work in the last 24h, all senders: what the studio has committed to paint or has painted. Room work is
+ *  not the studio's day: a room has its own cap (docs/reveal.md §5). */
+export function acceptedToday(docs: Pick<Commission, 'created' | 'status' | 'seed' | 'room'>[], now = Date.now()): number {
   const since = now - 86_400_000;
-  return docs.filter(c => !c.seed && c.status !== 'declined' && c.status !== 'failed' && Date.parse(c.created) > since).length;
+  return docs.filter(c => !c.seed && !c.room && c.status !== 'declined' && c.status !== 'failed' && Date.parse(c.created) > since).length;
 }
 
 /** Commissions from one address in the last 24h. The inbox is 'internal' and never limited by address. */
@@ -314,7 +322,7 @@ export function publicView(c: Commission) {
     id: c.id, status: c.status, created: c.created, from: c.anonymous ? null : c.from,
     commission: c.anonymous ? null : c.text, line: c.anonymous ? null : c.take.line, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene, // a private sentence stays private on the wall too
     image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides, holdUntil: c.holdUntil, register: c.take.register,
-    film: c.film, raw: c.raw, signature: c.signature, // the reveal (docs/reveal.md): the film for the Reel and the ticket; the unsigned canvas and the ink layer for the wall to sign in real time
+    film: c.film, raw: c.raw, signature: c.signature, room: c.room, // the reveal (docs/reveal.md): the film for the Reel and the ticket; the unsigned canvas and the ink layer for the wall to sign in real time
     ...(c.rejects?.length ? { rejects: c.rejects } : {}), // what the inspector refused on the way to this canvas
     ...(isStudioSender(c.from) ? { studio: true } : {}), // the studio's own commission (an exam), marked so the wall is not read as a client list (#18)
     ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),

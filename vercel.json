@@ -2,6 +2,11 @@
   "functions": {
     "api/paint.ts": { "memory": 3008, "maxDuration": 300 }
   },
+  "rewrites": [
+    { "source": "/send", "destination": "/send.html" },
+    { "source": "/wall", "destination": "/wall.html" },
+    { "source": "/tent", "destination": "/tent.html" }
+  ],
   "crons": [
     {
       "path": "/api/paint",
