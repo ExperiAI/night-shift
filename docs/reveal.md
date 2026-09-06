@@ -31,11 +31,16 @@ canvas 1080×1920, 30 fps, total **20.0 s**.
 |---|---|---|
 | 0.0–3.6 | sentence | Black. The commission types out, IBM Plex Mono 44 px, centred, max three lines, a blinking block cursor. Character interval scales so any sentence finishes at 3.4 s. |
 | 3.6–4.4 | sentence | Fades out. |
-| 4.0–13.0 | painting | Behind: the painting scaled to fill 9:16, blurred (σ≈40) and darkened to 35 %. Front: the painting at 4:5, width 1080, centred. Fade from black 4.0→10.0 (the surfacing: this is a `fade` from black, not an opacity fade, so the first thing to appear is the one light). Slow push from scale 1.06 to 1.00 across the whole span. |
-| 13.0–16.5 | title | Instrument Serif 64 px, amber-ink `#ffd58a`, bottom-left with 72 px margins, fade in 0.6 s. |
-| 16.5–19.4 | sign-off | Under the title, IBM Plex Mono 30 px, muted `#a2abbb`: the `SIGNOFF` constant from `artist.ts`, word for word. Fade in 0.6 s. |
-| 19.4–20.0 | hold | Everything stays. Last frame = cover candidate. |
-| 0.0–20.0 | audio | Generated, never licensed: a low drone (sine 55 Hz, −26 dB) fading in over 2 s and out over 3 s, plus one soft note (sine 220 Hz with a 1.2 s decay) at 13.0 s under the title. ffmpeg `aevalsrc`; no file, no rights. `muteAudio` is not set. |
+| 4.0–12.0 | painting | Behind: the painting scaled to fill 9:16, blurred (σ≈40) and darkened to 35 %. Front: the **unsigned** painting at 4:5, width 1080, centred. Fade from black 4.0→10.0 (the surfacing: this is a `fade` from black, not an opacity fade, so the first thing to appear is the one light). Slow push from scale 1.06 to 1.00 across 4.0–13.8. |
+| 12.0–13.8 | signature | **The painter signs, in real time** (Diego, 2026-09-06). The same signature PNG and position `signPainting` chose for this canvas (`signatureChoice(id)` is deterministic) is written onto the canvas left to right: a reveal whose edge moves across the mark with an ease-in-out over 1.8 s, the way a cursive hand crosses the paper, with a soft 24 px edge so it reads as wet ink rather than a wipe. Nothing else moves during these seconds. |
+| 13.8–16.8 | title | Instrument Serif 64 px, amber-ink `#ffd58a`, bottom-left with 72 px margins, fade in 0.6 s. The soft note sounds here. |
+| 16.8–19.4 | sign-off | Under the title, IBM Plex Mono 30 px, muted `#a2abbb`: the `SIGNOFF` constant from `artist.ts`, word for word. Fade in 0.6 s. |
+| 19.4–20.0 | hold | Everything stays. Last frame = cover candidate (identical to the signed still). |
+| 0.0–20.0 | audio | Generated, never licensed: a low drone (sine 55 Hz, −26 dB) fading in over 2 s and out over 3 s, a faint dry scratch under the signature (filtered noise, `anoisesrc` through a band-pass, −34 dB, 12.0–13.8), plus one soft note (sine 220 Hz with a 1.2 s decay) at 13.8 s under the title. ffmpeg `aevalsrc`/`anoisesrc`; no file, no rights. `muteAudio` is not set. |
+
+**The signature needs the unsigned canvas.** Today `paint.ts` stores only the signed image. From now on it also stores the canvas before signing at `paintings/<id>-raw.png` (`raw?: string` on the record, never shown on the wall or the website) and the film composes raw + signature. A painting with no `raw` (everything before this ships) is filmed from the signed still and skips the signing beat: the push simply continues to 13.8 s. The one backfill Reel (§4) is such a painting; say so in nothing, it just does not sign.
+
+The reveal in ffmpeg: the signature PNG as an overlay whose visible width grows with `crop=w='iw*clip((t-12)/1.8,0,1)'` on an eased time (`(1-cos(PI*x))/2`) and a horizontal alpha ramp of 24 px at the leading edge (`geq` on the alpha plane, or a pre-rendered gradient mask blended with `alphamerge`). On the wall the same beat is a CSS `mask-image` linear gradient whose position animates over 1.8 s with the same easing, from a shared constant in the score.
 
 Copy in the film: the commission text (or, for an anonymous commission, nothing types: the film opens
 on "a commission" in the same mono, since an anonymous sentence is never shown, see `publicView`), the
@@ -110,8 +115,10 @@ Three states, in one layout:
 2. **Arrival**: a sentence card slides in with the painter's note under it, then joins a quiet queue
    column ("painting next").
 3. **Reveal**: when a commission reaches `painted`/`posted`, its reveal plays once, full screen, using
-   the same score in HTML/CSS (typing, fade from black, push, title, sign-off, the drone via
-   WebAudio). Then it joins the loop.
+   the same score in HTML/CSS (typing, fade from black, push, **the signature writing itself**, title,
+   sign-off, the drone via WebAudio). The wall needs `raw` and the signature choice from the public
+   view (`publicView` exposes `raw` and `signature: { file, x, y, w }` only for room commissions, so
+   the wall can draw the beat; the studio page never uses them). Then it joins the loop.
 
 `?demo=1` replays the last twelve paintings' reveals as if they were arriving, with their sentences,
 without commissioning anything: Diego's public demo on a video call, with no room and no cost.
@@ -125,9 +132,10 @@ Nothing on the wall or the ticket mentions the inspector, rejects, the critic or
 
 ## 6. Build order, with the check that ends each step
 
-1. `score.ts` + `scripts/film.mjs <id>` → an MP4 of *Three Things, Tatami* plays in QuickTime at
-   1080×1920, 20.0 s, with audio, and matches the score to the tenth of a second (eyeball with the
-   frame counter). Commit.
+1. `paint.ts` stores `raw` and the record carries the signature choice → the next painting has both.
+   `score.ts` + `scripts/film.mjs <id>` → an MP4 of that painting plays in QuickTime at 1080×1920,
+   20.0 s, with audio, the signature writing itself at 12.0–13.8 s, and the rest matching the score to
+   the tenth of a second (eyeball with the frame counter). Commit.
 2. `api/_lib/film.ts` on Vercel, called from `paint.ts` → the next real painting has `film` in its
    record and `/api/status` shows it. Measure the function's time; decide Vercel vs Actions (§4).
 3. `publish` posts the Reel → the next real painting's Instagram link is a `/reel/`, the cover is the
