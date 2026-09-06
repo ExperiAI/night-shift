@@ -19,6 +19,10 @@
 # so a deploy always has a marker of its own even when nothing visible changed (a prompt, a cap).
 # An optional second marker checks a specific page.
 #
+# Issue #40: the last step re-films the last posted painting on the new build (dry, so the record is untouched)
+# and holds it to the inline budget, because a build that broke ffmpeg on Vercel would otherwise surface as a
+# filmError on the next real painting, hours later.
+#
 # Not gated: nightshift.experiai.com is an ExperiAI Lab piece, not a client system.
 
 set -euo pipefail
@@ -38,19 +42,19 @@ BUILD_ID="$(git rev-parse --short HEAD 2>/dev/null || echo nogit)-$(date +%s)"
 [ -d .vercel ] || fail "No .vercel directory — this checkout is not linked to the Vercel project."
 command -v vercel >/dev/null || fail "vercel CLI not on PATH."
 
-step "1/5  markers must NOT be live yet"
+step "1/6  markers must NOT be live yet"
 if curl -fsSL "$HOST/api/status" | grep -qF -- "\"build\":\"$BUILD_ID\""; then fail "build id $BUILD_ID is already live, which cannot happen; refusing to trust the check."; fi
 if [ -n "$MARKER" ] && curl -fsSL "$HOST$PATH_TO_CHECK" | grep -qF -- "$MARKER"; then
   fail "\"$MARKER\" is already on $HOST$PATH_TO_CHECK. A check that passes before the deploy proves nothing. Pick a marker from the diff."
 fi
 ok "build id $BUILD_ID${MARKER:+ and marker} absent from production"
 
-step "2/5  tests and types"
+step "2/6  tests and types"
 npm test 2>&1 | tail -8
 npm run check
 ok "green"
 
-step "3/5  deploy"
+step "3/6  deploy"
 # A non-zero exit from the CLI is not proof the deploy did not happen: on 2026-09-06 it printed "Error: Not
 # authorized" after the build had already gone live (the build id was on /api/status seconds later). The exit
 # code is reported; production decides (step 3).
@@ -58,7 +62,7 @@ OUT=$(vercel --prod --yes -e "BUILD_ID=$BUILD_ID" 2>&1) || printf '\n\033[33mver
 URL=$(printf '%s\n' "$OUT" | grep -Eo 'https://night-shift-[a-z0-9-]+\.vercel\.app' | head -1 || true)
 ok "deployed ${URL:-(url not parsed)}"
 
-step "4/5  the domain serves the new build"
+step "4/6  the domain serves the new build"
 i=0
 until curl -fsSL "$HOST/api/status?b=$BUILD_ID" | grep -qF -- "\"build\":\"$BUILD_ID\""; do
   i=$((i+1)); [ $i -ge $TRIES ] && fail "$HOST/api/status still does not report build $BUILD_ID after $((TRIES*INTERVAL))s. The deploy went somewhere; the domain is not serving it."
@@ -74,9 +78,29 @@ if [ -n "$MARKER" ]; then
   ok "marker live on $HOST$PATH_TO_CHECK"
 fi
 
-step "5/5  /api/status answers"
+step "5/6  /api/status answers"
 STATUS=$(curl -fsSL "$HOST/api/status") || fail "/api/status did not answer"
 printf '%s\n' "$STATUS" | grep -q '"today"' || { printf '%s\n' "$STATUS" | head -c 400; fail "/api/status answered but not with the studio's state"; }
 ok "$(printf '%s' "$STATUS" | head -c 200)…"
+
+step "6/6  the film still renders on Vercel, inside the budget"
+# Three builds on 2026-09-06 each needed a hand-run `?film=<lastPosted>` to learn whether the film still fits the
+# function (78.5 s, 67.8 s, 54.1 s). dry=1 leaves the record alone; Blob's film for that id is overwritten, as a
+# hand-run does. The budget is read from api/paint.ts (FILM_INLINE_BUDGET_MS) so there is one number, not two.
+LAST=$(printf '%s' "$STATUS" | node -pe 'JSON.parse(require("fs").readFileSync(0, "utf8")).lastPosted?.id ?? ""')
+if [ -z "$LAST" ]; then
+  printf '\033[33mskip\033[0m    no painting to film yet\n'
+else
+  BUDGET_MS=$(grep -Eo 'FILM_INLINE_BUDGET_MS = [0-9_]+' api/paint.ts | tr -d _ | grep -Eo '[0-9]+$') || fail "could not read FILM_INLINE_BUDGET_MS from api/paint.ts"
+  CRON_SECRET=$(sed -n 's/^CRON_SECRET="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' .env | head -1) # as scripts/film.mjs reads it; never printed
+  [ -n "$CRON_SECRET" ] || fail "CRON_SECRET is not in .env, so production cannot be asked to film."
+  FILM=$(curl -sSL --max-time 290 -H "Authorization: Bearer $CRON_SECRET" "$HOST/api/paint?film=$LAST&dry=1") || fail "/api/paint?film=$LAST did not answer within 290 s."
+  MS=$(printf '%s' "$FILM" | node -pe 'String(JSON.parse(require("fs").readFileSync(0, "utf8")).ms ?? "")') || { printf '%s\n' "$FILM" | head -c 400; fail "/api/paint?film=$LAST answered but not with a film."; }
+  ERR=$(printf '%s' "$FILM" | node -pe 'JSON.parse(require("fs").readFileSync(0, "utf8")).error ?? ""')
+  [ -z "$ERR" ] || fail "the film of $LAST failed on the new build after ${MS:-?} ms: $ERR"
+  [ -n "$MS" ] || fail "the film of $LAST reported no time: $(printf '%s' "$FILM" | head -c 200)"
+  [ "$MS" -le "$BUDGET_MS" ] || fail "the film of $LAST took $MS ms, over the $BUDGET_MS ms inline budget (FILM_INLINE_BUDGET_MS in api/paint.ts)."
+  ok "film of $LAST rendered in $MS ms (budget $BUDGET_MS ms)"
+fi
 
 printf '\n\033[32mDEPLOYED AND VERIFIED\033[0m  %s\n' "$HOST"

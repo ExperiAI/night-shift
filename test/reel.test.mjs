@@ -48,6 +48,11 @@ test('the paint cron films after signing and before posting, inside a time budge
   assert.match(src, /catch \(e: any\) \{\n\s*c\.filmError/, 'a failed film is recorded, not thrown');
   assert.match(src, /if \(Date\.now\(\) - started < FILM_INLINE_BUDGET_MS\) await filmIt/, 'never a function killed mid-film');
   assert.ok(FILM_INLINE_BUDGET_MS < 300_000 - 130_000, 'the budget leaves the Tatami\'s measured 130 s');
+  const deploy = read('../scripts/deploy-prod.sh'); // issue #40: every deploy proves the film on Vercel, against the same budget
+  assert.match(deploy, /\/api\/paint\?film=\$LAST&dry=1/, 'the deploy re-films the last posted painting without touching the record');
+  assert.match(deploy, /--max-time 290/);
+  assert.match(deploy, /FILM_INLINE_BUDGET_MS = \[0-9_\]\+' api\/paint\.ts/, 'the budget is read from paint.ts, not a second number');
+  assert.match(deploy, /\[ "\$MS" -le "\$BUDGET_MS" \] \|\| fail/);
   assert.match(src, /canPost\(\) && readyToPost\(c\)/);
   assert.equal(readyToPost({ raw: 'r' }), false, 'a new painting without its film waits');
   assert.equal(readyToPost({ raw: 'r', film: 'f' }), true);
