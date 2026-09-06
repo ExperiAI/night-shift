@@ -28,7 +28,7 @@ export type FilmInput = {
   title: string;
   endLine: string;
 };
-export type FilmOptions = { ffmpeg?: string; workDir?: string; keepWork?: boolean; preset?: string };
+export type FilmOptions = { ffmpeg?: string; workDir?: string; keepWork?: boolean; preset?: string; timings?: Record<string, number> };
 
 const pad3 = (n: number) => String(n).padStart(3, '0');
 const run = (bin: string, args: string[]) => new Promise<void>((resolve, reject) => {
@@ -39,14 +39,18 @@ const run = (bin: string, args: string[]) => new Promise<void>((resolve, reject)
  *  cue (no pop, no re-centring), the pace never faster than the score's interval, the whole sentence in by
  *  `typedBy`; a thin amber cursor breathes once the sentence is in. Diego, 2026-09-06: this is the hook — smooth
  *  and cinematic, never a wall of text (the sentence itself is capped by sentenceFor). */
-export async function sentenceFrames(commission: string | null | undefined, line?: string | null): Promise<Buffer[]> {
+export type Band = { frames: Buffer[]; top: number; height: number };
+/** The sentence frames are a band around the text, not whole frames: 133 encodes of 1080×1920 cost a minute on
+ *  one Vercel core. The compositor overlays the band at `top`. */
+export async function sentenceFrames(commission: string | null | undefined, line?: string | null): Promise<Band> {
   const S = SCORE.sentence;
   const f = font(S.font);
   const text = sentenceFor(commission, line);
   const maxW = FRAME.w - 2 * SCORE.title.marginX;
   const { size, lines } = fit(text, f, S.size, maxW, S.maxLines, S.minSize);
   const lh = Math.round(size * 1.5);
-  const y0 = Math.round(FRAME.h / 2 - (lines.length * lh) / 2 + size * 0.8);
+  const height = lines.length * lh + 2 * size, top = Math.round(FRAME.h / 2 - height / 2);
+  const y0 = Math.round(size + size * 0.8); // baseline of the first line, inside the band
   const glyphs = layoutGlyphs({ lines, size, font: S.font, align: 'center', x: FRAME.w / 2, y: y0, lineHeight: lh });
   const n = glyphs.length || 1;
   // a hand's rhythm: a breath after a comma, a longer one after a full stop; the whole line still in by typedBy
@@ -66,9 +70,9 @@ export async function sentenceFrames(commission: string | null | undefined, line
     const done = t >= cue(n - 1) + S.glyphFade;
     const cur = started === 0 ? { x: glyphs[0]?.x ?? FRAME.w / 2, y: glyphs[0]?.y ?? y0 } : { x: last.x + last.adv + size * 0.1, y: last.y };
     const breathe = done ? 0.55 + 0.45 * Math.sin(2 * Math.PI * 0.9 * (t - (cue(n - 1) + S.glyphFade))) : 1;
-    frames.push(await glyphFrame(glyphs, opacity, SCORE.colors.ink, size, { ...cur, opacity: breathe, color: SCORE.colors.amber }));
+    frames.push(await glyphFrame(glyphs, opacity, SCORE.colors.ink, size, { ...cur, opacity: breathe, color: SCORE.colors.amber }, FRAME.w, height));
   }
-  return frames;
+  return { frames, top, height };
 }
 
 /** Title and the film's last words, bottom-left under the canvas, each as its own frame so they fade in on their own cues. */
@@ -101,6 +105,7 @@ export async function signatureFrames(ink: Buffer, edgePx = SCORE.signature.edge
 export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promise<Buffer> {
   const ffmpeg = opts.ffmpeg ?? process.env.FFMPEG_PATH ?? (typeof ffmpegStatic === 'string' ? ffmpegStatic : 'ffmpeg');
   const dir = opts.workDir ?? await mkdtemp(join(tmpdir(), `film-${input.id}-`));
+  const timings = opts.timings ?? {}; let mark = Date.now(); const lap = (k: string) => { timings[k] = Date.now() - mark; mark = Date.now(); };
   const P = SCORE.painting, S = SCORE.sentence, G = SCORE.signature, T = SCORE.title, O = SCORE.signoff, A = SCORE.audio;
   try {
     const base = input.raw && input.signature ? input.raw : input.image;
@@ -108,11 +113,13 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     const canvas = await sharp(base).resize(CANVAS.w, CANVAS.h, { fit: 'cover' }).png().toBuffer();
     const fill = await sharp(input.image).resize(FRAME.w, FRAME.h, { fit: 'cover' }).blur(P.fillBlur).linear(P.fillLevel, 0).png().toBuffer();
     await Promise.all([writeFile(join(dir, 'canvas.png'), canvas), writeFile(join(dir, 'fill.png'), fill)]);
+    lap('stills');
 
     const sentence = await sentenceFrames(input.commission, input.line);
-    await Promise.all(sentence.map((b, i) => writeFile(join(dir, `txt_${pad3(i)}.png`), b)));
+    await Promise.all(sentence.frames.map((b, i) => writeFile(join(dir, `txt_${pad3(i)}.png`), b)));
     const cap = await captionFrames(input.title, input.endLine);
     await Promise.all([writeFile(join(dir, 'title.png'), cap.title), writeFile(join(dir, 'signoff.png'), cap.signoff)]);
+    lap('text');
 
     const signs = Boolean(input.raw && input.signature);
     let sx = 0, sy = 0;
@@ -123,6 +130,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
       const { frames, full } = await signatureFrames(ink);
       await Promise.all([...frames.map((b, i) => writeFile(join(dir, `sig_${pad3(i)}.png`), b)), writeFile(join(dir, 'sig_full.png'), full)]);
     }
+    lap('signature');
 
     const T0 = String(SCORE.total);
     const args: string[] = ['-y', '-hide_banner', '-loglevel', 'error',
@@ -147,10 +155,10 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     f.push(`[cv2]scale=w='trunc(iw*${zoom}/2)*2':h=-2:eval=frame:flags=lanczos,crop=${CANVAS.w}:${CANVAS.h}:x='(iw-ow)/2':y='(ih-oh)/2'[push]`);
     f.push(`[0:v][push]overlay=x=0:y=${CANVAS.top}:format=auto,fade=t=in:st=${P.fadeStart}:d=${(P.fadeEnd - P.fadeStart).toFixed(2)}[bg]`);
     const drift = `(1+${(S.driftScale - 1).toFixed(3)}*clip((t-${S.fadeStart})/${(S.fadeEnd - S.fadeStart).toFixed(2)},0,1))`; // the sentence lifts slightly as it dissolves
-    f.push(`[2:v]format=rgba,tpad=stop_mode=clone:stop_duration=2,scale=w='trunc(iw*${drift}/2)*2':h=-2:eval=frame,crop=${FRAME.w}:${FRAME.h}:x='(iw-ow)/2':y='(ih-oh)/2',fade=t=out:st=${S.fadeStart}:d=${(S.fadeEnd - S.fadeStart).toFixed(2)}:alpha=1[st]`);
+    f.push(`[2:v]format=rgba,tpad=stop_mode=clone:stop_duration=2,scale=w='trunc(iw*${drift}/2)*2':h=-2:eval=frame,crop=${FRAME.w}:${sentence.height}:x='(iw-ow)/2':y='(ih-oh)/2',fade=t=out:st=${S.fadeStart}:d=${(S.fadeEnd - S.fadeStart).toFixed(2)}:alpha=1[st]`);
     f.push(`[3:v]format=rgba,fade=t=in:st=${T.start}:d=${T.fadeIn}:alpha=1[ti]`);
     f.push(`[4:v]format=rgba,fade=t=in:st=${O.start}:d=${O.fadeIn}:alpha=1[so]`);
-    f.push(`[bg][st]overlay=x=0:y='-${S.rise}*t':format=auto:eof_action=pass[v1]`); // the sentence rises a little the whole time it is up
+    f.push(`[bg][st]overlay=x=0:y='${sentence.top}-${S.rise}*t':format=auto:eof_action=pass[v1]`); // the band, rising a little the whole time it is up
     f.push(`[v1][ti]overlay=0:0:format=auto[v2]`);
     f.push(`[v2][so]overlay=0:0:format=auto,format=yuv420p[v]`);
     // audio: generated, never licensed
@@ -164,6 +172,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
       '-c:v', 'libx264', '-preset', opts.preset ?? 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-r', String(FRAME.fps),
       '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-t', T0, out);
     await run(ffmpeg, args);
+    lap('ffmpeg');
     return await readFile(out);
   } finally {
     if (!opts.keepWork && !opts.workDir) await rm(dir, { recursive: true, force: true }).catch(() => null);

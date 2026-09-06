@@ -55,14 +55,14 @@ test('words wrap by measured width and a long sentence shrinks before it is cut'
 });
 
 test('the sentence types out over the score and the caption frames are frame-sized', async () => {
-  const frames = await sentenceFrames('The bar after the last round, one glass left on the counter.');
+  const { frames, top, height } = await sentenceFrames('The bar after the last round, one glass left on the counter.');
   assert.equal(frames.length, Math.ceil(SCORE.sentence.fadeEnd * FRAME.fps) + 1);
-  const m = await sharp(frames[0]).metadata(); assert.equal(m.width, FRAME.w); assert.equal(m.height, FRAME.h);
+  const m = await sharp(frames[0]).metadata(); assert.equal(m.width, FRAME.w); assert.equal(m.height, height); assert.ok(height < FRAME.h / 3 && top > 0, 'a band around the text, not a whole frame');
   const a0 = await alphaSum(frames[2]), aMid = await alphaSum(frames[45]), aEnd = await alphaSum(frames[Math.ceil(SCORE.sentence.typedBy * FRAME.fps) + 1]);
   assert.ok(a0 < aMid && aMid < aEnd, 'more ink as the sentence types');
   const { title, signoff } = await captionFrames('Three Things, Tatami', END_LINES[0]);
   assert.ok(await alphaSum(title) > 0 && await alphaSum(signoff) > 0);
-  const anon = await sentenceFrames(null); assert.ok(await alphaSum(anon.at(-1)) > 0, 'an anonymous commission opens on “a commission”');
+  const anon = await sentenceFrames(null); assert.ok(await alphaSum(anon.frames.at(-1)) > 0, 'an anonymous commission opens on “a commission”');
 });
 
 test('the signature writes itself: nothing at the start of its window, the whole mark at the end', async () => {

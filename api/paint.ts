@@ -20,18 +20,29 @@ import { PHOTO, registerByKey } from './_lib/artist.js';
  *  fails leaves the still to post as before and is retried by a later cron (filmJob). The time it took is kept on
  *  the record — the Vercel-or-Actions measurement the doc asks for (§4). */
 export async function filmIt(c: Commission, input?: FilmInput): Promise<boolean> {
-  const t0 = Date.now();
+  const t0 = Date.now(); const stages: Record<string, number> = {};
   try {
     const inp = input ?? await filmInputFor(c);
     if (!inp.line && !c.anonymous) { inp.line = await hookLine(c.text); if (inp.line) c.take.line = inp.line; } // the hook, for work from before the gatekeeper chose one
-    const mp4 = await makeFilm(inp, { preset: 'fast' });
-    c.film = await storeFilm(c.id, mp4); c.filmed = new Date().toISOString(); c.filmMs = Date.now() - t0; delete c.filmError; delete c.filmAttempt;
+    stages.inputs = Date.now() - t0;
+    const mp4 = await makeFilm(inp, { preset: 'veryfast', timings: stages }); // veryfast: one Vercel core; the Tatami took 130 s at 'fast' (2026-09-06)
+    const up = Date.now(); c.film = await storeFilm(c.id, mp4); stages.upload = Date.now() - up;
+    c.filmed = new Date().toISOString(); c.filmMs = Date.now() - t0; c.filmStages = stages; delete c.filmError; delete c.filmAttempt;
     return true;
   } catch (e: any) {
-    c.filmError = String(e.message).slice(0, 300); c.filmAttempt = new Date().toISOString(); c.filmMs = Date.now() - t0;
+    c.filmError = String(e.message).slice(0, 300); c.filmAttempt = new Date().toISOString(); c.filmMs = Date.now() - t0; c.filmStages = stages;
     return false;
   }
 }
+/** How much of the function's time may already be spent when the film is attempted inline. Past this the film
+ *  is left to the next cron and the post waits for it (never a function killed mid-film with the record stuck in
+ *  'painting'). The Tatami's film took 130 s on Vercel at 'fast' (2026-09-06); the budget assumes ~100 s at 'veryfast'. */
+export const FILM_INLINE_BUDGET_MS = 110_000;
+/** Whether to post now: a photo commission (the carousel) and work from before the reveal post as they are; a
+ *  new-pipeline painting posts once its film exists. Deferred or failed, it sits as 'painted': the next idle cron
+ *  films it first (filmJob) and the one after posts the Reel; a film in its 6 h cool-off after a failure lets the
+ *  backlog post the still instead — the still never waits more than one cron on a broken film. */
+export const readyToPost = (c: { film?: string; photo?: string; raw?: string }) => Boolean(c.film || c.photo || !c.raw);
 /** The one painting to film in a run with nothing to paint: has its unsigned canvas (made since the reveal shipped),
  *  no film yet, and no failed try in the last 6h. Newest first: the next Reel matters more than the backlog. */
 export function filmJob<T extends { image?: string; raw?: string; film?: string; filmAttempt?: string; status: string; from: string | null; seed?: string; created: string }>(docs: T[], now = Date.now()): T | undefined {
@@ -47,6 +58,7 @@ import sharp from 'sharp';
 export const config = { maxDuration: 300 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const started = Date.now();
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.authorization !== `Bearer ${secret}`) return res.status(401).end();
   const dry = req.query.dry === '1';
@@ -114,8 +126,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     c.cost = img.cost ?? undefined;
     c.painted = new Date().toISOString();
     await save(c); // the painting is safe before the film is attempted
-    await filmIt(c, { id: c.id, image: img.bytes, raw, signature: { ink: sig.ink, x: sig.left, y: sig.top, w: sig.w, h: sig.h }, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id) });
-    if (!dry && canPost()) {
+    if (Date.now() - started < FILM_INLINE_BUDGET_MS) await filmIt(c, { id: c.id, image: img.bytes, raw, signature: { ink: sig.ink, x: sig.left, y: sig.top, w: sig.w, h: sig.h }, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id) });
+    else c.filmError = `deferred: the painting took ${Math.round((Date.now() - started) / 1000)} s; the next cron films it, then posts`;
+    if (!dry && canPost() && readyToPost(c)) { // a new-pipeline painting waits for its film (next cron: film first, then the backlog posts the Reel; a failed film posts the still)
       const post = await publish(mediaFor(c), c.take.caption ?? c.take.title ?? 'Night Shift', postOptions(c));
       c.instagram = post.permalink;
       c.mediaId = post.mediaId;
@@ -124,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await tellSource(c);
       await alsoStory(c);
     } else {
-      c.status = 'painted'; // on the wall; Instagram comes when the token exists
+      c.status = 'painted'; // on the wall; Instagram comes when the token exists, or once the film does
     }
   } catch (e: any) {
     c.status = 'failed'; c.error = String(e.message).slice(0, 500);

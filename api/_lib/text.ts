@@ -97,7 +97,7 @@ export function layoutGlyphs(b: Pick<Block, 'lines' | 'size' | 'font' | 'align' 
 }
 
 /** A frame with each glyph at its own opacity, and a thin cursor bar after the pen. */
-export async function glyphFrame(glyphs: Glyph[], opacity: (i: number) => number, color: string, size: number, cursor?: { x: number; y: number; opacity: number; color: string }, w = FRAME.w, h = FRAME.h): Promise<Buffer> {
+export async function glyphFrame(glyphs: Glyph[], opacity: (i: number) => number, color: string, size: number, cursor?: { x: number; y: number; opacity: number; color: string }, w: number = FRAME.w, h: number = FRAME.h): Promise<Buffer> {
   const parts: string[] = [];
   glyphs.forEach((g, i) => { const o = opacity(i); if (o > 0.005 && g.d) parts.push(`<path fill="${color}" fill-opacity="${o.toFixed(3)}" d="${g.d}"/>`); });
   if (cursor && cursor.opacity > 0.005) parts.push(`<rect fill="${cursor.color}" fill-opacity="${cursor.opacity.toFixed(3)}" x="${cursor.x.toFixed(1)}" y="${(cursor.y - size * 0.72).toFixed(1)}" width="${(size * 0.08).toFixed(1)}" height="${(size * 0.9).toFixed(1)}" rx="1"/>`);

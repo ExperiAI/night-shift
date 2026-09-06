@@ -16,6 +16,7 @@ export type Commission = {
   film?: string;        // the 20 s reveal, films/<id>.mp4 — the Reel and the wall (docs/reveal.md)
   filmed?: string;      // when the film was made; a painting with `raw` and no `film` is a job for the next cron (paint.ts filmJob)
   filmMs?: number;      // how long the film took on the server: the Vercel-or-Actions measurement (docs/reveal.md §4)
+  filmStages?: Record<string, number>; // where that time went: inputs, stills, text, signature, ffmpeg, upload (ms)
   filmAttempt?: string; // last failed try; retried after a cool-off
   filmError?: string;
   room?: string;        // the room this was sent from (rooms/<code>.json); room work has its own cap and never counts against the studio's day

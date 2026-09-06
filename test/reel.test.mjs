@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { postBody } from '../api/_lib/zernio.ts';
-import { filmJob, mediaFor } from '../api/paint.ts';
+import { filmJob, mediaFor, readyToPost, FILM_INLINE_BUDGET_MS } from '../api/paint.ts';
 import { publicView } from '../api/_lib/desk.ts';
 import { LINE_BRIEF, gatekeeperSystemPrompt } from '../api/_lib/artist.ts';
 
@@ -41,11 +41,19 @@ test('the film job: a painting with its unsigned canvas and no film, newest firs
   assert.equal(filmJob([docs[0]], now), undefined);
 });
 
-test('the paint cron films after signing and before posting, never blocking the painting', () => {
+test('the paint cron films after signing and before posting, inside a time budget, and a new painting posts once its film exists', () => {
   const src = read('../api/paint.ts');
   assert.match(src, /await save\(c\); \/\/ the painting is safe before the film is attempted/);
   assert.ok(src.indexOf('await filmIt(c,') < src.indexOf('await publish(mediaFor(c)'), 'film, then post');
   assert.match(src, /catch \(e: any\) \{\n\s*c\.filmError/, 'a failed film is recorded, not thrown');
+  assert.match(src, /if \(Date\.now\(\) - started < FILM_INLINE_BUDGET_MS\) await filmIt/, 'never a function killed mid-film');
+  assert.ok(FILM_INLINE_BUDGET_MS < 300_000 - 130_000, 'the budget leaves the Tatami\'s measured 130 s');
+  assert.match(src, /canPost\(\) && readyToPost\(c\)/);
+  assert.equal(readyToPost({ raw: 'r' }), false, 'a new painting without its film waits');
+  assert.equal(readyToPost({ raw: 'r', film: 'f' }), true);
+  assert.equal(readyToPost({ raw: 'r', photo: 'p' }), true, 'a photo commission posts its carousel at once');
+  assert.equal(readyToPost({}), true, 'work from before the reveal posts as before');
+  assert.ok(src.indexOf('const job = filmJob(docs)') < src.indexOf('const backlog = docs.filter'), 'idle cron: the film before the backlog post');
 });
 
 test('the public view carries the film and what the wall needs to sign in real time', () => {
