@@ -123,10 +123,10 @@ export const SCORE = {
     keys: KEY_PRESETS.laptop,
     /** Arrives with the light (4→10 s), leaves after the title. */
     shimmer: { hz: 440, beatHz: 2.3, gainDb: -42, tremHz: 5.5, from: 4.0, to: 10.0, until: TITLE_AT, release: 2.2 },
-    /** Under the signature: friction that follows the ink under the moving edge (PEN_PRESETS). Interim since 2026-09-06
-     *  evening: the shipped voice 10 dB quieter (issue #35, the half of Diego's complaint that needs no ear); the voice
-     *  itself is his pick from A–D. */
-    pen: PEN_PRESETS.quiet,
+    /** Under the signature: friction that follows the ink under the moving edge (PEN_PRESETS). Diego's pick by ear from
+     *  A–D, 2026-09-06 ("D is best for the writing audio"): `hush` — the pencil at −32 dB, the signing seen more than
+     *  heard. Issue #35. */
+    pen: PEN_PRESETS.hush,
     /** One soft chord under the title. */
     note: { hz: 220, gainDb: -22, decay: 1.8, at: TITLE_AT, fifth: 0.4 },
     ceilingDb: -1,

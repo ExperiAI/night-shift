@@ -43,9 +43,10 @@ test('the pen follows the ink: silent over a blank stretch, sounding where the m
   const mid = G.start + (G.end - G.start) / 2; // the eased edge crosses the middle here
   const blank = rms(pen, G.start + 0.2, mid - 0.25), inked = rms(pen, mid + 0.1, G.end - 0.15), bed = rms(none, mid + 0.1, G.end - 0.15);
   assert.ok(inked > 8 * blank, `pen on ink, pen over nothing: ${inked.toFixed(4)} vs ${blank.toFixed(4)}`);
-  // by RMS a hand writing sits under the room's floor (issue #35: the −14 dB pen was 'very loud'); it is heard because
-  // its bands are ones the bed and the air leave empty, so the bar is 'present', not 'louder'
-  assert.ok(inked > bed * 0.3, `the pen is present under the bed: ${inked.toFixed(4)} vs bed ${bed.toFixed(4)}`);
+  // the pen sits UNDER the room (issue #35: the −14 dB pen was 'very loud… like spraying'; Diego picked D, the pencil
+  // at −32 dB, 'seen more than heard'): the guard is a ceiling, never a floor — the 8× ratio above already proves it
+  // follows the ink
+  assert.ok(inked < bed, `the pen stays under the bed: ${inked.toFixed(4)} vs bed ${bed.toFixed(4)}`);
   assert.ok(rms(pen, 0, G.start - 0.1) < 1e-6 && rms(pen, G.end + 0.4, SCORE.total) < 1e-6, 'no pen outside its window');
   assert.equal(inkUnderEdge(right, G.start - 0.1), 0); assert.equal(inkUnderEdge(right, G.end + 0.1), 0);
   assert.ok(inkUnderEdge(right, mid + 0.3) > 0.5 && inkUnderEdge(right, mid - 0.3) < 0.2);
