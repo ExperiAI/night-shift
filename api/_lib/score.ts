@@ -31,6 +31,24 @@ export const KEY_PRESETS = {
 } as const;
 export type KeyPreset = keyof typeof KEY_PRESETS;
 
+/** The signature's pen (sound.ts pen). Issue #35 (Diego, 2026-09-06, hearing the Reels on his phone: "very loud and it
+ *  sounds like spraying something"): the voice shipped that evening is `spray` — three pink-noise bands whose loudness
+ *  follows the ink under the moving edge, the hand's speed opening the bright band — peaking at −14 dB, 11 dB above
+ *  everything else in the film. Four answers, lettered for his ear (scripts/checks/pens.mjs): `quiet` (A) the same
+ *  voice 10 dB down; `pencil` (B) no bright band, paper and a dull band, a soft contact grain when the nib lands and
+ *  lifts; `brush` (C) the paper band only, wider, under a slow follower so a stroke swells and fades instead of hissing;
+ *  `hush` (D) the pencil at −32 dB, the signing seen more than heard. Weights `dull`/`bright`/`paper` are linear;
+ *  `follow` is the loudness follower's time constant in seconds (fast = every column of ink audible, slow = strokes). */
+export const PEN_PRESETS = {
+  spray: { gainDb: -14, dull: 1, lowHz: 900, midHz: 3000, bright: 1, highHz: 8000, paper: 0.4, paperLowHz: 120, paperHighHz: 520, curve: 0.65, floor: 0.35, follow: 0.001, touch: 0.06, touchDb: -26, touchLowHz: 200, touchHighHz: 1400, touchMs: 6, pan: 0.3 },
+  quiet: { gainDb: -24, dull: 1, lowHz: 900, midHz: 3000, bright: 1, highHz: 8000, paper: 0.4, paperLowHz: 120, paperHighHz: 520, curve: 0.65, floor: 0.35, follow: 0.001, touch: 0.06, touchDb: -30, touchLowHz: 200, touchHighHz: 1400, touchMs: 6, pan: 0.3 },
+  pencil: { gainDb: -24, dull: 1, lowHz: 600, midHz: 2400, bright: 0, highHz: 0, paper: 0.8, paperLowHz: 120, paperHighHz: 520, curve: 0.7, floor: 0.4, follow: 0.004, touch: 0.06, touchDb: -24, touchLowHz: 500, touchHighHz: 2500, touchMs: 14, pan: 0.3 },
+  brush: { gainDb: -26, dull: 0, lowHz: 0, midHz: 0, bright: 0, highHz: 0, paper: 1, paperLowHz: 80, paperHighHz: 900, curve: 0.8, floor: 0.5, follow: 0.08, touch: 0.06, touchDb: -36, touchLowHz: 150, touchHighHz: 700, touchMs: 20, pan: 0.3 },
+  hush: { gainDb: -32, dull: 1, lowHz: 600, midHz: 2400, bright: 0, highHz: 0, paper: 0.8, paperLowHz: 120, paperHighHz: 520, curve: 0.7, floor: 0.4, follow: 0.004, touch: 0.06, touchDb: -34, touchLowHz: 500, touchHighHz: 2500, touchMs: 14, pan: 0.3 },
+} as const;
+export type PenPreset = keyof typeof PEN_PRESETS;
+export const PEN_KEYS = Object.keys(PEN_PRESETS) as PenPreset[];
+
 /** The A/B of the opening (Diego, 2026-09-06, reading After the Offering's retention graph: 57 % gone by 0:02, while
  *  the screen is black with a sentence typing; 86 % of its views were strangers in the Reels tab). `dark` is the
  *  opening as designed. `lit` shows the room from the first frame: the blurred fill is up at once, the canvas
@@ -105,8 +123,10 @@ export const SCORE = {
     keys: KEY_PRESETS.laptop,
     /** Arrives with the light (4→10 s), leaves after the title. */
     shimmer: { hz: 440, beatHz: 2.3, gainDb: -42, tremHz: 5.5, from: 4.0, to: 10.0, until: TITLE_AT, release: 2.2 },
-    /** Under the signature: friction that follows the ink under the moving edge, paper under it, the hand's speed opening the brightness. */
-    pen: { gainDb: -14, lowHz: 900, midHz: 3000, highHz: 8000, paperDb: -8, paperLowHz: 120, paperHighHz: 520, curve: 0.65, floor: 0.35, touch: 0.06, touchDb: -26, pan: 0.3 },
+    /** Under the signature: friction that follows the ink under the moving edge (PEN_PRESETS). Interim since 2026-09-06
+     *  evening: the shipped voice 10 dB quieter (issue #35, the half of Diego's complaint that needs no ear); the voice
+     *  itself is his pick from A–D. */
+    pen: PEN_PRESETS.quiet,
     /** One soft chord under the title. */
     note: { hz: 220, gainDb: -22, decay: 1.8, at: TITLE_AT, fifth: 0.4 },
     ceilingDb: -1,

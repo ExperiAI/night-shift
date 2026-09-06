@@ -6,7 +6,7 @@
 // noise whose loudness follows the ink actually under the moving edge (dense where the mark is heavy, silent where the
 // pen lifts between letters), with paper under it and the pen's speed opening its brightness. The wall (public/wall.html)
 // plays the same design in WebAudio from the same SCORE.audio numbers; the design lives there, the samples here.
-import { SCORE, KEY_PRESETS, SILENCES, ease, seeded, type KeyPreset, type Score, type Silence, type SilenceRecipe } from './score.js';
+import { SCORE, KEY_PRESETS, SILENCES, ease, seeded, type KeyPreset, type Score, type Silence, type SilenceRecipe, PEN_PRESETS, type PenPreset } from './score.js';
 
 export const SAMPLE_RATE = 48000;
 
@@ -21,6 +21,8 @@ export type SoundInput = {
   ink?: number[] | null;
   /** Which keys (score.ts KEY_PRESETS); the score's choice when unset. For the studio's own comparisons. */
   keys?: KeyPreset;
+  /** Which pen under the signature (score.ts PEN_PRESETS); the score's choice when unset. For the studio's own comparisons. */
+  pen?: PenPreset;
   /** This film's score (score.ts scoreFor) when its tail runs later than SCORE; SCORE itself when unset. */
   score?: Score;
   /** The silence of the place (score.ts SILENCES); 'electric', the one room every film had before, when unset. */
@@ -173,34 +175,41 @@ export function inkUnderEdge(ink: number[], t: number): number {
 }
 
 /** The pen: friction that follows the ink, paper under it, brightness that follows the hand's speed, a touch when
- *  the nib lands and a lift when it leaves. Panned a little to the side the mark is on. */
-function pen(L: Float64Array, R: Float64Array, ink: number[], rand: () => number): void {
-  const P = SC.audio.pen, G = SC.signature, n = L.length;
+ *  the nib lands and a lift when it leaves. Panned a little to the side the mark is on. The voice is a PEN_PRESET
+ *  (issue #35): each band a linear weight, and `follow` the loudness follower's time constant — a fast follower
+ *  sounds every column of ink (a nib), a slow one lets a stroke swell and fade (a brush). */
+function pen(L: Float64Array, R: Float64Array, ink: number[], rand: () => number, preset?: PenPreset): void {
+  const P = preset ? PEN_PRESETS[preset] : SC.audio.pen, G = SC.signature, n = L.length;
   const out = new Float64Array(n); // the pen's own layer, normalised to its peak before it joins the mix
   const i0 = Math.floor(G.start * SAMPLE_RATE), i1 = Math.min(n, Math.ceil((G.end + 0.25) * SAMPLE_RATE)), len = i1 - i0;
   const src = pink(len, rand);
-  const dull = Float64Array.from(src), bright = Float64Array.from(src), paper = Float64Array.from(src);
-  band(dull, P.lowHz, P.midHz); band(bright, P.midHz, P.highHz); band(paper, P.paperLowHz, P.paperHighHz);
-  const pg = db(P.paperDb);
+  const layer = (w: number, lo: number, hi: number) => { if (!(w > 0)) return null; const b = Float64Array.from(src); band(b, lo, hi); return b; };
+  const dull = layer(P.dull, P.lowHz, P.midHz), bright = layer(P.bright, P.midHz, P.highHz), paper = layer(P.paper, P.paperLowHz, P.paperHighHz);
+  const coef = 1 - Math.exp(-1 / (P.follow * SAMPLE_RATE)); // one-pole follower: `follow` seconds to settle
   let wasDown = false, lastEnv = 0;
   const touches: Array<{ at: number; amp: number }> = [];
   for (let i = i0; i < i1; i++) {
     const t = i / SAMPLE_RATE, u = (t - G.start) / (G.end - G.start);
     const d = Math.pow(inkUnderEdge(ink, t), P.curve), v = speed(u);
     const env = d * (P.floor + (1 - P.floor) * v);
-    // smooth the envelope a little so a column boundary never clicks
-    lastEnv += (env - lastEnv) * 0.02;
+    // smooth the envelope so a column boundary never clicks (and, slow, so strokes swell rather than hiss)
+    lastEnv += (env - lastEnv) * coef;
     const down = lastEnv > P.touch;
     if (down !== wasDown) { touches.push({ at: t, amp: down ? 1 : 0.6 }); wasDown = down; }
-    out[i] += (dull[i - i0] * (1 - 0.5 * v) + bright[i - i0] * (0.3 + 0.7 * v) + paper[i - i0] * pg) * lastEnv;
+    const k = i - i0;
+    let s = 0;
+    if (dull) s += dull[k] * P.dull * (1 - 0.5 * v);
+    if (bright) s += bright[k] * P.bright * (0.3 + 0.7 * v);
+    if (paper) s += paper[k] * P.paper;
+    out[i] += s * lastEnv;
   }
-  // the nib landing and lifting: a small, soft, low tap each time the pen meets or leaves the paper
+  // the nib landing and lifting: a small, soft tap each time the pen meets or leaves the paper
   const tap = new Float64Array(n);
   for (const { at, amp } of touches) {
     const j0 = Math.floor(at * SAMPLE_RATE), l = Math.ceil(0.05 * SAMPLE_RATE);
-    for (let j = j0; j < Math.min(n, j0 + l); j++) { const tt = (j - j0) / SAMPLE_RATE; tap[j] += (rand() * 2 - 1) * Math.exp(-tt / 0.006) * amp; }
+    for (let j = j0; j < Math.min(n, j0 + l); j++) { const tt = (j - j0) / SAMPLE_RATE; tap[j] += (rand() * 2 - 1) * Math.exp(-tt / (P.touchMs / 1000)) * amp; }
   }
-  band(tap, 200, 1400);
+  band(tap, P.touchLowHz, P.touchHighHz);
   const tg = db(P.touchDb) / peak(tap);
   const g = db(P.gainDb) / peak(out);
   for (let i = i0; i < n; i++) { const s = out[i] * g + tap[i] * tg; L[i] += s * (1 - P.pan); R[i] += s * (1 + P.pan); }
@@ -229,7 +238,7 @@ export function synthesize(input: SoundInput): { L: Float64Array; R: Float64Arra
   room(L, R, rand, SILENCES[input.silence ?? 'electric'] ?? SILENCES.electric);
   shimmer(L, R);
   keys(L, R, input.cues, input.spaces, rand, input.keys);
-  if (input.ink && input.ink.length && input.ink.some(v => v > 0)) pen(L, R, input.ink, rand);
+  if (input.ink && input.ink.length && input.ink.some(v => v > 0)) pen(L, R, input.ink, rand, input.pen);
   note(L, R);
   // soft ceiling: nothing here should reach it, but a track never clips
   const ceil = db(SC.audio.ceilingDb);

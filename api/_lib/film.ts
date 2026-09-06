@@ -11,7 +11,7 @@ import sharp from 'sharp';
 import { FRAME, CANVAS, SCORE, ease, sentenceFor, typingWeights, typingPace, scoreFor, type Score, openingFor, type Opening, type Silence } from './score.js';
 import { font, fit, wrap, textFrame, blockHeight, layoutGlyphs, glyphFrame, mix, type Block } from './text.js';
 import { soundtrack } from './sound.js';
-import type { KeyPreset } from './score.js';
+import type { KeyPreset, PenPreset } from './score.js';
 import { isExcerpt, excerpt } from './score.js';
 import { chatJSON } from './openrouter.js';
 import { LINE_BRIEF, endLineFor, silenceFor } from './artist.js';
@@ -31,6 +31,8 @@ export type FilmInput = {
   endLine: string;
   /** For the studio's own comparisons (scripts/film.mjs --keys): which typing sound; the score's when unset. */
   keys?: KeyPreset;
+  /** For the studio's own comparisons (scripts/film.mjs --pen): which pen under the signature (score.ts PEN_PRESETS); the score's when unset. */
+  pen?: PenPreset;
   /** The A/B of the opening (score.ts OPENINGS): openingFor(id) when unset. */
   opening?: Opening;
   /** The silence of the place under the film (score.ts SILENCES): 'electric' when unset. */
@@ -159,7 +161,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     }
     lap('signature');
 
-    await writeFile(join(dir, 'audio.wav'), soundtrack({ id: input.id, cues: sentence.cues, spaces: sentence.spaces, ink: inkCols, keys: input.keys, score: SC, silence: input.silence }));
+    await writeFile(join(dir, 'audio.wav'), soundtrack({ id: input.id, cues: sentence.cues, spaces: sentence.spaces, ink: inkCols, keys: input.keys, pen: input.pen, score: SC, silence: input.silence }));
     lap('sound');
 
     const T0 = String(SC.total);
