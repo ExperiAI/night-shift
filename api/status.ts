@@ -6,6 +6,7 @@ import { STUDIO_CAP, acceptedToday, isHeld } from './_lib/desk.js';
 import { ARTIST } from './_lib/artist.js';
 import { audience } from './_lib/zernio.js';
 import { captionMatches } from './_lib/reconcile.js';
+import { EXAMS, examSat, nextExam } from './_lib/exams.js';
 
 export async function studioStatus() {
   const docs = (await all()).filter(c => !c.seed);
@@ -25,7 +26,8 @@ export async function studioStatus() {
     audience: aud, // followers/follows/posts — Zernio's daily snapshot; baseline 2026-09-05: 1 follower
     lastPosted: last ? { id: last.id, title: last.take.title, at: last.painted, instagram: last.instagram, captionOnInstagram: captionMatches(last) == null ? 'not read back yet' : captionMatches(last) ? 'matches what was sent' : 'DIFFERS from what was sent' } : null, // issue #22: a publish that cannot be read back is a claim
     captionMismatches: posted.filter(c => captionMatches(c) === false).map(c => c.id),
-    lastCritique: critiques[0] ? { date: critiques[0].date, paintings: critiques[0].paintings, patterns: critiques[0].patterns } : null,
+    lastCritique: critiques[0] ? { date: critiques[0].date, paintings: critiques[0].paintings, patterns: critiques[0].patterns, exam: critiques[0].exam ?? null } : null,
+    exams: { sat: EXAMS.filter(e => examSat(e, docs)).map(e => e.key), next: nextExam(docs)?.key ?? null }, // the studio sits one each morning at the critic's run; a sitting that never filed shows as lastCritique.exam with a non-2xx status
     limits: { perSenderPerDay: 3, perAddressPerDay: 5, studioPerDay: STUDIO_CAP },
   };
 }

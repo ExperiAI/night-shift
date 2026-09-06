@@ -4,8 +4,9 @@
 // Diego, 2026-09-05: people won't give feedback themselves; the critique layer is automatic so
 // the system evolves. Night Shift's soul is not up for change here; the NEXT painter is.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { all, allFeedback, saveFeedback, saveCritique, latestCritiques, newId, type Critique } from './_lib/store.js';
+import { all, allFeedback, saveFeedback, saveCritique, latestCritiques, newId, type Critique, type ExamSitting } from './_lib/store.js';
 import { ARTIST, REGISTERS, registerByKey, isTestSender } from './_lib/artist.js';
+import { ORIGIN } from './_lib/origin.js';
 import { instagramAccount, audience, publishStory, canPost } from './_lib/zernio.js';
 import { openDoorStory } from './_lib/compose.js';
 import { captionMatches } from './_lib/reconcile.js';
@@ -24,10 +25,10 @@ async function openDoor(): Promise<boolean> {
 
 /** The studio sits the next exam itself when there is room today (issue #17): one per critic run, so each gets
  *  the stranger's verdict on its own. Through the public desk, as any agent would, with the exam's register. */
-async function sitExam(allDocs: { text: string; created: string; status: string; seed?: string }[], origin: string): Promise<{ key: string; status: number; body: string } | null> {
+async function sitExam(allDocs: { text: string; created: string; status: string; seed?: string }[]): Promise<ExamSitting | null> {
   const exam = nextExam(allDocs);
   if (!exam || acceptedToday(allDocs as any) >= STUDIO_CAP) return null;
-  const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-night-shift-internal': process.env.CRON_SECRET ?? '' }, body: JSON.stringify({ text: exam.commission, from: STUDIO_SENDER, register: exam.register, exception: exam.exception }) });
+  const r = await fetch(`${ORIGIN}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-night-shift-internal': process.env.CRON_SECRET ?? '' }, body: JSON.stringify({ text: exam.commission, from: STUDIO_SENDER, register: exam.register, exception: exam.exception }) });
   return { key: exam.key, status: r.status, body: (await r.text()).slice(0, 200) };
 }
 
@@ -55,7 +56,7 @@ export function criticSystemPrompt(): string {
     'Standing decisions of the studio, already made — never propose them again for THIS painter: it refuses nothing that is not harmful (when a person, a figure or legible text IS the point, it accepts, says up front in the note what it will and will not paint, and holds the canvas 30 minutes so the commissioner can say stop at no cost; the stopped wish is filed for the next painter); it always paints night with one light whatever hour the brief names; every departure is explained to the commissioner. Tweaks for this painter live inside those; the NEXT painter is where literal briefs, people and daylight belong.',
     'You review one day of work. For each painting you see the commission (what was asked), the artist\'s stated departures, the finished canvas, and the reactions it drew.',
     'Judge two things honestly: did the painting honour the INTENT of the commission (yes / partly / no), and what did the reinterpretation cost the person who asked. Then name craft problems you see (composition, light, legibility at grid size, sameness across the day).',
-    'Then: patterns across the day; concrete contract changes for the NEXT painter (a different artist that may paint people and follow instructions literally — what should its rules be, given what people asked for and how they reacted); and concrete changes to THIS painter\'s contract (its style text, its inspector, its caption) that a human will read and merge — say exactly what to change and why, and name the canvas that proves it. A signature that is not the studio\'s, a legible digit, a second light source or a frame on a posted canvas is a failure of the inspector: say so.',
+    'Then: patterns across the day; concrete contract changes for the NEXT painter (a different artist that may paint people and follow instructions literally — what should its rules be, given what people asked for and how they reacted); and concrete changes to THIS painter\'s contract (its style text, its inspector, its caption) that a human will read and merge — say exactly what to change and why, and name the canvas that proves it. A signature that is not the studio\'s, a legible digit, a second light source or a frame on a posted canvas is a failure of the inspector: say so. The studio\'s own signature is a small hand-lettered "night shift" in one lower corner, added by the studio after the inspector passed the canvas; it is on every posted painting and is never a fault.',
     'A painting whose caption on Instagram differs from the one sent is flagged in its block: name it under this_painter — the sign-off and the invite must be on the post, not only in our record.',
     'Be specific and short. No praise for its own sake. Respond ONLY with JSON:',
     '{"observations":[{"id":string,"title":string,"honoured":"yes"|"partly"|"no","note":string}],"patterns":[string],"next_painter":[string],"this_painter":[string]}',
@@ -70,8 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const since = Date.now() - 86_400_000;
   const everything = await all();
   const docs = everything.filter(c => !c.seed && !isTestSender(c.from) && Date.parse(c.created) > since);
-  const origin = `https://${req.headers.host}`;
-  const exam = req.query.dry === '1' ? null : await sitExam(everything, origin).catch(e => ({ key: 'error', status: 0, body: String(e.message).slice(0, 120) }));
+  const exam = req.query.dry === '1' ? null : await sitExam(everything).catch(e => ({ key: 'error', status: 0, body: String(e.message).slice(0, 120) }));
   const posted = docs.filter(c => c.status === 'posted' && c.image).slice(0, 8);
   const failed = docs.filter(c => c.status === 'failed'), declined = docs.filter(c => c.status === 'declined');
   const human = (await allFeedback()).filter(f => f.channel !== 'critic' && Date.parse(f.created) > since);
@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const date = new Date().toISOString().slice(0, 10);
   const door = posted.length === 0 ? await openDoor() : false; // idle day: a Story keeps the door lit
   const signals = { posted: posted.length, failed: failed.length, declined: declined.length, likes, comments, humanFeedback: human.length, ...(followers != null ? { followers } : {}) };
-  if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: [door ? 'nothing to review; the open-door Story went up' : 'nothing to review'], next_painter: [], this_painter: [], signals }; await saveCritique(empty); return res.json({ ...empty, exam }); }
+  if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: [door ? 'nothing to review; the open-door Story went up' : 'nothing to review'], next_painter: [], this_painter: [], signals, exam }; await saveCritique(empty); return res.json(empty); }
 
   const content: any[] = [{ type: 'text', text: [
     `Day: ${date}. Posted ${posted.length}, failed ${failed.length} (${failed.map(f => f.error?.slice(0, 80)).join(' | ')}), declined ${declined.length} (${declined.map(d => d.take.note?.slice(0, 60)).join(' | ')}).`,
@@ -100,7 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   ].join('\n\n') }];
   for (const c of posted) {
     const x = c.mediaId ? reactions.get(c.mediaId) : undefined;
-    content.push({ type: 'text', text: `--- id ${c.id} — "${c.take.title}" — from ${c.anonymous ? 'anonymous' : c.from ?? 'anonymous'} via ${c.source?.channel ?? 'api'}${c.photo ? ' (with a photograph of the place)' : ''}\nRegister: ${registerByKey(c.take.register)?.name ?? 'none recorded (before registers)'}\nCommission: ${c.text}\nDepartures: ${c.take.departures ?? 'none stated'}\nReactions: ${x ? `${x.likes} likes, ${x.comments} comments` : 'unknown'}${captionMatches(c) === false ? `\nCAPTION ON INSTAGRAM DIFFERS from the one sent (issue #22). On the post: ${c.postedCaption!.slice(0, 300)}` : ''}` });
+    content.push({ type: 'text', text: `--- id ${c.id} — "${c.take.title}" — from ${c.anonymous ? 'anonymous' : c.from ?? 'anonymous'} via ${c.source?.channel ?? 'api'}${c.photo ? ' (with a photograph of the place)' : ''}\nRegister: ${registerByKey(c.take.register)?.name ?? 'none recorded (before registers)'}\nCommission: ${c.text}\nDepartures: ${c.take.departures ?? 'none stated'}\nReactions: ${x ? `${x.likes} likes, ${x.comments} comments` : 'unknown'}${captionMatches(c) === false ? `\nCAPTION ON INSTAGRAM DIFFERS from the one sent (issue #22). On the post: ${c.postedCaption!.slice(0, 300)}` : captionMatches(c) ? '\nCaption on Instagram: read back, matches what was sent' : '\nCaption on Instagram: not read back yet'}` });
     content.push({ type: 'image_url', image_url: { url: c.image } });
   }
   const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -111,10 +111,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!r.ok || j.error) return res.status(502).json({ error: `critic ${r.status}: ${JSON.stringify(j.error ?? j).slice(0, 200)}` });
   const m = String(j.choices?.[0]?.message?.content ?? '').match(/\{[\s\S]*\}/);
   const out = m ? JSON.parse(m[0]) : {};
-  const critique: Critique = { date, paintings: posted.length, observations: out.observations ?? [], patterns: out.patterns ?? [], next_painter: out.next_painter ?? [], this_painter: out.this_painter ?? [], signals };
+  const critique: Critique = { date, paintings: posted.length, observations: out.observations ?? [], patterns: out.patterns ?? [], next_painter: out.next_painter ?? [], this_painter: out.this_painter ?? [], signals, exam };
   await saveCritique(critique);
   // Proposals join the human feedback record, so one list holds everything the next painter is made of.
   for (const p of critique.next_painter) await saveFeedback({ id: newId(), text: p, from: 'the critic', channel: 'critic', about: date, created: new Date().toISOString() });
   for (const p of critique.this_painter.filter(p => !restatesStandingDecision(p))) await saveFeedback({ id: newId(), text: `For this painter: ${p}`, from: 'the critic', channel: 'critic', about: date, created: new Date().toISOString() });
-  return res.json({ ...critique, exam });
+  return res.json(critique);
 }

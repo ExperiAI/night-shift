@@ -5,8 +5,8 @@ import { z } from 'zod';
 import { receive, publicView, cancel } from './_lib/desk.js';
 import { all, load } from './_lib/store.js';
 import { ARTIST, SHARE, REGISTERS, REGISTER_KEYS } from './_lib/artist.js';
+import { ORIGIN } from './_lib/origin.js';
 
-const ORIGIN = process.env.PUBLIC_ORIGIN ?? 'https://nightshift.experiai.com';
 const text = (o: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(o, null, 2) }] });
 
 const handler = createMcpHandler(

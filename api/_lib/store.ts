@@ -136,8 +136,11 @@ export async function allFeedback(): Promise<Feedback[]> {
 }
 
 // ---- Critique: the studio's own daily review, so the system evolves without waiting for humans ----
+export type ExamSitting = { key: string; status: number; body: string };
+
 export type Critique = {
   date: string; paintings: number;
+  exam?: ExamSitting | null; // what the studio sat that morning, or null when every exam is sat; a non-2xx status is a sitting that never filed
   observations: { id: string; title?: string; honoured: 'yes' | 'partly' | 'no'; note: string }[];
   patterns: string[];
   next_painter: string[];   // contract changes for the painter after this one
