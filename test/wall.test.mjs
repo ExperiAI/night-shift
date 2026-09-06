@@ -25,6 +25,10 @@ test('the ticket keeps the receipt key in this browser only, polls until the fil
   assert.match(s, /navigator\.canShare\(\{ files: \[file\] \}\)/);
   assert.match(s, /Night Shift is an AI\./, 'the disclosure line');
   assert.doesNotMatch(s, /inspector|reject|critic|exam/i);
+  assert.doesNotMatch(s, /c\.reason/, 'a failure never carries the inspector\'s argument onto a person\'s phone (Diego, 2026-09-06: "denied for something I did not ask for")');
+  assert.match(s, /Sent<\/span>.*Painting<\/span>.*On the wall<\/span>/, 'three steps a person can read');
+  assert.match(s, /Usually within fifteen minutes/);
+  assert.match(s, /showTickets\(true\)/, 'after sending, the ticket is the page; the form waits behind “Send another sentence”');
 });
 
 test('the table card prints four A6 on one A4 with the contract and the room QR', () => {

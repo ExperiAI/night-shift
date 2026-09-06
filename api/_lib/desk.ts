@@ -295,6 +295,24 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   return receipt;
 }
 
+/** A fresh take for a commission whose painting failed: the gatekeeper is asked again (same register, so the
+ *  rotation holds), the record goes back in the queue under the same id, the failed canvases stay in `rejects`.
+ *  Null when the painter now declines it. The cron uses this once for room work (a person in a room is watching);
+ *  scripts/requeue.mjs uses it by hand for the rest. */
+export async function retake(c: Commission, docs?: Commission[]): Promise<Commission | null> {
+  const system = c.photo ? `${gatekeeperSystemPrompt(c.exception)}\n${PHOTO.gatekeeper}` : gatekeeperSystemPrompt(c.exception);
+  const register = registerByKey(c.take?.register) ?? pickRegister(docs ?? await all());
+  const take = await chatJSON<Take>(system, `From: ${c.from ?? 'anonymous'}\nCommission: ${c.text}\nRegister for this canvas (fixed by the studio): ${register.name} — ${register.prompt}\n\nA first painting of this commission was refused by the studio's inspector${c.error ? ` (${c.error.slice(0, 200)})` : ''}: choose a different anchor object and a scene with nothing that could read as characters, keys or a second light.`, undefined, c.photo);
+  if (!take.accepted) return null;
+  take.register = register.key; take.prompt = composePrompt(register, take.prompt || take.scene || c.text, c.exception);
+  if (take.line && !(take.line.trim().length <= SCORE.sentence.maxChars && isExcerpt(c.text, take.line))) delete take.line;
+  if (c.anonymous && take.caption) take.caption = privateCaption(take.caption, c.text);
+  if (take.caption) take.caption = withDepartures(take.caption, take.departures, Boolean(c.anonymous));
+  delete c.error;
+  c.take = take; c.status = 'queued'; c.requeued = new Date().toISOString();
+  return c;
+}
+
 /** Accepted work in the last 24h, all senders: what the studio has committed to paint or has painted. Room work is
  *  not the studio's day: a room has its own cap (docs/reveal.md §5). */
 export function acceptedToday(docs: Pick<Commission, 'created' | 'status' | 'seed' | 'room'>[], now = Date.now()): number {

@@ -40,6 +40,15 @@ test('room work never counts against the studio day or the address limit; the re
   assert.equal(publicView({ id: 'x', text: 't', from: null, created, status: 'queued', take: { accepted: true, note: 'n' }, room: 'bar-21' }).room, 'bar-21');
 });
 
+test('a room commission that fails gets one fresh take from the cron, never a "could not finish" on the first miss', () => {
+  const paint = read('../api/paint.ts');
+  assert.match(paint, /if \(c\.room && !c\.requeued && !dry\) \{[\s\S]*retake\(c, docs\)/);
+  const desk = read('../api/_lib/desk.ts');
+  assert.match(desk, /export async function retake\(/); assert.match(desk, /c\.status = 'queued'; c\.requeued = /);
+  assert.match(desk, /choose a different anchor object and a scene with nothing that could read as characters, keys or a second light/, 'the retake is told what went wrong');
+  assert.match(read('../scripts/requeue.mjs'), /retake\(c\)/, 'one retake, by hand or by the cron');
+});
+
 test('the room reaches every door: API body, MCP tool, the list endpoint with the score, the room endpoint behind the internal header', () => {
   assert.match(read('../api/commission.ts'), /body\.room\)/);
   assert.match(read('../api/mcp.ts'), /room: z\.string\(\)\.max\(32\)\.optional\(\)/);

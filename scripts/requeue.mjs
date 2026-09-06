@@ -9,19 +9,13 @@ for (const f of ['.env.vercel', '.env']) {
 const { load, save, all } = await import('../api/_lib/store.ts');
 const { gatekeeperSystemPrompt, PHOTO, composePrompt, registerByKey } = await import('../api/_lib/artist.ts');
 const { chatJSON } = await import('../api/_lib/openrouter.ts');
-const { pickRegister } = await import('../api/_lib/desk.ts');
+const { retake } = await import('../api/_lib/desk.ts');
 
 const id = process.argv[2];
 const c = id && await load(id);
 if (!c) { console.error(`no such commission: ${id}`); process.exit(1); }
 if (c.status !== 'failed') { console.error(`${id} is ${c.status}, not failed; nothing to requeue`); process.exit(1); }
-
-const system = c.photo ? `${gatekeeperSystemPrompt()}\n${PHOTO.gatekeeper}` : gatekeeperSystemPrompt();
-const register = registerByKey(c.take?.register) ?? pickRegister(await all()); // keep its register, else rotate (issue #23)
-const take = await chatJSON(system, `From: ${c.from ?? 'anonymous'}\nCommission: ${c.text}\nRegister for this canvas (fixed by the studio): ${register.name} — ${register.prompt}`, undefined, c.photo);
-if (!take.accepted) { console.error(`the artist now declines it: ${take.note}`); process.exit(1); }
-take.register = register.key; take.prompt = composePrompt(register, take.prompt || take.scene || c.text);
-delete c.error;
-c.take = take; c.status = 'queued'; c.requeued = new Date().toISOString();
-await save(c);
-console.log(JSON.stringify({ id: c.id, status: c.status, title: take.title, scene: take.scene }, null, 1));
+const again = await retake(c);
+if (!again) { console.error('the artist now declines it'); process.exit(1); }
+await save(again);
+console.log(JSON.stringify({ id: again.id, status: again.status, title: again.take.title, scene: again.take.scene }, null, 1));

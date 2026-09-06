@@ -44,6 +44,17 @@
   .ticket h2{font-size:28px;margin:0;font-weight:400}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .gone{color:var(--dim);font-style:italic}
+  .steps{display:flex;gap:0;align-items:center;font:14px var(--mono);color:var(--dim);margin:2px 0 0}
+  .steps span{position:relative;padding:6px 0;flex:1;text-align:center;border-bottom:2px solid var(--line)}
+  .steps span.done{color:var(--ink);border-color:var(--dim)}
+  .steps span.now{color:var(--amber);border-color:var(--amber)}
+  .steps span.now::after{content:'';position:absolute;left:50%;bottom:-6px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--amber);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{50%{transform:scale(.55);opacity:.6}}
+  .expect{color:var(--dim);font-size:15px}
+  .note{border-left:3px solid var(--amber);padding:8px 14px;background:var(--well);font:15px/1.5 var(--mono);color:var(--ink);white-space:pre-wrap}
+  #again{background:none;color:var(--amber);border:1px solid var(--line);font-size:15px}
+  form[hidden]{display:none}
+  @media (prefers-reduced-motion:reduce){.steps span.now::after{animation:none}}
   footer{margin-top:48px;color:var(--dim);font:13px var(--mono)}
   footer a{color:var(--dim)}
 </style>
@@ -61,6 +72,7 @@
   </form>
   <p class="contract"><b>Night Shift is an AI.</b> It paints the place where it happened, minutes after everyone left. Never a face, never a name, never words on the canvas. The painting goes up on the wall here and on Instagram; you can burn it from this page at any time.</p>
   <section class="tickets" id="tickets"></section>
+  <p><button type="button" id="again" hidden>Send another sentence</button></p>
   <footer>Made in the <a href="https://experiai.com/lab">ExperiAI Lab</a> · <a href="/">the studio</a></footer>
 </main>
 <script>
@@ -101,13 +113,13 @@ $('form').addEventListener('submit', async e => {
     const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: f.text.value, from: f.from.value || undefined, anonymous: !f.from.value, photo, room: ROOM || undefined }) });
     const j = await r.json();
     if (j.error) { out.textContent = j.error; }
-    else {
-      out.textContent = `${j.note}${j.departures ? '\n\n' + j.departures : ''}`;
-      if (j.status === 'queued') {
-        const t = load(); t.unshift({ id: j.id, key: j.key, room: ROOM, words: f.text.value, created: Date.now() }); store(t);
-        f.reset(); document.querySelector('.file').classList.remove('has'); document.querySelector('.file span').textContent = FILE_LABEL;
-        renderTickets();
-      }
+    else if (j.status !== 'queued') { out.textContent = j.note; } // declined: the painter's word stays under the button
+    else { // sent: the ticket is now the page
+      out.textContent = '';
+      const t = load(); t.unshift({ id: j.id, key: j.key, room: ROOM, words: f.text.value, note: j.note, departures: j.departures, created: Date.now() }); store(t);
+      f.reset(); document.querySelector('.file').classList.remove('has'); document.querySelector('.file span').textContent = FILE_LABEL;
+      showTickets(true); renderTickets(); refresh();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   } catch { out.textContent = 'The studio did not answer. Try again in a minute.'; }
   btn.disabled = false;
@@ -121,16 +133,23 @@ function renderTickets() {
   el.innerHTML = tickets.map(t => {
     const c = live.get(t.id) || {};
     const done = c.image && (c.status === 'painted' || c.status === 'posted');
-    const state = c.status === 'withdrawn' ? '<span class="gone">Burned. Nothing is kept.</span>'
+    const over = c.status === 'withdrawn' || c.status === 'declined' || c.status === 'failed';
+    // three steps a person can read at a glance; what the studio does between them stays in the studio
+    const step = done ? 2 : c.status === 'painting' || c.status === 'queued' ? 1 : 0;
+    const steps = over ? '' : `<div class="steps"><span class="${step > 0 ? 'done' : 'now'}">Sent</span><span class="${step > 1 ? 'done' : step === 1 ? 'now' : ''}">Painting</span><span class="${step === 2 ? 'now' : ''}">On the wall</span></div>`;
+    const expect = c.status === 'withdrawn' ? '<span class="gone">Burned. Nothing is kept.</span>'
       : c.status === 'declined' ? `<span class="gone">${esc(c.note || 'Not painted.')}</span>`
-      : c.status === 'failed' ? `<span class="gone">The painter could not finish this one${c.reason ? ': ' + esc(c.reason) : ''}.</span>`
-      : done ? (c.film ? '' : 'Painted. The film is on its way.')
-      : c.status === 'painting' ? '<b>Painting now.</b> A minute or two.' : 'In the queue. The wall shows it when it is done, and so does this page.';
+      : c.status === 'failed' ? '<span class="gone">The painter could not finish this one tonight. The sentence is not kept.</span>'
+      : done ? (c.film ? 'Here it is. The wall has it too.' : 'Painted. The film follows in a minute or two.')
+      : 'Usually within fifteen minutes. This page shows it when it is done, and so does the wall.';
+    const note = t.note ? `<div class="note">${esc(t.note)}${t.departures ? '\n\n' + esc(t.departures) : ''}</div>` : '';
     return `<article class="ticket" data-id="${esc(t.id)}">
       <div class="words">${esc(t.words)}</div>
+      ${note}
+      ${steps}
       ${done ? `<h2>${esc(c.title || '')}</h2>` : ''}
       ${done && c.film ? `<video src="${esc(c.film)}" poster="${esc(c.image)}" controls playsinline preload="metadata"></video>` : done ? `<img src="${esc(c.image)}" alt="${esc(c.title || '')}">` : ''}
-      ${state ? `<div class="state">${state}</div>` : ''}
+      <div class="expect">${expect}</div>
       ${c.status !== 'withdrawn' ? `<div class="row">${done ? '<button type="button" data-share>Share</button>' : ''}${c.instagram ? `<a href="${esc(c.instagram)}" style="color:var(--dim);font:14px var(--mono)">On Instagram</a>` : ''}<button type="button" class="quiet" data-burn>Burn it</button></div>` : ''}
     </article>`;
   }).join('');
@@ -138,7 +157,7 @@ function renderTickets() {
 async function refresh() {
   for (const t of load().filter(t => !ROOM || t.room === ROOM)) {
     const c = live.get(t.id);
-    if (c && (c.status === 'withdrawn' || c.status === 'declined' || c.status === 'failed' || (c.image && c.film))) continue; // settled
+    if (c && (c.status === 'withdrawn' || c.status === 'declined' || (c.image && c.film))) continue; // settled; a failed one is polled on: the studio may take it again
     try { const r = await fetch(`${origin}/api/commission/${t.id}`); if (r.ok) live.set(t.id, await r.json()); } catch {}
   }
   renderTickets();
@@ -162,7 +181,13 @@ $('tickets').addEventListener('click', async e => {
     renderTickets();
   }
 });
-renderTickets(); refresh(); setInterval(refresh, 5000);
+function showTickets(ticketsFirst) {
+  const has = load().filter(t => !ROOM || t.room === ROOM).length > 0;
+  $('form').hidden = ticketsFirst && has; $('again').hidden = !(ticketsFirst && has);
+  if (ticketsFirst && has) document.querySelector('main').insertBefore($('tickets'), $('form'));
+}
+$('again').addEventListener('click', () => { $('form').hidden = false; $('again').hidden = true; document.querySelector('main').insertBefore($('form'), $('tickets')); $('form').text.focus(); });
+showTickets(true); renderTickets(); refresh(); setInterval(refresh, 5000);
 </script>
 </body>
 </html>

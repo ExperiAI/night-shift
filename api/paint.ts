@@ -51,7 +51,7 @@ export function filmJob<T extends { image?: string; raw?: string; film?: string;
 }
 /** What a painting posts as: a photo commission's carousel, else the Reel when the film exists, else the still. */
 export const mediaFor = (c: { image?: string; slides?: string[]; film?: string }) => c.slides ?? (c.film && c.image ? { video: c.film, cover: c.image } : c.image!);
-import { isHeld, expiredHolds, cancel } from './_lib/desk.js';
+import { isHeld, expiredHolds, cancel, retake } from './_lib/desk.js';
 import { photoSlide, pairSlide, signatureLayer, avoidLine } from './_lib/compose.js';
 import sharp from 'sharp';
 
@@ -74,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.json({ filmed: ok ? f.id : null, film: f.film, ms: f.filmMs, error: f.filmError });
   }
   const queue = docs.filter(c => c.status === 'queued' && !isHeld(c)).sort((a, b) => a.created.localeCompare(b.created)); // held work waits for its stop window
-  const c = queue[0];
+  let c = queue[0];
   if (!c) {
     const job = filmJob(docs); // a painting without its film comes before posting the backlog: the post should be the Reel
     if (job && !dry) { const ok = await filmIt(job); await save(job); return res.json({ painted: null, filmed: ok ? job.id : null, ms: job.filmMs, error: job.filmError, reconciled: fixed }); }
@@ -141,6 +141,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   } catch (e: any) {
     c.status = 'failed'; c.error = String(e.message).slice(0, 500);
+    if (c.room && !c.requeued && !dry) { // a person in a room is watching a ticket: one fresh take, back in the queue, never 'could not finish' on the first miss
+      const again = await retake(c, docs).catch(() => null);
+      if (again) c = again;
+    }
   }
   await save(c);
   return res.json({ painted: c.id, status: c.status, image: c.image, film: c.film, filmMs: c.filmMs, filmError: c.filmError, instagram: c.instagram, error: c.error, queued: queue.length - 1 });
