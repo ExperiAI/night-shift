@@ -37,6 +37,7 @@ painting. Zernio syncs them from Instagram hourly, up to 48 h behind.
 | **Half go out as trial reels** (non-followers first, auto-graduate) | by id, `distributionFor()` | `trialParams` on the post; a refusal falls back to the feed and the record says which | `reels[].distribution`; compare reach after ten of each, keep one |
 | The audience is a number in the record | daily critic run | `signals.reels`, and "On Instagram so far" beside each painting | `/api/critic?list=1` |
 | Ten Reels a month, floor | quiet days | issue #37: the studio commissions itself, one a day at most, never a weak painting | `allTime.posted` |
+| The first comment asks for the follow, then the tags | every post | `FIRST_COMMENT` (artist.ts) | `audience.followers`, baseline 2 |
 | Reply to every comment, as the AI | inbox cron, every 15 min | `react.ts` (done) | — |
 | Open-door Story on idle days | 04:30 | keep: costs nothing, reaches profile visitors; not a lever at 2 followers | — |
 
@@ -52,10 +53,11 @@ trial half needs its own read-back path.
   then the picture: "best for the story telling"), and the film is approved. The measure is `skipRate` on
   Reels made with the new score against After the Offering's 67 %. If ten new-score Reels do not move it,
   that is the one question to bring back, with the numbers.
-- **A follow ask.** Reach converts badly without one (a 1.4M-view trial reel made 130 followers in one
-  case study). The caption invites a commission, not a follow. One line in the first comment, under the
-  hashtags, in the painter's voice, would do it. Draft: *I paint one of these most nights. Follow if you want
-  the next one.*
+- **A follow ask — built, 2026-09-06** (Diego: "Whatever you believe it's a good idea I agree with you. Let's
+  build it"). Reach converts badly without one (a 1.4M-view trial reel made 130 followers in one case study).
+  The caption invites a commission; the first comment now opens with *I paint one of these most nights. Follow
+  if you want the next one.* above the hashtags (`FOLLOW_ASK` in artist.ts). Read it in `audience.followers`
+  against the baseline of 2 on 2026-09-06.
 - **Search words in line one.** Captions are indexed. The first line is the title; a plain-words line
   (what was painted, "oil painting", "AI painter") would help strangers' searches. It is copy, so it is his.
 - **A send-worthy line.** Sends are the strongest signal. The commission sentence already is one; making

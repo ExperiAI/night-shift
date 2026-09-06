@@ -4,14 +4,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { collaboratorHandle, postOptions } from '../api/_lib/zernio.ts';
-import { HASHTAGS } from '../api/_lib/artist.ts';
+import { HASHTAGS, FOLLOW_ASK, FIRST_COMMENT } from '../api/_lib/artist.ts';
 
 test('hashtags go in the first comment, never in the caption prompt', () => {
   assert.match(HASHTAGS, /^(#[a-z]+ ?){3,5}$/);
   assert.match(HASHTAGS, /#aiart/); // the account says what it is
   const artist = readFileSync(new URL('../api/_lib/artist.ts', import.meta.url), 'utf8');
   assert.ok(!/caption:.*#/.test(artist.split('HASHTAGS')[0]), 'no hashtag in the caption instructions');
-  assert.equal(postOptions({}).firstComment, HASHTAGS);
+  assert.equal(postOptions({}).firstComment, FIRST_COMMENT);
+  assert.equal(FIRST_COMMENT, `${FOLLOW_ASK}\n\n${HASHTAGS}`, 'the follow ask above the tags (docs/instagram.md)');
+  assert.match(FOLLOW_ASK, /\bFollow\b/); assert.ok(!/#/.test(FOLLOW_ASK), 'no tag in the ask');
 });
 
 test('a public comment under a handle is invited as a collaborator; DMs, names and the fallback are not', () => {

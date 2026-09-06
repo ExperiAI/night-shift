@@ -153,6 +153,13 @@ export function isTestSender(from: string | null | undefined): boolean { return 
  *  account says what it is. Issue #11. */
 export const HASHTAGS = '#oilpainting #nocturne #nightpainting #emptyplaces #aiart';
 
+/** Above the hashtags in that first comment: the ask. Reach turns into followers only when the Reel asks
+ *  for one (docs/instagram.md, "A follow ask"; a 1.4M-view trial reel made 130 followers in one case study).
+ *  The caption invites a commission; this line invites the next painting. Diego, 2026-09-06: "Let's build it". */
+export const FOLLOW_ASK = 'I paint one of these most nights. Follow if you want the next one.';
+/** The first comment as posted: the ask, then the tags. */
+export const FIRST_COMMENT = `${FOLLOW_ASK}\n\n${HASHTAGS}`;
+
 /** When a photograph of the place comes with the commission. */
 export const PHOTO = {
   gatekeeper:

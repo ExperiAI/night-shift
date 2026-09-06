@@ -1,6 +1,6 @@
 // Publish through Zernio (zernio.com), which holds the Instagram connection so we
 // need no Meta app of our own. Env: ZERNIO_API_KEY. Account = the connected Instagram.
-import { HASHTAGS } from './artist.js';
+import { FIRST_COMMENT } from './artist.js';
 const BASE = 'https://zernio.com/api/v1';
 
 export type PostOptions = { firstComment?: string; collaborators?: string[]; trial?: boolean };
@@ -32,7 +32,7 @@ export function collaboratorHandle(from?: string | null): string | null {
 export function postOptions(c: { id?: string; film?: string; source?: { channel: string; handle?: string } }): PostOptions {
   const collab = c.source?.channel === 'instagram-comment' ? collaboratorHandle(c.source.handle) : null;
   const trial = Boolean(c.film && c.id && distributionFor(c.id) === 'trial'); // only a Reel can be a trial
-  return { firstComment: HASHTAGS, ...(collab ? { collaborators: [collab] } : {}), ...(trial ? { trial } : {}) };
+  return { firstComment: FIRST_COMMENT, ...(collab ? { collaborators: [collab] } : {}), ...(trial ? { trial } : {}) };
 }
 
 /** A word to the owner, as an Instagram DM in the thread the owner opened with the account (OWNER_CONVERSATION_ID).
