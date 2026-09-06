@@ -1,0 +1,137 @@
+<title>The Reveal</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=Caveat:wght@500&display=swap">
+{{STYLE}}
+<style>
+  .five .frames { grid-template-columns: repeat(5, minmax(13rem, 1fr)); }
+  .why { display:grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap:.75rem; }
+  .why div { background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:.9rem 1rem; display:grid; gap:.3rem; }
+  .why b { font-family:var(--mono); font-size:.68rem; letter-spacing:.1em; text-transform:uppercase; font-weight:500; }
+  .why .keep b { color:#9fe0da; } .why .drop b { color:#ffb3a7; } .why .make b { color:var(--amber-ink); }
+  .why p { margin:0; color:var(--ink); font-size:.95rem; }
+  .reel .sent { position:absolute; top:38%; left:9%; right:9%; font-family:var(--mono); font-size:.66rem; color:#fff; line-height:1.4; background:transparent; border:0; opacity:1; padding:0; }
+  .reel .sent::after { content:''; display:inline-block; width:.45em; height:1em; background:var(--amber); vertical-align:-.15em; margin-left:.1em; animation: blink 1s infinite; }
+  .reel .surf img { filter: brightness(.45); transform: scale(1.04); }
+  .reel .grid { position:absolute; inset:0; display:grid; grid-template-columns: repeat(3,1fr); gap:2px; background:#000; }
+  .reel .grid img { width:100%; height:100%; object-fit:cover; }
+  .reel .grid .r { position:relative; }
+  .reel .grid .r::after { content:'▶'; position:absolute; top:.25rem; right:.3rem; font-size:.6rem; color:#fff; text-shadow:0 0 4px #000; }
+  .wallidle { position:absolute; inset:0; display:grid; grid-template-columns: 1fr 1.4fr; gap:.6rem; padding:.6rem; }
+  .wallidle .qrbig { display:grid; align-content:center; justify-items:center; gap:.5rem; text-align:center; }
+  .wallidle .qrbig .qr { width:4.4rem; height:4.4rem; background:#efe7d3; padding:.25rem; box-sizing:border-box; }
+  .wallidle .qrbig .qr i { background:#111; } .wallidle .qrbig .qr i.o { background:transparent; }
+  .wallidle .qrbig span { font-family:var(--display); font-size:.9rem; color:var(--ink); line-height:1.15; }
+  .wallidle .qrbig small { font-family:var(--mono); font-size:.55rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .wallidle .stage { position:relative; background:#05080f; border-radius:4px; overflow:hidden; }
+  .wallidle .stage img { width:100%; height:100%; object-fit:cover; display:block; }
+  .wallidle .stage .t { position:absolute; left:.5rem; bottom:.4rem; font-family:var(--display); color:var(--amber-ink); font-size:.95rem; }
+  .wallidle .stage .in { position:absolute; top:.4rem; left:.5rem; right:.5rem; background:rgba(11,18,32,.85); border:1px solid var(--amber); border-radius:4px; padding:.3rem .45rem; font-size:.62rem; }
+  .reel .sig { position:absolute; right:6%; bottom:30%; font-family:var(--hand); color:#f3c97a; font-size:1.5rem; text-shadow:0 0 6px #000; transform:rotate(-4deg); -webkit-mask-image:linear-gradient(90deg,#000 0 55%,transparent 62%); mask-image:linear-gradient(90deg,#000 0 55%,transparent 62%); }
+  .reel .sig::after { content:''; position:absolute; left:58%; top:20%; width:2px; height:60%; background:#f3c97a; opacity:.8; }
+  .wallidle .stage .in small { display:block; font-family:var(--mono); font-size:.52rem; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); margin-bottom:.1rem; }
+</style>
+<main>
+  <header>
+    <div class="eyebrow">Night Shift · the next thing</div>
+    <h1 style="margin-top:.4rem">The Reveal</h1>
+    <p class="lede">Every painting's making becomes a twenty-second film. It posts as a Reel, for everyone. The same reveal plays live on a wall in a room, for your public demos. One score, two stages. Tap any frame for what happens there; <b>Dig deeper</b> for the whole stage.</p>
+    <div class="why" style="margin-top:1.2rem">
+      <div class="keep"><b>Kept from 1</b><p>A room, a QR, a wall: you can show the system running anywhere.</p></div>
+      <div class="keep"><b>Kept from 3</b><p>What everyone sees on Instagram gets the polish, not only the website.</p></div>
+      <div class="drop"><b>Dropped from 2</b><p>Nothing about moderation on screen. Inspector, critic, rejects stay backstage.</p></div>
+      <div class="make"><b>Made new</b><p>One score drives both: the film for Instagram and the live wall.</p></div>
+    </div>
+  </header>
+
+  <section class="strip pick five">
+    <header><h2>Stage 1 · The film, as a Reel</h2><span class="tag pick">Build first</span><button class="deeper" data-idea="film">Dig deeper</button></header>
+    <p class="what">Twenty seconds, vertical, made by the studio for every painting and posted as a Reel, the one format that reaches people who do not follow the account.</p>
+    <div class="frames">
+      <div class="frame" role="button" tabindex="0" data-frame="f1">
+        <div class="screen"><div class="reel dark"><img src="{{season}}" alt=""><div class="sent">the last night of summer</div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>0–4 s</small>The sentence types out of the dark.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="f2">
+        <div class="screen"><div class="reel surf"><img src="{{season}}" alt=""><div class="ov"><div class="m">4–13 s · fade from black, slow push</div></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>4–13 s</small>The one light first, then the room.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="f3">
+        <div class="screen"><div class="reel"><img src="{{season}}" alt=""><div class="sig">night shift</div><div class="ov"><div class="m">12–14 s · the hand crosses the canvas</div></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>12–14 s</small>It signs, in front of you.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="f3b">
+        <div class="screen"><div class="reel"><img src="{{season}}" alt=""><div class="ov"><div class="t">Closed for the Season</div><div class="m">“I am an AI. No hand held this brush.”</div></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>14–20 s</small>Title. Sign-off. Hold.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="f4">
+        <div class="screen"><div class="reel"><div class="grid"><div class="r"><img src="{{season}}" alt=""></div><div class="r"><img src="{{tatami}}" alt=""></div><div><img src="{{newsagent}}" alt=""></div><div><img src="{{corridor}}" alt=""></div><div><img src="{{toast}}" alt=""></div><div><img src="{{season}}" alt=""></div></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>on the grid</small>Reels sit in the grid with a play mark.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="strip">
+    <header><h2>Stage 2 · The wall, in a room</h2><span class="tag">Same score · live</span><button class="deeper" data-idea="wall">Dig deeper</button></header>
+    <p class="what">A QR on the table, a screen in the room. People send one sentence about tonight; the wall shows the sentences arriving and the paintings surfacing, and each painting lands on the sender's phone.</p>
+    <div class="frames">
+      <div class="frame" role="button" tabindex="0" data-frame="w1">
+        <div class="screen"><div class="tent"><div class="card"><div><b>Night Shift</b><span>Tonight in this room. Scan. One sentence about tonight, or a photo of where you sit.</span></div><div class="qr" id="qr"></div></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>on the table</small>A card with a QR.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="w2">
+        <div class="screen"><div class="phone"><div class="bubble me">the table by the window, after we all left</div><div class="bubble them">I'll paint the window table after you've gone: one lamp, the chair pushed back. Ninety seconds.</div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>your phone</small>One sentence. The painter answers.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="w3">
+        <div class="screen"><div class="wallidle"><div class="qrbig"><div class="qr" id="qr2"></div><span>Send one sentence about tonight</span><small>Bar 21 · Saturday</small></div><div class="stage"><img src="{{tatami}}" alt=""><div class="in"><small>just in</small>the table by the window, after we all left</div><div class="t">Three Things, Tatami</div></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>the wall</small>Sentences arrive. Paintings surface.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="w4">
+        <div class="screen"><div class="phone"><div class="title">Your night, after you left it</div><img src="{{tatami}}" alt=""><div class="share">Share</div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>before you leave</small>Yours, with the film, to share.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="foot"><p>The build plan for the next session is in the repo: <span style="font-family:var(--mono);font-size:.85rem;color:var(--ink)">docs/reveal.md</span>. Say in chat if anything here should change before it starts.</p></section>
+</main>
+<dialog id="dlg"><div class="dlg"><button class="close" id="close">Close · Esc</button><div id="dlgbody"></div></div></dialog>
+<script>
+  (function () { for (const id of ['qr', 'qr2']) { const q = document.getElementById(id); let seed = 7; for (let i = 0; i < 81; i++) { seed = (seed * 9301 + 49297) % 233280; const r = i % 9, c = Math.floor(i / 9); const corner = (r < 3 && c < 3) || (r > 5 && c < 3) || (r < 3 && c > 5); const el = document.createElement('i'); if (!corner && seed / 233280 > 0.5) el.className = 'o'; q.appendChild(el); } } })();
+  const IDEAS = {
+    film: { eyebrow: 'Stage 1 · build first', title: 'The film, as a Reel', body: `
+      <h4>What it is</h4>
+      <p>For every painting the studio makes a twenty-second vertical film from the finished still: the commission sentence typing out of the dark, the canvas surfacing with its one light first, a slow push into the room, then the title and the sign-off line. It posts to Instagram as a Reel with the still as its cover, and Instagram's own "AI-generated" flag set. Reels are the only format that reaches people who do not already follow the account; today the grid reaches two followers.</p>
+      <h4>What a person sees</h4>
+      <p>A sentence about someone's night, typed. Then, out of black, a lamp, and a room nobody is in. A title. "I am an AI. No hand held this brush." Twenty seconds, with a low drone and one soft note under the title. No stamps, no rejects, no critic.</p>
+      <h4>How it works</h4>
+      <p>One shared score (timings, sizes, copy) drives the film. Text becomes vector paths from the studio's own fonts, so nothing depends on fonts installed on a server. One ffmpeg pass composes the layers and generates the audio, so no music is licensed. The film is made right after the painting is signed and before posting; if it fails, the still posts as today and the film is retried. Photo commissions keep their carousel, because the comparison with the photograph is their point.</p>
+      <h4>The check that says it works</h4>
+      <p>The next real painting's Instagram link is a Reel, its cover is the still, and the caption read back from Instagram matches what was sent. One backfill Reel goes up for the strongest canvas so far, the tatami exam, unless you name another.</p>` },
+    wall: { eyebrow: 'Stage 2 · the same score, live', title: 'The wall, in a room', body: `
+      <h4>What it is</h4>
+      <p>A screen in a room and a QR on every table. Anyone sends one sentence about tonight, or a photo of where they sit. The wall shows the sentences as they arrive with the painter's note, and each painting surfacing with the same reveal the Reel uses, then keeps them in a loop. The painting and its film land on the sender's phone, with Share and Burn it. You can run it at a dinner, a bar, a meetup, or on a video call with a demo mode that replays the last twelve paintings as if they were arriving.</p>
+      <h4>What a person sees</h4>
+      <p>Their sentence on the wall within seconds. Their room, empty, painted before they have stood up. Nothing about how the studio decides; only sentences and paintings.</p>
+      <h4>How it works</h4>
+      <p>A room is a code the studio opens for a night, with its own cap, so a busy night never hits the studio's daily limit. The send page is the ticket: it keeps the commission and its key on the phone, polls until the painting exists, then shows it. The wall polls the room every few seconds; no new infrastructure. Table cards print four to a page.</p>
+      <h4>The check that says it works</h4>
+      <p>At home with three phones: a sentence appears on the wall within five seconds, the reveal plays within two minutes, the ticket shows the painting and its film, Share works on an iPhone, Burn removes it from the wall. A phone video of that wall is the hand-back.</p>` },
+  };
+  const FRAMES = {
+    f1: { eyebrow: 'Stage 1 · 0–4 s', title: 'The sentence types out of the dark', body: `<p>Black screen. The commission sentence types itself in the studio's mono face, centred, a blinking cursor, timed so any sentence finishes at 3.4 seconds. The first character appears at 0.3 seconds, because a Reel's first second has to hold a thumb, and a sentence about someone's night does that better than a painting does. An anonymous commission is never shown: those films open on the words "a commission".</p>` },
+    f2: { eyebrow: 'Stage 1 · 4–12 s', title: 'The one light first, then the room', body: `<p>The painting does not fade in; it fades from black, so the brightest thing, the one light, is the first thing to appear, and the room comes out around it over six seconds. Behind the 4:5 painting the same image fills the 9:16 frame, blurred and dark. A slow push from 106 % to 100 % is the only movement. A low drone fades in underneath. The canvas shown here is the one before signing: the studio now keeps that version too.</p>` },
+    f3: { eyebrow: 'Stage 1 · 12–14 s', title: 'It signs, in front of you', body: `<p>Your addition. The studio's own mark, the same one and the same place the painter chose for this canvas, is written onto the painting as it happens: the edge of the ink crosses the signature left to right over 1.8 seconds with the ease of a hand, a soft wet edge, and a faint dry scratch under the drone. Nothing else moves during those seconds. Paintings made before this ships have no unsigned version, so their films skip the beat.</p>` },
+    f3b: { eyebrow: 'Stage 1 · 14–20 s', title: 'Title. Sign-off. Hold.', body: `<p>The title in the studio's serif, bottom-left, with one soft note. Then the sign-off line every caption already carries, word for word: "I am an AI. No hand held this brush." The last frame holds and is identical to the signed still, which is the Reel's cover. No credit, no hashtags, no departures on the film: they stay in the caption where they are today.</p>` },
+    f4: { eyebrow: 'Stage 1 · on the grid', title: 'Reels sit in the grid with a play mark', body: `<p>From now on a plain commission posts as a Reel, which also appears in the grid with the still as its cover, so the wall of paintings keeps its look. Photo commissions keep the carousel. The eight paintings already posted stay as they are; one backfill Reel goes up for the strongest, so the account has films from day one.</p>` },
+    w1: { eyebrow: 'Stage 2 · on the table', title: 'A card with a QR', body: `<p>Printed for the night, four to a page. The QR opens the room's send page with the room already in it. Three lines set the contract: one sentence or a photo of where you sit; it paints the place after you have left it, never a face; it is an AI. No app, no login.</p>` },
+    w2: { eyebrow: 'Stage 2 · your phone', title: 'One sentence. The painter answers.', body: `<p>One field, one photo button, an optional name. Five seconds later the painter's note, in its voice: what it will paint. If someone asks for themselves in it, the note says what it does instead and offers a stop, exactly as today. The page stays open as the ticket.</p>` },
+    w3: { eyebrow: 'Stage 2 · the wall', title: 'Sentences arrive. Paintings surface.', body: `<p>Left: the room's QR, large, with "Send one sentence about tonight". Right: the stage. A new sentence slides in with the painter's note and waits in a quiet queue; when its painting is ready the reveal plays once, full screen, with the same score as the Reel, the signature writing itself included, then joins the loop of tonight's paintings. A demo mode replays the last twelve paintings as if arriving, for a public demo on a call.</p>` },
+    w4: { eyebrow: 'Stage 2 · before you leave', title: 'Yours, with the film, to share', body: `<p>The ticket page shows the painting, its title, the painter's note, the twenty-second film, Share (the film, or the still where the phone cannot share video) and Burn it, which deletes the painting and the sentence everywhere the studio holds them. The moment people photograph is the room they are sitting in, empty, on their phone, before they stand up.</p>` },
+  };
+  const dlg = document.getElementById('dlg'), body = document.getElementById('dlgbody');
+  function open(d) { body.innerHTML = `<div class="eyebrow">${d.eyebrow}</div><h3>${d.title}</h3>${d.body}`; dlg.showModal(); dlg.querySelector('.dlg').scrollTop = 0; }
+  document.querySelectorAll('.deeper').forEach(b => b.addEventListener('click', () => open(IDEAS[b.dataset.idea])));
+  document.querySelectorAll('.frame').forEach(f => { const go = () => open(FRAMES[f.dataset.frame]); f.addEventListener('click', go); f.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
+  document.getElementById('close').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>

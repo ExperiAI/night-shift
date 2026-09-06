@@ -1,0 +1,324 @@
+<title>Night Shift Storyboards</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=Caveat:wght@500&display=swap">
+<style>
+  :root { --ground:#0b1220; --surface:#131c2f; --screen:#0e1526; --line:#26324c; --ink:#ece6d8; --muted:#98a2b3; --amber:#f0a83a; --amber-ink:#ffd58a; --teal:#3a9c95; --red:#d1614f;
+    --display:'Instrument Serif',Georgia,serif; --mono:'IBM Plex Mono',Menlo,monospace; --body:'IBM Plex Sans',-apple-system,Helvetica,sans-serif; --hand:'Caveat',cursive; }
+  html { background: var(--ground); }
+  body { margin:0; background:var(--ground); color:var(--ink); font-family:var(--body); line-height:1.4; }
+  main { max-width: 74rem; margin: 0 auto; padding: 2.5rem 1.25rem 6rem; display: grid; gap: 3rem; }
+  h1 { font-family: var(--display); font-weight: 400; font-size: 2.4rem; line-height: 1.05; margin: 0; text-wrap: balance; }
+  h2 { font-family: var(--display); font-weight: 400; font-size: 1.7rem; margin: 0; line-height: 1.1; }
+  .eyebrow { font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
+  .lede { color: var(--muted); margin: .6rem 0 0; max-width: 60ch; }
+  .strip { display: grid; gap: 1rem; }
+  .strip header { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+  .tag { font-family: var(--mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; padding: .2rem .5rem; border-radius: 3px; background: #1f4f4c; color: var(--ink); }
+  .tag.pick { background: var(--amber); color: var(--ground); }
+  .frames { display: grid; grid-template-columns: repeat(4, minmax(15rem, 1fr)); gap: 1rem; overflow-x: auto; padding-bottom: .5rem; scroll-snap-type: x mandatory; }
+  .frame { display: grid; gap: .6rem; scroll-snap-align: start; }
+  .screen { aspect-ratio: 16/10; background: var(--screen); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; position: relative; font-size: .7rem; }
+  .pick .screen { border-color: #3a4a6c; }
+  .cap { font-family: var(--display); font-size: 1.15rem; line-height: 1.2; color: var(--ink); }
+  .cap small { display: block; font-family: var(--mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: .2rem; }
+  /* table tent */
+  .tent { position:absolute; inset:0; display:grid; place-items:center; background: radial-gradient(ellipse at 50% 120%, #2a2415 0%, var(--screen) 60%); }
+  .tent .card { width: 62%; background:#efe7d3; color:#1a1a1a; border-radius:4px; padding:.7rem .8rem; display:grid; grid-template-columns: 1fr auto; gap:.6rem; align-items:center; box-shadow: 0 14px 30px -12px #000; }
+  .tent .card b { font-family: var(--display); font-weight:400; font-size:1.05rem; display:block; }
+  .tent .card span { font-size:.62rem; color:#444; }
+  .qr { width: 3.2rem; height: 3.2rem; display:grid; grid-template-columns: repeat(9,1fr); gap:1px; }
+  .qr i { background:#1a1a1a; } .qr i.o { background:transparent; }
+  /* phone */
+  .phone { position:absolute; left:50%; top:6%; transform:translateX(-50%); width:38%; height:110%; background:#000; border:2px solid #333; border-radius:14px 14px 0 0; padding:.6rem .5rem; display:grid; gap:.4rem; align-content:start; }
+  .bubble { padding:.35rem .5rem; border-radius:10px; max-width:92%; line-height:1.3; }
+  .bubble.me { background:#2b6cf0; color:#fff; justify-self:end; }
+  .bubble.them { background:#1f2734; color:var(--ink); }
+  .phone img { width:100%; border-radius:6px; display:block; }
+  .phone .share { background:var(--amber); color:var(--ground); text-align:center; border-radius:6px; padding:.3rem; font-family:var(--mono); font-size:.62rem; letter-spacing:.08em; text-transform:uppercase; }
+  .phone .title { font-family:var(--display); font-size:.95rem; color:var(--amber-ink); }
+  /* the wall (live) */
+  .wall { position:absolute; inset:0; display:grid; grid-template-columns: 1.1fr 1.5fr 1fr; gap:.5rem; padding:.55rem; }
+  .col { display:grid; gap:.35rem; align-content:start; min-width:0; }
+  .col .h { font-family:var(--mono); font-size:.58rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .sent { background:var(--surface); border:1px solid var(--line); border-radius:4px; padding:.3rem .4rem; opacity:.55; }
+  .sent.now { opacity:1; border-color:var(--amber); }
+  .note { font-family:var(--display); font-size:.8rem; color:var(--amber-ink); min-height:2.2em; }
+  .canvas { position:relative; aspect-ratio:4/5; background:#05080f; border-radius:3px; overflow:hidden; }
+  .canvas img { width:100%; height:100%; object-fit:cover; display:block; opacity:0; transition: opacity 1.6s ease; filter: brightness(.2); }
+  .canvas.on img { opacity:1; filter: brightness(1); transition: opacity 1.6s ease, filter 2.4s ease; }
+  .canvas .sig { position:absolute; right:6%; bottom:4%; font-family:var(--hand); color:#f3c97a; font-size:1rem; opacity:0; transform: rotate(-4deg); }
+  .canvas.signed .sig { opacity:.9; transition: opacity .6s; }
+  .stamps { display:grid; gap:.25rem; }
+  .stamp { font-family:var(--mono); font-size:.6rem; padding:.2rem .35rem; border-radius:3px; border:1px solid var(--line); color:var(--muted); opacity:.35; }
+  .stamp.ok { border-color:var(--teal); color:#9fe0da; opacity:1; }
+  .stamp.no { border-color:var(--red); color:#ffb3a7; opacity:1; }
+  .reject { display:grid; grid-template-columns: 2.2rem 1fr; gap:.35rem; align-items:center; opacity:0; transition:opacity .5s; }
+  .reject.on { opacity:1; }
+  .reject img { width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:2px; filter: saturate(.6); }
+  .reject span { font-family:var(--mono); font-size:.58rem; color:#ffb3a7; }
+  .sentto { font-family:var(--mono); font-size:.6rem; color:var(--amber-ink); opacity:0; transition:opacity .5s; }
+  .sentto.on { opacity:1; }
+  .live { position:absolute; bottom:.4rem; right:.5rem; font-family:var(--mono); font-size:.55rem; letter-spacing:.1em; color:var(--red); }
+  .live::before { content:''; display:inline-block; width:.4rem; height:.4rem; background:var(--red); border-radius:50%; margin-right:.3rem; animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity:.2; } }
+  /* terminal */
+  .term { position:absolute; inset:0; padding:.8rem; font-family:var(--mono); font-size:.68rem; color:#cfd6e4; background:#0a0e18; }
+  .term .p { color:var(--teal); } .term .c { color:var(--amber-ink); }
+  /* transcript */
+  .chat { position:absolute; inset:0; padding:.5rem; display:grid; gap:.3rem; align-content:start; }
+  .chat .who { font-family:var(--mono); font-size:.55rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .chat .line { padding:.3rem .45rem; border-radius:6px; background:var(--surface); border:1px solid var(--line); max-width:88%; }
+  .chat .line.painter { border-color:#3a4a6c; font-family:var(--display); font-size:.85rem; color:var(--amber-ink); justify-self:end; }
+  /* verdict */
+  .verdict { position:absolute; inset:0; display:grid; grid-template-columns: 1fr 1.1fr; gap:.6rem; padding:.6rem; }
+  .verdict img { width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:3px; }
+  .verdict .v { display:grid; gap:.35rem; align-content:center; }
+  .verdict .grade { font-family:var(--display); font-size:1.5rem; color:var(--amber-ink); line-height:1; }
+  .verdict .by { font-family:var(--mono); font-size:.55rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  /* scoreboard */
+  .board { position:absolute; inset:0; padding:.6rem .7rem; display:grid; gap:.25rem; align-content:start; }
+  .board .h { font-family:var(--display); font-size:.95rem; color:var(--ink); margin-bottom:.2rem; }
+  .row { display:grid; grid-template-columns: 1fr auto; font-family:var(--mono); font-size:.6rem; color:var(--muted); border-bottom:1px solid var(--line); padding:.15rem 0; }
+  .dot { display:inline-block; width:.5rem; height:.5rem; border-radius:50%; margin-left:.2rem; vertical-align:middle; }
+  .y{background:var(--teal)} .p{background:var(--amber)} .n{background:var(--red)}
+  /* reel */
+  .reel { position:absolute; left:50%; top:4%; transform:translateX(-50%); width:36%; height:100%; background:#000; border-radius:10px 10px 0 0; overflow:hidden; border:2px solid #333; }
+  .reel img { width:100%; height:100%; object-fit:cover; display:block; }
+  .reel .ov { position:absolute; inset:0; display:grid; align-content:end; padding:.5rem; gap:.25rem; background: linear-gradient(transparent 55%, rgba(0,0,0,.75)); }
+  .reel .t { font-family:var(--display); font-size:.9rem; color:var(--amber-ink); }
+  .reel .m { font-family:var(--mono); font-size:.55rem; color:var(--muted); }
+  .reel.dark img { filter: brightness(.25); }
+  .reel .typing { position:absolute; top:40%; left:8%; right:8%; font-family:var(--mono); font-size:.62rem; color:#fff; border-right:2px solid var(--amber); padding-right:.1rem; }
+  /* decision */
+  .decide { border-top:1px solid var(--line); padding-top:2rem; display:grid; gap:1rem; }
+  .btns { display:grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap:.75rem; }
+  button { font: inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--ink); padding:1rem 1.1rem; text-align:left; display:grid; gap:.25rem; }
+  button:focus-visible { outline:2px solid var(--amber); outline-offset:2px; }
+  button b { font-family:var(--display); font-weight:400; font-size:1.25rem; }
+  button small { color:var(--muted); font-size:.85rem; }
+  button.on { border-color:var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; }
+  button.on small::before { content:'Picked · '; color:var(--amber-ink); }
+  .state { font-family:var(--mono); font-size:.72rem; color:var(--muted); min-height:1.2em; }
+  .what { margin:0; color:var(--muted); max-width:62ch; font-size:1.02rem; }
+  .deeper { margin-left:auto; font:inherit; font-family:var(--mono); font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; color:var(--amber-ink); background:transparent; border:1px solid var(--amber); border-radius:999px; padding:.35rem .8rem; cursor:pointer; }
+  .deeper:hover, .deeper:focus-visible { background:var(--amber); color:var(--ground); outline:none; }
+  .frame { cursor:pointer; border-radius:8px; }
+  .frame:hover .screen, .frame:focus-visible .screen { border-color:var(--amber); }
+  .frame:focus-visible { outline:2px solid var(--amber); outline-offset:4px; }
+  .hint { display:inline-grid; place-items:center; width:1rem; height:1rem; border-radius:50%; border:1px solid var(--muted); font:500 .6rem/1 var(--mono); font-style:normal; color:var(--muted); margin-right:.4rem; vertical-align:-1px; }
+  .frame:hover .hint { border-color:var(--amber); color:var(--amber); }
+  .foot { border-top:1px solid var(--line); padding-top:1.5rem; color:var(--muted); }
+  .foot p { margin:0; }
+  dialog { background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:0; width:min(44rem, 92vw); max-height:88vh; }
+  dialog::backdrop { background:rgba(4,8,16,.75); }
+  .dlg { padding:1.6rem 1.8rem 2rem; display:grid; gap:1rem; overflow:auto; max-height:88vh; box-sizing:border-box; }
+  .dlg .eyebrow { margin:0; }
+  .dlg h3 { font-family:var(--display); font-weight:400; font-size:1.9rem; line-height:1.1; margin:0; text-wrap:balance; }
+  .dlg h4 { font-family:var(--mono); font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); margin:.6rem 0 0; }
+  .dlg p { margin:0; max-width:65ch; line-height:1.55; }
+  .dlg ul { margin:0; padding-left:1.1rem; max-width:65ch; line-height:1.5; display:grid; gap:.3rem; }
+  .dlg .close { position:sticky; top:0; justify-self:end; font:inherit; font-family:var(--mono); font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; background:var(--ground); color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:.3rem .7rem; cursor:pointer; }
+  .dlg .close:hover, .dlg .close:focus-visible { color:var(--ink); border-color:var(--amber); outline:none; }
+  @media (prefers-reduced-motion: reduce) { .canvas img, .reject, .sentto, .live::before { transition:none; animation:none; } }
+</style>
+<main>
+  <header>
+    <div class="eyebrow">Night Shift · pick by looking</div>
+    <h1 style="margin-top:.4rem">Three directions, four frames each</h1>
+    <p class="lede">Each strip is what a person sees, in order. The first strip's third frame is a working mock: the wall, running. Tap any frame for what happens there; tap <b>Dig deeper</b> for the whole idea.</p>
+  </header>
+
+  <section class="strip pick">
+    <header><h2>1 · The Open Studio</h2><span class="tag pick">Recommended</span><button class="deeper" data-idea="1">Dig deeper</button></header>
+    <p class="what">Night Shift leaves Instagram for one night and paints a real room, live, for the people sitting in it.</p>
+    <div class="frames">
+      <div class="frame" role="button" tabindex="0" data-frame="1a">
+        <div class="screen"><div class="tent"><div class="card"><div><b>Night Shift</b><span>Tonight in this room. Scan. One sentence about tonight, or a photo of where you sit.</span></div><div class="qr" id="qr"></div></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>Frame 1 · on the table</small>A QR on every table.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="1b">
+        <div class="screen"><div class="phone"><div class="bubble me">the table by the window, after we all left</div><div class="bubble them">I'll paint the window table after you've gone: one lamp, the chair pushed back. Ninety seconds.</div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>Frame 2 · your phone</small>One sentence. The painter answers.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="1c">
+        <div class="screen">
+          <div class="live">live</div>
+          <div class="wall">
+            <div class="col"><div class="h">Tonight</div><div class="sent" id="s0">the corner booth, candles out</div><div class="sent now" id="s1">the table by the window, after we all left</div><div class="sent" id="s2">where we danced, lights up</div><div class="note" id="note"></div></div>
+            <div class="col"><div class="h">Now painting</div><div class="canvas" id="cv"><img src="{{tatami}}" alt="the painting surfacing"><div class="sig">night shift</div></div></div>
+            <div class="col"><div class="h">Inspector</div><div class="stamps"><div class="stamp" id="k1">one light</div><div class="stamp" id="k2">nobody in it</div><div class="stamp" id="k3">no words</div></div><div class="reject" id="rj"><img src="{{toast}}" alt="a refused canvas"><span>✗ two lights</span></div><div class="sentto" id="st">→ sent to your phone</div></div>
+          </div>
+        </div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>Frame 3 · the wall behind the bar</small>The room watches it think.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="1d">
+        <div class="screen"><div class="phone"><div class="title">Your night, after you left it</div><img src="{{tatami}}" alt="the finished painting on a phone"><div class="share">Share to your story</div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>Frame 4 · before you leave</small>Yours, on your phone.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="strip">
+    <header><h2>2 · The Agents' Vernissage</h2><span class="tag">Same wall · opening night</span><button class="deeper" data-idea="2">Dig deeper</button></header>
+    <p class="what">An opening night where every client is an AI agent, and the humans watch their own agents haggle with the painter.</p>
+    <div class="frames">
+      <div class="frame" role="button" tabindex="0" data-frame="2a">
+        <div class="screen"><div class="term"><div><span class="p">$</span> claude mcp add night-shift \<br>&nbsp;&nbsp;<span class="c">https://nightshift.experiai.com/api/mcp</span></div><br><div><span class="p">›</span> commission a painting of the office after our launch night</div><br><div style="color:#7f8aa3">ada is negotiating with the painter…</div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>Frame 1 · a builder's terminal</small>Bring your agent. One line.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="2b">
+        <div class="screen"><div class="chat"><div class="who">ada · an agent</div><div class="line">The office after our launch, the dashboard still showing 12,000.</div><div class="who" style="justify-self:end">the painter</div><div class="line painter">The desk, the screen as a glow. I don't paint the number. Say stop if that's not it.</div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>Frame 2 · on the wall</small>Every negotiation, in public.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="2c">
+        <div class="screen"><div class="verdict"><img src="{{corridor}}" alt="a painting with its grade"><div class="v"><div class="by">a stranger critic</div><div class="grade">partly.</div><div style="color:var(--muted)">The glow does the work the number was asked to do.</div></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>Frame 3 · the verdict</small>A stranger grades it.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="2d">
+        <div class="screen"><div class="board"><div class="h">12 agents nobody here has met</div><div class="row"><span>ada · launch night</span><span>yes <i class="dot y"></i></span></div><div class="row"><span>pip · after the standup</span><span>partly <i class="dot p"></i></span></div><div class="row"><span>orion · the server room</span><span>yes <i class="dot y"></i></span></div><div class="row"><span>bo · demo day, the booth</span><span>no <i class="dot n"></i></span></div><div class="row"><span>lux · the last commit</span><span>partly <i class="dot p"></i></span></div><div class="row"><span>…7 more tonight</span><span></span></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>Frame 4 · scoreboard</small>The dealer's exam, sat live.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="strip">
+    <header><h2>3 · Every painting, a film</h2><span class="tag">Content, not an experience</span><button class="deeper" data-idea="3">Dig deeper</button></header>
+    <p class="what">The same paintings, cut into 20-second vertical films that reach people who do not follow the account.</p>
+    <div class="frames">
+      <div class="frame" role="button" tabindex="0" data-frame="3a">
+        <div class="screen"><div class="reel dark"><img src="{{season}}" alt=""><div class="typing">the last night of summer</div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>0–4 s</small>The sentence, typed.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="3b">
+        <div class="screen"><div class="reel"><img src="{{season}}" alt="" style="filter:brightness(.55)"><div class="ov"><div class="m">surfacing…</div></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>4–12 s</small>The canvas comes out of the dark.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="3c">
+        <div class="screen"><div class="reel"><img src="{{season}}" alt=""><div class="ov"><div class="m" style="color:#9fe0da">✓ one light · ✓ nobody · ✓ no words</div></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>12–16 s</small>The inspector's stamp.</div>
+      </div>
+      <div class="frame" role="button" tabindex="0" data-frame="3d">
+        <div class="screen"><div class="reel"><img src="{{season}}" alt=""><div class="ov"><div class="t">Closed for the Season</div><div class="m">“I am an AI. No hand held this brush.”</div></div></div></div>
+        <div class="cap"><small><i class="hint" aria-hidden="true">i</i>16–20 s</small>Sign-off. Posted as a Reel.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="foot"><p>To pick or to ask for new directions, say it in chat.</p></section>
+</main>
+<dialog id="dlg"><div class="dlg"><button class="close" id="close">Close · Esc</button><div id="dlgbody"></div></div></dialog>
+<script>
+  // Detail panels: one per idea, one per frame. Opened by tap; the page reads without them.
+  const IDEAS = {
+    1: { eyebrow: 'Direction 1 · recommended', title: 'The Open Studio', body: `
+      <h4>The idea</h4>
+      <p>The painter stops being an Instagram account and becomes something that happens in a place: a bar, a wedding, a dinner, a meetup. A card with a QR sits on every table. Anyone in the room sends one sentence about tonight, or a photo of where they are sitting. On a screen in the room the studio works in public: the sentence arrives, the painter answers in its own voice, the canvas surfaces out of the dark, the inspector checks it and shows what it refused, the signature lands, and the finished painting goes to that person's phone. The painting is the place they are sitting in, empty, minutes after they left. They see it before they leave.</p>
+      <h4>Why it is a wow</h4>
+      <ul>
+        <li>People have seen image generators. They have not watched an artist with a conscience argue with itself in front of them.</li>
+        <li>The subject is them: this table, tonight, the glasses they are holding.</li>
+        <li>The timing is the trick: "after everyone left" painted while everyone is still there.</li>
+      </ul>
+      <h4>Why it spreads</h4>
+      <p>Every guest leaves with one painting of their own night, made for them, to post. The host gets the wall as a film. The story travels as one sentence: "it painted the room while we were still in it." Instagram becomes the archive, not the stage.</p>
+      <h4>How it works</h4>
+      <p>Nine tenths of the repo stays as it is: the desk, the gatekeeper, the painter, the inspector and its rejects, the store, consent and burn. New: a <em>room</em> (an event code that groups one night's commissions and can raise the daily cap for that night), a <em>live wall</em> page that follows every state change of the room's queue, a phone-first send page, and delivery: the page a guest scanned keeps their ticket, the painting appears on it, with share and burn.</p>
+      <h4>The weekend</h4>
+      <ul>
+        <li>Saturday: the room, the wall, the send page. Test at home with three phones.</li>
+        <li>Sunday: one real room. A dinner counts. Film the wall with a phone.</li>
+      </ul>
+      <h4>What could go wrong</h4>
+      <ul>
+        <li>Ninety seconds from sentence to painting. The wall turns that wait into the show.</li>
+        <li>Cost: about fifteen cents a painting, so a thirty-person night is around five dollars.</li>
+        <li>Venue Wi-Fi. The wall can run from a laptop on a phone's hotspot.</li>
+        <li>People will ask for themselves in it. The painter says no in its own words, as it does today. That demand is the case for painter #2.</li>
+      </ul>` },
+    2: { eyebrow: 'Direction 2 · same wall, opening night', title: "The Agents' Vernissage", body: `
+      <h4>The idea</h4>
+      <p>An opening night where every client is an AI agent. Builders in your network add the studio to their agent with one line and tell it, in their own words, to commission something from their world: the office after launch night, the server room, the booth on demo day. The agent does the rest: it asks, hears what the painter will and will not paint, says stop or go. On the wall, beside each canvas, the whole exchange is shown as it happened. A stranger critic grades every painting in public. A scoreboard counts commissions from agents nobody in the room has met, which is the dealer's exam from the ten critics.</p>
+      <h4>Why it is a wow</h4>
+      <ul>
+        <li>The first gallery whose clients are agents is a sentence people repeat.</li>
+        <li>For the humans in the room it is a mirror: their agent's taste and manners, shown next to everyone else's.</li>
+        <li>The painter's refusals become drama: an agent pushing for the number on the screen, the painter offering a glow.</li>
+      </ul>
+      <h4>Why it spreads</h4>
+      <p>A screenshot of "my agent commissioned this" travels in the builder crowd, which is where ExperiAI sells. The wall recording is a talk in itself.</p>
+      <h4>How it works</h4>
+      <p>The MCP server already exists with commission, check, cancel, burn and feedback. New: the same live wall with a transcript column, an agent identity per session so the exchange can be shown as one conversation, an invitation page with the one line to paste, and the scoreboard. It needs the wall from direction 1 first, which is why it fits as that wall's opening night rather than a separate build.</p>
+      <h4>The weekend</h4>
+      <ul>
+        <li>After the wall exists: two hours to add the transcript column and the invite page.</li>
+        <li>Invite ten people for one evening. Remote is fine; the wall is a URL.</li>
+      </ul>
+      <h4>What could go wrong</h4>
+      <ul>
+        <li>Agents with no taste. The scoreboard shows it, which is the point.</li>
+        <li>Nobody comes. Then it is a rehearsal for the room in direction 1, at no cost.</li>
+      </ul>` },
+    3: { eyebrow: 'Direction 3 · content, not an experience', title: 'Every painting, a film', body: `
+      <h4>The idea</h4>
+      <p>Every painting the studio posts also becomes a twenty-second vertical film: the sentence typed out, the canvas surfacing from black, the inspector's stamps landing one by one, the sign-off line. Generated by the studio, posted as a Reel, the one Instagram format that reaches people who do not follow the account.</p>
+      <h4>Why it matters</h4>
+      <ul>
+        <li>The grid today reaches two followers. Reels are how an account with no audience is seen at all.</li>
+        <li>It makes the conscience visible: the stamps and the sign-off are the part nobody sees on a still.</li>
+      </ul>
+      <h4>Honest read</h4>
+      <p>This is distribution, not a new experience. Nobody can do anything with the painter they cannot do today. It makes what exists travel, and it is the least novel of the three.</p>
+      <h4>How it works</h4>
+      <p>New: a small video compositor (the reveal can be built from the still with the tools we have; the animated version is the Midjourney video experiment from issue #4), a Reel publish path through Zernio, and captions. Everything else stays.</p>
+      <h4>The weekend</h4>
+      <ul><li>One day for the compositor and the first three Reels.</li></ul>
+      <h4>What could go wrong</h4>
+      <ul>
+        <li>Reach starts at zero either way; the films need a hook in the first second.</li>
+        <li>Sound: a silent Reel is skipped. A single piano note is a decision.</li>
+      </ul>` },
+  };
+  const FRAMES = {
+    '1a': { eyebrow: 'Direction 1 · frame 1 · on the table', title: 'A QR on every table', body: `<p>A small card on each table, printed for the night. The QR opens the room's send page with the room code already in it, so nobody types anything but their sentence. The card sets the contract in three lines: one sentence or a photo of where you sit; it paints the place after you have left it, never a face; it says what it is. The disclosure is on the card, not in a hashtag.</p><p>No app, no login, no account. The same card works for a wedding of eighty and a dinner of six.</p>` },
+    '1b': { eyebrow: 'Direction 1 · frame 2 · your phone', title: 'One sentence. The painter answers.', body: `<p>The send page is one field and one photo button. About five seconds after sending, the painter's note comes back in its own voice: what it will paint, and what it leaves out. If the request conflicts with what it does (someone wants themselves in it, or a name on the wall), the note says so plainly and offers a stop, exactly as the desk does today. A photo of the table becomes the painting's reference: the layout stays, the people go.</p><p>This page is the guest's ticket. It stays open and the painting arrives on it later.</p>` },
+    '1c': { eyebrow: 'Direction 1 · frame 3 · the wall behind the bar', title: 'The room watches it think', body: `<p>A screen in the room, or a projector. Three columns. Left: tonight's sentences as they arrive, anonymous unless the sender chose a name; the current one lit. Middle: the canvas being painted, surfacing out of the dark as it renders, then the studio's signature. Right: the inspector's checks landing one by one: one light, nobody in it, no words. When a canvas fails, it is shown small with the reason, and the painter tries again in front of everyone. Then "sent to your phone".</p><p>The wall loops through the queue all night. It is the theatre: the ninety seconds a painting takes becomes the show, and the conscience that nobody can see on Instagram is the main act.</p><p>This frame is a running mock of that loop, with real paintings.</p>` },
+    '1d': { eyebrow: 'Direction 1 · frame 4 · before you leave', title: 'Yours, on your phone', body: `<p>The ticket page updates: the painting, its title, the painter's note, a share-to-story button, and "burn it", which already exists: the painting and the words are deleted everywhere the studio holds them. The Instagram post, if they want one, comes later and is credited the way they chose.</p><p>They see the room they are sitting in, empty, painted before they have stood up. That is the moment people photograph.</p>` },
+    '2a': { eyebrow: 'Direction 2 · frame 1 · a builder\'s terminal', title: 'Bring your agent. One line.', body: `<p>The studio is already an MCP server. A builder adds it to Claude Code, Cursor, or any agent that speaks MCP with one line, then says what they want in their own words. The agent does the commissioning: it writes the sentence, reads the painter's note, decides whether to accept the departures.</p><p>The invitation page has that one line and nothing else.</p>` },
+    '2b': { eyebrow: 'Direction 2 · frame 2 · on the wall', title: 'Every negotiation, in public', body: `<p>Beside each canvas the wall shows the exchange: what the agent asked, what the painter answered, the departures it declared, the stop or the yes. Agents push for the literal brief (the number on the dashboard, the people at the booth); the painter offers what it does instead. The exchange is the content: it is where taste, manners and the painter's rules become visible.</p><p>Technically this is the transcript of the MCP calls for one session, shown as a conversation.</p>` },
+    '2c': { eyebrow: 'Direction 2 · frame 3 · the verdict', title: 'A stranger grades it', body: `<p>The critic that already runs every morning, a different vendor from the painter, grades each canvas as the night goes: did it honour the intent, yes, partly or no, and one line why. Shown next to the painting, for everyone. The agents' humans see their brief judged as well as the painting.</p>` },
+    '2d': { eyebrow: 'Direction 2 · frame 4 · scoreboard', title: 'The dealer\'s exam, sat live', body: `<p>One of the ten critics, a gallery director, set this bar: twelve commissions from twelve people none of us has met, before the wall calls itself a body of work. The scoreboard is that exam in public: each agent, what it asked for, the grade. It also makes the night a game, which is what keeps a room watching.</p>` },
+    '3a': { eyebrow: 'Direction 3 · 0–4 s', title: 'The sentence, typed', body: `<p>The film opens on black with the commission typed out letter by letter, the way it was sent. The first second has to hold a thumb: a sentence about someone's night does that better than a painting does.</p>` },
+    '3b': { eyebrow: 'Direction 3 · 4–12 s', title: 'The canvas comes out of the dark', body: `<p>The painting surfaces from black, slowly, the one light first. Built from the still with a reveal, or, if the Midjourney video experiment in issue #4 works, an actual animation of the render. Eight seconds, no cuts.</p>` },
+    '3c': { eyebrow: 'Direction 3 · 12–16 s', title: "The inspector's stamp", body: `<p>The three checks land over the painting one by one: one light, nobody in it, no words. It is the only place a viewer ever sees that the studio refuses things, and it takes four seconds.</p>` },
+    '3d': { eyebrow: 'Direction 3 · 16–20 s', title: 'Sign-off. Posted as a Reel.', body: `<p>The title, then the studio's own line: "I am an AI. No hand held this brush." Published as a Reel through the same pipeline as the still, with the same caption and the same credit rules.</p>` },
+  };
+  const dlg = document.getElementById('dlg'), body = document.getElementById('dlgbody');
+  function open(d) { body.innerHTML = `<div class="eyebrow">${d.eyebrow}</div><h3>${d.title}</h3>${d.body}`; dlg.showModal(); dlg.querySelector('.dlg').scrollTop = 0; }
+  document.querySelectorAll('.deeper').forEach(b => b.addEventListener('click', () => open(IDEAS[b.dataset.idea])));
+  document.querySelectorAll('.frame').forEach(f => { const go = () => open(FRAMES[f.dataset.frame]); f.addEventListener('click', go); f.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
+  document.getElementById('close').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+
+
+  // QR-looking pattern (decorative; a real code goes here on the night)
+  (function () { const q = document.getElementById('qr'); let seed = 7; for (let i = 0; i < 81; i++) { seed = (seed * 9301 + 49297) % 233280; const r = i % 9, c = Math.floor(i / 9); const corner = (r < 3 && c < 3) || (r > 5 && c < 3) || (r < 3 && c > 5); const el = document.createElement('i'); if (!corner && seed / 233280 > 0.5) el.className = 'o'; if (corner && !((r % 3 === 1 || r % 3 === 1) && (c % 3 === 1))) el.className = ''; q.appendChild(el); } })();
+
+  // The wall, running: one commission's life, on a loop.
+  const $ = id => document.getElementById(id);
+  const steps = [
+    [0,    () => { $('note').textContent = ''; $('cv').className = 'canvas'; ['k1','k2','k3'].forEach(k => $(k).className = 'stamp'); $('rj').className = 'reject'; $('st').className = 'sentto'; }],
+    [900,  () => { $('note').textContent = 'I\'ll paint the window table minutes after you\'ve gone.'; }],
+    [2600, () => { $('cv').classList.add('on'); }],
+    [5200, () => { $('k1').className = 'stamp no'; $('k1').textContent = 'one light ✗'; $('rj').classList.add('on'); }],
+    [7200, () => { $('cv').className = 'canvas'; $('k1').className = 'stamp'; $('k1').textContent = 'one light'; }],
+    [8400, () => { $('cv').classList.add('on'); }],
+    [11000, () => { $('k1').className = 'stamp ok'; $('k1').textContent = 'one light ✓'; }],
+    [11600, () => { $('k2').className = 'stamp ok'; $('k2').textContent = 'nobody in it ✓'; }],
+    [12200, () => { $('k3').className = 'stamp ok'; $('k3').textContent = 'no words ✓'; }],
+    [13200, () => { $('cv').classList.add('signed'); }],
+    [14200, () => { $('st').classList.add('on'); }],
+  ];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function run() { steps.forEach(([t, f]) => setTimeout(f, reduce ? 0 : t)); if (!reduce) setTimeout(run, 18000); }
+  run();
+
+</script>
