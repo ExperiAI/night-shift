@@ -37,10 +37,10 @@ test('the film never opens on a wall of text: the gatekeeper\'s verbatim line, e
 test('the film ends on a line that asks, states the machine plainly, and never narrates the sender (Diego, 2026-09-06)', () => {
   const f = font('IBMPlexMono-Regular');
   for (const l of END_LINES) {
-    assert.ok(l.length <= 64, `fits two mono lines: ${l}`);
+    assert.ok(l.length <= 100, `fits two mono lines: ${l}`);
     assert.ok(wrap(l, f, SCORE.signoff.size, FRAME.w - 2 * SCORE.title.marginX).length <= 2);
-    assert.match(l, /machine|hand|never|no memories|nobody|not even me|don't know/i, `the limit is plain: ${l}`);
-    assert.doesNotMatch(l, /better|more than|you felt|you cried|you remember/i);
+    assert.match(l, /machine|hand|don't know/i, `opens on the machine-made fact: ${l}`);
+    assert.doesNotMatch(l, /better|more than|you felt|you cried|you remember|everyone left|name it|call it/i);
   }
   assert.equal(endLineFor('abc'), endLineFor('abc')); assert.ok(END_LINES.includes(endLineFor('mtpj3bel-mtnldu')));
   assert.ok(new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map(endLineFor)).size >= 4, 'ids spread over the lines');

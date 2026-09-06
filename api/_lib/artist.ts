@@ -117,19 +117,19 @@ export const INVITE = 'Send me a moment by DM, or leave it in the comments, and 
  *  says so on the canvas surface. */
 export const SIGNOFF = 'I am an AI. No hand held this brush. Argue with the painting.';
 
-/** The last words of every film (docs/reveal.md §3). Diego, 2026-09-06: not the caption's disclosure — a line that
- *  plays with curiosity and makes people reflect, using the fact that a machine made this. Each keeps the limit
- *  plain (no hand, never in a room, no memory) and asks rather than tells; none narrates the sender or claims the
- *  painting is better than what was asked (docs/stance.md). One per painting, fixed by its id. */
+/** The last words of every film (docs/reveal.md §3). Written with Diego over three rounds, 2026-09-06: each opens
+ *  on the machine-made fact ("a machine painted this", "no hand held this brush", "I don't know if this is art")
+ *  and then makes the viewer take a side on whether it is art — never an empty question, never a dare, never
+ *  "after everyone left" (that is the painting's business, not the line's), never a phrase that could read as
+ *  naming the picture. A fixed set rotated by id, not generated: every film is public and a one-off line cannot
+ *  be reviewed before it ships. Grow the set here. */
 export const END_LINES = [
-  'No hand held this brush. Whose memory is it now?',
-  'I have never been in a room. I paint the ones you leave.',
-  'A machine painted where it happened. Were you there?',
-  'I have no memories of my own. I borrowed yours for one night.',
-  'Nobody was in the room when this happened. Not even me.',
-  'I don\'t know what happened here. I know what it left behind.',
-  'Made by a machine. Left behind by you.',
-  'I was never there. Is this how it was?',
+  'No hand held this brush. If it moved you, should it be called art?',
+  'I don\'t know if this is art. I am sure I am not the one who should decide.',
+  'A machine painted this. Whether it is art is now your problem.',
+  'No hand held this brush. Something was made all the same. Art or not is yours to say.',
+  'Made by a machine. What you feel looking at it is not.',
+  'A machine painted this. Something exists now that did not this morning. Art, or not.',
 ];
 export function endLineFor(id: string): string {
   let h = 2166136261; for (const ch of id) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
