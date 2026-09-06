@@ -32,7 +32,7 @@
   #frame{flex:none;height:100%;aspect-ratio:9/16;position:relative;overflow:hidden;background:#000}
   #stage{position:absolute;left:0;top:0;width:1080px;height:1920px;transform-origin:0 0;background:#000}
   #fill{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(40px) brightness(.35);transform:scale(1.08)}
-  #canvas{position:absolute;left:0;top:285px;width:1080px;height:1350px;overflow:hidden;transform-origin:50% 50%}
+  #canvas{position:absolute;left:124px;top:250px;width:832px;height:1040px;overflow:hidden;transform-origin:50% 50%} /* the score's canvas; set again from SC.canvas when the feed arrives */
   #canvas img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   #canvas #sig{position:absolute;display:none;inset:auto;width:auto;height:auto;object-fit:fill} /* placed by the score, not the canvas rule above */
   #black{position:absolute;inset:0;background:#000}
@@ -41,8 +41,9 @@
   #sentence .g{opacity:0}
   #sentence>div{position:relative;max-width:100%}
   #cursor{position:absolute;width:.08em;height:1em;background:var(--amber);border-radius:1px;transform:translateY(.25em)}
-  #title{position:absolute;left:72px;right:72px;bottom:0;font-family:var(--serif);font-size:64px;line-height:1.1;color:#ffd58a;opacity:0}
-  #endline{position:absolute;left:72px;right:72px;bottom:72px;font-family:var(--mono);font-size:30px;line-height:1.4;color:#a2abbb;opacity:0}
+  #caption{position:absolute;left:124px;top:1338px;width:796px;display:flex;flex-direction:column;gap:22px} /* under the painting, inside Instagram's safe band (score.ts CAPTION) */
+  #title{font-family:var(--serif);font-size:64px;line-height:1.1;color:#ffd58a;opacity:0}
+  #endline{font-family:var(--mono);font-size:30px;line-height:1.4;color:#a2abbb;opacity:0}
   #idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;color:var(--dim);font-family:var(--mono);font-size:30px;text-align:center;padding:120px}
   #idle img{width:70%;opacity:.7}
 
@@ -66,8 +67,7 @@
       <div id="fill"></div>
       <div id="canvas"><img id="painting" alt=""><img id="sig" alt=""></div>
       <div id="black"></div>
-      <div id="title"></div>
-      <div id="endline"></div>
+      <div id="caption"><div id="title"></div><div id="endline"></div></div>
       <div id="sentence"></div>
       <div id="idle"><img src="/persona/portrait.png" alt=""><span id="idletext">Nothing painted yet tonight.</span></div>
     </div>
@@ -236,13 +236,14 @@ async function startReveal(c) {
   await new Promise(ok => { if (img.complete && img.naturalWidth) ok(); else { img.onload = ok; img.onerror = ok; } });
   const sig = $('sig'); sigGeom = null;
   if (c.raw && c.signature && img.naturalWidth) {
-    const k = 1080 / img.naturalWidth;
+    const k = (S.canvas ? S.canvas.w : 832) / img.naturalWidth;
     sigGeom = { x: c.signature.x * k, y: c.signature.y * k, w: c.signature.w * k, h: c.signature.h * k };
     sig.src = c.signature.image; Object.assign(sig.style, { left: sigGeom.x + 'px', top: sigGeom.y + 'px', width: sigGeom.w + 'px', height: sigGeom.h + 'px', display: 'block' });
   } else sig.style.display = 'none';
   $('title').textContent = c.title || 'Night Shift';
   $('endline').textContent = c.endLine || '';
-  $('title').style.bottom = (72 + $('endline').offsetHeight + S.signoff.gap) + 'px';
+  if (S.canvas) Object.assign($('canvas').style, { left: S.canvas.left + 'px', top: S.canvas.top + 'px', width: S.canvas.w + 'px', height: S.canvas.h + 'px' }); // the film's geometry, not a copy
+  if (S.caption) Object.assign($('caption').style, { left: S.caption.x + 'px', top: S.caption.top + 'px', width: S.caption.maxW + 'px', gap: S.signoff.gap + 'px' });
   // the sound: the film's own track when the painting has one (the same samples the Reel carries — keys on the
   // letters, the bed, the pen on the ink; api/_lib/sound.ts), and the reveal is clocked FROM it so picture and sound
   // cannot drift. A painting not yet filmed gets the bed and the note from WebAudio (below).

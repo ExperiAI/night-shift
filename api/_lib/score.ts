@@ -3,8 +3,14 @@
 // so a change here moves both stages together. Seconds, on a 1080×1920 canvas at 30 fps. docs/reveal.md §3.
 
 export const FRAME = { w: 1080, h: 1920, fps: 30 } as const;
-/** The painting is 4:5 at full width, centred: 1080×1350, top edge at 285. */
-export const CANVAS = { w: 1080, h: 1350, top: (1920 - 1350) / 2 } as const;
+/** Instagram lays its own chrome over a Reel: the top ~250 px, the bottom ~340 px (caption, audio), the right ~140 px
+ *  (the buttons), and the feed crops the frame tighter still. Everything a person must see sits inside this band
+ *  (Diego, 2026-09-06, from his phone: the last words were hidden under the feed's bar). */
+export const SAFE = { top: 250, bottom: 400, right: 160 } as const;
+/** The painting is 4:5 inside the safe band, a matte on the blurred fill: 832×1040, top edge at 250, centred. */
+export const CANVAS = { w: 832, h: 1040, left: (1080 - 832) / 2, top: SAFE.top } as const;
+/** The title and the last words hang under the painting, aligned to its left edge, clear of the buttons on the right. */
+export const CAPTION = { x: CANVAS.left, top: CANVAS.top + CANVAS.h + 48, maxW: 1080 - CANVAS.left - SAFE.right } as const;
 
 /** The beats after the painting has surfaced, in one place so they move together (Diego, 2026-09-06: the gap between
  *  the painting's arrival and the signing was too long — nothing moved). The painting is fully up at 10.0; the pen
@@ -27,13 +33,15 @@ export type KeyPreset = keyof typeof KEY_PRESETS;
 
 export const SCORE = {
   total: TOTAL,
+  /** Frame geometry the wall lays out from, so both stages move together (score.ts CANVAS/CAPTION/SAFE). */
+  canvas: CANVAS, caption: CAPTION, safe: SAFE,
   /** The commission types out of the dark, then fades. Any sentence finishes typing at `typedBy`. */
-  sentence: { start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, minCharInterval: 0.056, glyphFade: 0.16, driftScale: 1.03, rise: 3, ember: 0.55, emberColor: '#ffd58a' },
+  sentence: { marginX: 72, start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, minCharInterval: 0.056, glyphFade: 0.16, driftScale: 1.03, rise: 3, ember: 0.55, emberColor: '#ffd58a' },
   /** The canvas surfaces from black (a fade from black: the one light appears first) with a slow push in. */
   painting: { fadeStart: 4.0, fadeEnd: 10.0, pushStart: 4.0, pushEnd: TITLE_AT, scaleFrom: 1.06, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35 },
   /** The painter signs, in real time: the mark is revealed left to right with a soft wet edge. */
   signature: { start: SIGN_AT, end: SIGN_END, edgePx: 24 },
-  title: { start: TITLE_AT, fadeIn: 0.6, font: 'InstrumentSerif-Regular', size: 64, color: '#ffd58a', marginX: 72, marginBottom: 72 },
+  title: { start: TITLE_AT, fadeIn: 0.6, font: 'InstrumentSerif-Regular', size: 64, color: '#ffd58a', marginX: CAPTION.x, maxW: CAPTION.maxW, top: CAPTION.top },
   /** The film's last words (artist.ts END_LINES), under the title. */
   signoff: { start: SIGNOFF_AT, fadeIn: 0.6, font: 'IBMPlexMono-Regular', size: 30, color: '#a2abbb', gap: 22 },
   hold: { start: HOLD_AT },

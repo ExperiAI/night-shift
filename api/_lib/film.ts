@@ -50,7 +50,7 @@ export async function sentenceFrames(commission: string | null | undefined, line
   const S = SCORE.sentence;
   const f = font(S.font);
   const text = sentenceFor(commission, line);
-  const maxW = FRAME.w - 2 * SCORE.title.marginX;
+  const maxW = FRAME.w - 2 * SCORE.sentence.marginX;
   const { size, lines } = fit(text, f, S.size, maxW, S.maxLines, S.minSize);
   const lh = Math.round(size * 1.5);
   const height = lines.length * lh + 2 * size, top = Math.round(FRAME.h / 2 - height / 2);
@@ -84,11 +84,11 @@ export async function sentenceFrames(commission: string | null | undefined, line
 /** Title and the film's last words, bottom-left under the canvas, each as its own frame so they fade in on their own cues. */
 export async function captionFrames(title: string, endLine: string): Promise<{ title: Buffer; signoff: Buffer }> {
   const T = SCORE.title, O = SCORE.signoff;
-  const maxW = FRAME.w - 2 * T.marginX;
+  const maxW = T.maxW;
   const so: Block = { lines: wrap(endLine, font(O.font), O.size, maxW), size: O.size, font: O.font, color: O.color, align: 'left', x: T.marginX, y: 0, lineHeight: Math.round(O.size * 1.4) };
   const ti: Block = { lines: fit(title, font(T.font), T.size, maxW, 2).lines, size: T.size, font: T.font, color: T.color, align: 'left', x: T.marginX, y: 0, lineHeight: Math.round(T.size * 1.1) };
-  so.y = FRAME.h - T.marginBottom - blockHeight(so) + O.size; // baseline of the first line
-  ti.y = so.y - O.size - O.gap - blockHeight(ti) + T.size;
+  ti.y = T.top + T.size; // baseline of the first line: the block hangs under the painting, inside the safe band (score.ts SAFE)
+  so.y = ti.y + blockHeight(ti) - T.size + O.gap + O.size;
   return { title: await textFrame([ti]), signoff: await textFrame([so]) };
 }
 
@@ -180,7 +180,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
       f.push(`[cv1][sgf]overlay=x=${sx}:y=${sy}:format=auto:enable='gte(t,${G.end})'[cv2]`);
     } else f.push(`[cv0]null[cv2]`);
     f.push(`[cv2]scale=w='trunc(iw*${zoom}/2)*2':h=-2:eval=frame:flags=lanczos,crop=${CANVAS.w}:${CANVAS.h}:x='(iw-ow)/2':y='(ih-oh)/2'[push]`);
-    f.push(`[0:v][push]overlay=x=0:y=${CANVAS.top}:format=auto,fade=t=in:st=${P.fadeStart}:d=${(P.fadeEnd - P.fadeStart).toFixed(2)}[bg]`);
+    f.push(`[0:v][push]overlay=x=${CANVAS.left}:y=${CANVAS.top}:format=auto,fade=t=in:st=${P.fadeStart}:d=${(P.fadeEnd - P.fadeStart).toFixed(2)}[bg]`);
     const drift = `(1+${(S.driftScale - 1).toFixed(3)}*clip((t-${S.fadeStart})/${(S.fadeEnd - S.fadeStart).toFixed(2)},0,1))`; // the sentence lifts slightly as it dissolves
     f.push(`[2:v]format=rgba,tpad=stop_mode=clone:stop_duration=2,scale=w='trunc(iw*${drift}/2)*2':h=-2:eval=frame,crop=${FRAME.w}:${sentence.height}:x='(iw-ow)/2':y='(ih-oh)/2',fade=t=out:st=${S.fadeStart}:d=${(S.fadeEnd - S.fadeStart).toFixed(2)}:alpha=1[st]`);
     f.push(`[3:v]format=rgba,fade=t=in:st=${T.start}:d=${T.fadeIn}:alpha=1[ti]`);

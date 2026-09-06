@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import sharp from 'sharp';
-import { SCORE, FRAME, CANVAS, ease, sentenceFor, excerpt, isExcerpt } from '../api/_lib/score.ts';
+import { SCORE, FRAME, CANVAS, CAPTION, SAFE, ease, sentenceFor, excerpt, isExcerpt } from '../api/_lib/score.ts';
 import { font, wrap, fit } from '../api/_lib/text.ts';
 import { sentenceFrames, captionFrames, signatureFrames, makeFilm } from '../api/_lib/film.ts';
 import { signatureLayer } from '../api/_lib/compose.ts';
@@ -17,7 +17,13 @@ test('the score is consistent: beats in order, canvas centred, easing bounded', 
   assert.ok(S.sentence.typedBy < S.sentence.fadeStart && S.sentence.fadeStart < S.sentence.fadeEnd);
   assert.ok(S.painting.fadeStart <= S.sentence.fadeEnd && S.painting.fadeEnd < S.signature.start);
   assert.ok(S.signature.end <= S.title.start && S.title.start < S.signoff.start && S.signoff.start < S.hold.start && S.hold.start < S.total);
-  assert.equal(CANVAS.top * 2 + CANVAS.h, FRAME.h);
+  assert.equal(CANVAS.left * 2 + CANVAS.w, FRAME.w, 'centred');
+  assert.equal(CANVAS.w / CANVAS.h, 4 / 5);
+  // Instagram's chrome (score.ts SAFE): the painting and every word inside the band; the caption clear of the right-hand buttons
+  assert.ok(CANVAS.top >= SAFE.top && CAPTION.top > CANVAS.top + CANVAS.h);
+  assert.ok(CAPTION.top + Math.round(S.title.size * 1.1) + S.signoff.gap + 2 * Math.round(S.signoff.size * 1.4) <= FRAME.h - SAFE.bottom, 'a title and two lines of last words end above the bottom chrome (Diego, 2026-09-06: the last words were hidden)');
+  assert.ok(CAPTION.x + CAPTION.maxW <= FRAME.w - SAFE.right);
+  assert.deepEqual(S.canvas, CANVAS); assert.deepEqual(S.caption, CAPTION);
   assert.equal(ease(0), 0); assert.ok(Math.abs(ease(1) - 1) < 1e-9); assert.ok(Math.abs(ease(0.5) - 0.5) < 1e-9);
   assert.equal(sentenceFor(null), 'a commission'); assert.equal(sentenceFor('  '), 'a commission'); assert.equal(sentenceFor('the bar'), 'the bar');
 });
@@ -38,7 +44,7 @@ test('the film ends on a line that asks, states the machine plainly, and never n
   const f = font('IBMPlexMono-Regular');
   for (const l of END_LINES) {
     assert.ok(l.length <= 100, `fits two mono lines: ${l}`);
-    assert.ok(wrap(l, f, SCORE.signoff.size, FRAME.w - 2 * SCORE.title.marginX).length <= 2);
+    assert.ok(wrap(l, f, SCORE.signoff.size, CAPTION.maxW).length <= 2);
     assert.match(l, /machine|hand|don't know/i, `opens on the machine-made fact: ${l}`);
     assert.doesNotMatch(l, /better|more than|you felt|you cried|you remember|everyone left|name it|call it/i);
   }
