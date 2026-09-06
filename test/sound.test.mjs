@@ -91,7 +91,7 @@ test('the typing has a hand\'s rhythm — reaches, pairs, breaths, a hesitation 
   const J = JSON.stringify; // values cross a vm boundary: compare by content, not prototype
   assert.equal(J(ctx.RHYTHM), J(RHYTHM));
   for (const [t, id] of [[text, 'mtpsj0zp-cbh1jd'], ['the bar, after close', 'abc'], ['a commission', 'zz']]) { assert.equal(J(ctx.typingWeights(t, id)), J(typingWeights(t, id)), `wall == film for ${id}`); assert.equal(J(ctx.typingPace(t, id)), J(typingPace(t, id))); }
-  assert.equal(J(ctx.scoreFor(1.2)), J(scoreFor(1.2)));
+  assert.equal(J(ctx.scoreFor(1.2)), J(scoreFor(1.2))); assert.equal(J(ctx.scoreFor(1.2, 'lit')), J(scoreFor(1.2, 'lit'))); assert.equal(J(ctx.scoreFor(0, 'lit')), J(scoreFor(0, 'lit')));
 });
 
 test('no line types faster than a hand; a long line takes its time and the film\'s tail waits for it (Diego, 2026-09-06)', () => {

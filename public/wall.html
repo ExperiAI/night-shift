@@ -40,6 +40,7 @@
   #sentence .w{white-space:nowrap}
   #sentence .g{opacity:0}
   #sentence>div{position:relative;max-width:100%}
+  #sentence.lit>div{padding:var(--band) 60px;margin:calc(-1 * var(--band)) -60px;background:linear-gradient(180deg,transparent,rgba(0,0,0,var(--scrim)) 30%,rgba(0,0,0,var(--scrim)) 70%,transparent)} /* the lit opening: a soft dark band behind the words only, lifting with them (score.ts OPENINGS) */
   #cursor{position:absolute;width:.08em;height:1em;background:var(--amber);border-radius:1px;transform:translateY(.25em)}
   #caption{position:absolute;left:124px;top:1338px;width:796px;display:flex;flex-direction:column;gap:22px} /* under the painting, inside Instagram's safe band (score.ts CAPTION) */
   #title{font-family:var(--serif);font-size:64px;line-height:1.1;color:#ffd58a;opacity:0}
@@ -155,7 +156,7 @@ function demoFeed(list) {
 
 // ---- the stage: one clock, the score's functions of t (mirrors api/_lib/film.ts) ----
 let glyphs = [], cues = [], sigGeom = null, t0 = 0, raf = 0, SC = null; // SC: this reveal's score (scoreFor), set by layoutSentence
-function layoutSentence(text, seed) {
+function layoutSentence(text, seed, opening = 'dark') {
   const el = $('sentence'); el.innerHTML = ''; glyphs = [];
   const S = SCORE.sentence;
   const wrap = document.createElement('div');
@@ -173,7 +174,7 @@ function layoutSentence(text, seed) {
   const weights = typingWeights(text, seed); const cum = []; let acc = 0, gi = 0;
   for (let i = 0; i < text.length; i++) { if (text[i] === ' ') { acc += weights[i]; continue; } cum[gi++] = acc; acc += weights[i]; }
   const { unit, shift } = typingPace(text, seed);
-  SC = scoreFor(shift); // this reveal's score: a long line takes its time and everything after it waits (film.ts does the same)
+  SC = scoreFor(shift, opening); // this reveal's score: a long line takes its time and everything after it waits (film.ts does the same)
   cues = cum.map(c => S.start + c * unit);
   return cur;
 }
@@ -209,12 +210,14 @@ function typingPace(chars, seed) {
   const need = S.start + (sum + 1) * unit + S.glyphFade;
   return { unit, shift: Math.max(0, Math.round((need - S.typedBy) * 100) / 100) };
 }
-function scoreFor(shift) {
+function scoreFor(shift, opening = 'dark') {
   const sc = JSON.parse(JSON.stringify(SCORE));
+  const op = SCORE.openings[opening]; sc.opening = opening;
+  sc.painting.fadeStart = op.fadeStart; sc.painting.fadeEnd = op.fadeEnd; sc.painting.fromFill = op.fromFill; sc.painting.scrim = op.scrim; sc.painting.floor = op.floor; sc.painting.band = op.band;
   if (!shift) return sc;
   const mv = (o, keys) => { for (const k of keys) if (typeof o[k] === 'number') o[k] = Math.round((o[k] + shift) * 100) / 100; };
   mv(sc.sentence, ['typedBy', 'fadeStart', 'fadeEnd']);
-  mv(sc.painting, ['fadeStart', 'fadeEnd', 'pushStart', 'pushEnd']);
+  mv(sc.painting, op.fadeStart === 0 ? ['fadeEnd', 'pushStart', 'pushEnd'] : ['fadeStart', 'fadeEnd', 'pushStart', 'pushEnd']);
   mv(sc.signature, ['start', 'end']); mv(sc.title, ['start']); mv(sc.signoff, ['start']); mv(sc.hold, ['start']);
   mv(sc.audio.shimmer, ['from', 'to', 'until']); mv(sc.audio.note, ['at']);
   sc.total = Math.round((sc.total + shift) * 100) / 100;
@@ -228,7 +231,7 @@ async function startReveal(c) {
   playing = c; document.getElementById('wall').classList.add('revealing');
   $('idle').style.display = 'none';
   const words = c.commission ? (c.line || cut(c.commission, SCORE.sentence.maxChars)) : 'a commission';
-  const cursor = layoutSentence(words, c.id);
+  const cursor = layoutSentence(words, c.id, c.opening || 'dark'); // the A/B of the opening (score.ts OPENINGS): the wall plays the film's own
   const S = SC;
   $('fill').style.backgroundImage = `url("${c.image}")`;
   const base = c.raw && c.signature ? c.raw : c.image;
@@ -271,8 +274,11 @@ function render(t, cursor) {
   sen.style.opacity = 1 - fade;
   sen.style.transform = `translateY(${-Sn.rise * t}px) scale(${1 + (Sn.driftScale - 1) * fade})`;
   sen.style.display = t >= Sn.fadeEnd ? 'none' : 'flex';
-  // the painting surfaces and pushes in
-  $('black').style.opacity = 1 - clip((t - P.fadeStart) / (P.fadeEnd - P.fadeStart));
+  // the painting surfaces and pushes in: from black (dark), or over the fill under a scrim that lifts with the sentence (lit)
+  const surfaced = clip((t - P.fadeStart) / (P.fadeEnd - P.fadeStart));
+  sen.classList.toggle('lit', !!P.fromFill); sen.style.setProperty('--band', P.band + 'px'); sen.style.setProperty('--scrim', P.scrim);
+  if (P.fromFill) { $('canvas').style.opacity = P.floor + (1 - P.floor) * surfaced; $('black').style.opacity = 0; }
+  else { $('canvas').style.opacity = 1; $('black').style.opacity = 1 - surfaced; }
   $('canvas').style.transform = `scale(${P.scaleFrom - (P.scaleFrom - P.scaleTo) * clip((t - P.pushStart) / (P.pushEnd - P.pushStart))})`;
   // the painter signs
   if (sigGeom) {

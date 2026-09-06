@@ -2,9 +2,9 @@
 // itself across its window, and the whole film is 1080×1920 at SCORE.total seconds with audio.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import sharp from 'sharp';
-import { SCORE, FRAME, CANVAS, CAPTION, SAFE, ease, sentenceFor, excerpt, isExcerpt } from '../api/_lib/score.ts';
+import { SCORE, FRAME, CANVAS, CAPTION, SAFE, OPENINGS, openingFor, scoreFor, ease, sentenceFor, excerpt, isExcerpt } from '../api/_lib/score.ts';
 import { font, wrap, fit } from '../api/_lib/text.ts';
 import { sentenceFrames, captionFrames, signatureFrames, makeFilm } from '../api/_lib/film.ts';
 import { signatureLayer } from '../api/_lib/compose.ts';
@@ -95,4 +95,21 @@ test('the film is 1080×1920, SCORE.total long, H.264 + AAC, with the signing be
   const p = join(mkdtempSync(join(tmpdir(), 'film-')), 'f.mp4'); writeFileSync(p, mp4);
   const probe = execFileSync(ffmpeg.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-show_entries', 'stream=codec_name,width,height,duration', '-of', 'csv=p=0', p]).toString();
   assert.match(probe, new RegExp(`h264,1080,1920,${SCORE.total.toFixed(1).replace('.', '\\.')}`)); assert.match(probe, /aac/);
+});
+
+test('the A/B of the opening: dark from black as designed, lit from the first frame; fixed per painting, half and half, carried by film, wall, record and status', () => {
+  const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+  const dark = scoreFor(0, 'dark'), lit = scoreFor(0, 'lit');
+  assert.equal(dark.opening, 'dark'); assert.equal(dark.painting.fadeStart, SCORE.painting.fadeStart); assert.equal(dark.painting.scrim, 0);
+  assert.equal(lit.painting.fadeStart, 0, 'the room is there at frame zero (retention: 57 % gone by 0:02 on the dark opening)'); assert.ok(lit.painting.fromFill && lit.painting.scrim > 0 && lit.painting.scrim < 1); assert.equal(lit.painting.floor, 1, 'the whole canvas is there on frame zero'); assert.ok(lit.painting.band > 0, 'the veil is a band behind the words, not the frame');
+  assert.ok(lit.painting.fadeEnd <= lit.signature.start);
+  const shifted = scoreFor(1.2, 'lit'); assert.equal(shifted.painting.fadeStart, 0, 'a long line never delays the first frame'); assert.equal(shifted.painting.fadeEnd, OPENINGS.lit.fadeEnd + 1.2);
+  assert.deepEqual(SCORE.openings, OPENINGS);
+  const ids = Array.from({ length: 200 }, (_, i) => `id-${i}-x`); const lits = ids.filter(id => openingFor(id) === 'lit').length;
+  assert.ok(lits > 70 && lits < 130, `half and half: ${lits}/200`); assert.equal(openingFor('mtpsj0zp-cbh1jd'), openingFor('mtpsj0zp-cbh1jd'));
+  const f = src('api/_lib/film.ts'); assert.match(f, /scoreFor\(sentence\.shift, opening\)/); assert.match(f, /veil\.png/, 'the lit film carries the band'); assert.match(f, /stop-opacity="\$\{P\.scrim\}"/);
+  assert.match(src('api/paint.ts'), /inp\.opening = c\.opening \?\? \(c\.opening = openingFor\(c\.id\)\)/, 'the record keeps the opening it was filmed with');
+  assert.match(src('api/_lib/desk.ts'), /opening: c\.opening/, 'the public view says which, so the wall plays the same');
+  const w = src('public/wall.html'); assert.match(w, /layoutSentence\(words, c\.id, c\.opening \|\| 'dark'\)/); assert.match(w, /if \(P\.fromFill\) \{ \$\('canvas'\)\.style\.opacity = P\.floor/); assert.match(w, /#sentence\.lit>div\{[^}]*--scrim/, 'the wall\'s band behind the words');
+  assert.match(src('api/status.ts'), /openings: \{ dark:/, 'status lists every Reel by its opening, to read against Instagram\'s retention graph');
 });

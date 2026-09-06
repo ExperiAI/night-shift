@@ -27,6 +27,8 @@ export async function studioStatus() {
     audience: aud, // followers/follows/posts — Zernio's daily snapshot; baseline 2026-09-05: 1 follower
     lastPosted: last ? { id: last.id, title: last.take.title, at: last.painted, instagram: last.instagram, film: last.film ?? null, filmMs: last.filmMs ?? null, filmError: last.filmError ?? null, /* the reveal (docs/reveal.md): the Reel's film and how long the server took to make it */ captionOnInstagram: captionMatches(last) == null ? 'not read back yet' : captionMatches(last) ? 'matches what was sent' : 'DIFFERS from what was sent' } : null, // issue #22: a publish that cannot be read back is a claim
     captionMismatches: posted.filter(c => captionMatches(c) === false).map(c => c.id),
+    // the A/B of the opening (score.ts OPENINGS): every posted Reel by its opening, newest first, to read against each Reel's retention graph in Instagram's insights
+    openings: { dark: posted.filter(c => c.film && c.opening === 'dark').map(c => ({ id: c.id, title: c.take.title, instagram: c.instagram })), lit: posted.filter(c => c.film && c.opening === 'lit').map(c => ({ id: c.id, title: c.take.title, instagram: c.instagram })) },
     lastCritique: critiques[0] ? { date: critiques[0].date, paintings: critiques[0].paintings, patterns: critiques[0].patterns, exam: critiques[0].exam ?? null } : null,
     exams: { sat: EXAMS.filter(e => examSat(e, docs)).map(e => e.key), next: nextExam(docs)?.key ?? null }, // the studio sits one each morning at the critic's run; a sitting that never filed shows as lastCritique.exam with a non-2xx status
     limits: { perSenderPerDay: 3, perAddressPerDay: 5, studioPerDay: STUDIO_CAP },

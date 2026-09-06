@@ -31,6 +31,22 @@ export const KEY_PRESETS = {
 } as const;
 export type KeyPreset = keyof typeof KEY_PRESETS;
 
+/** The A/B of the opening (Diego, 2026-09-06, reading After the Offering's retention graph: 57 % gone by 0:02, while
+ *  the screen is black with a sentence typing; 86 % of its views were strangers in the Reels tab). `dark` is the
+ *  opening as designed. `lit` shows the room from the first frame: the blurred fill is up at once, the canvas
+ *  surfaces over it from 0 s, and the sentence types on a scrim that lifts as the sentence dissolves. Assigned per
+ *  painting by its id, half and half (`openingFor`), written on the record and shown in the public view, so each
+ *  Reel's 3-second retention can be read against its opening. Judge on ten of each; then keep one. */
+export type Opening = 'dark' | 'lit';
+export const OPENINGS = {
+  dark: { fadeStart: 4.0, fadeEnd: 10.0, fromFill: false, scrim: 0, floor: 0, band: 0 },
+  /** `floor`: how much of the canvas is there on frame zero — all of it: a thumb decides in half a second, and a night
+   *  painting at 40 % reads as black (measured on the first two renders). `scrim` is a soft dark band `band` px
+   *  around the sentence only, so the words stay legible on the picture; it lifts as the sentence dissolves. */
+  lit: { fadeStart: 0.0, fadeEnd: 0.5, fromFill: true, scrim: 0.5, floor: 1, band: 90 },
+} as const;
+export function openingFor(id: string): Opening { return seeded(`${id}:opening`)() < 0.5 ? 'lit' : 'dark'; }
+
 export const SCORE = {
   total: TOTAL,
   /** Frame geometry the wall lays out from, so both stages move together (score.ts CANVAS/CAPTION/SAFE). */
@@ -38,7 +54,9 @@ export const SCORE = {
   /** The commission types out of the dark, then fades. Any sentence finishes typing at `typedBy`. */
   sentence: { marginX: 72, start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, minCharInterval: 0.056, glyphFade: 0.16, driftScale: 1.03, rise: 3, ember: 0.55, emberColor: '#ffd58a' },
   /** The canvas surfaces from black (a fade from black: the one light appears first) with a slow push in. */
-  painting: { fadeStart: 4.0, fadeEnd: 10.0, pushStart: 4.0, pushEnd: TITLE_AT, scaleFrom: 1.06, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35 },
+  painting: { fadeStart: 4.0 as number, fadeEnd: 10.0 as number, pushStart: 4.0, pushEnd: TITLE_AT, scaleFrom: 1.06, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35, fromFill: false as boolean, scrim: 0 as number, floor: 0 as number, band: 0 as number },
+  /** Which opening this score plays (OPENINGS); scoreFor sets it per film. */
+  opening: 'dark' as Opening, openings: OPENINGS,
   /** The painter signs, in real time: the mark is revealed left to right with a soft wet edge. */
   signature: { start: SIGN_AT, end: SIGN_END, edgePx: 24 },
   title: { start: TITLE_AT, fadeIn: 0.6, font: 'InstrumentSerif-Regular', size: 64, color: '#ffd58a', marginX: CAPTION.x, maxW: CAPTION.maxW, top: CAPTION.top },
@@ -110,14 +128,16 @@ export function typingPace(chars: string, seed: string): { unit: number; shift: 
   return { unit, shift: Math.max(0, Math.round((need - S.typedBy) * 100) / 100) };
 }
 
-export type Score = { [K in keyof typeof SCORE]: { -readonly [P in keyof (typeof SCORE)[K]]: (typeof SCORE)[K][P] } } & { total: number };
+export type Score = { -readonly [K in keyof typeof SCORE]: { -readonly [P in keyof (typeof SCORE)[K]]: (typeof SCORE)[K][P] } } & { total: number };
 /** The score of one film: SCORE with every beat from the sentence's fade onward moved later by `shift` seconds. */
-export function scoreFor(shift: number): Score {
+export function scoreFor(shift: number, opening: Opening = 'dark'): Score {
   const sc = JSON.parse(JSON.stringify(SCORE)) as Score;
+  const op = OPENINGS[opening]; sc.opening = opening;
+  sc.painting.fadeStart = op.fadeStart; sc.painting.fadeEnd = op.fadeEnd; sc.painting.fromFill = op.fromFill; sc.painting.scrim = op.scrim; sc.painting.floor = op.floor; sc.painting.band = op.band;
   if (!shift) return sc;
   const mv = (o: Record<string, any>, keys: string[]) => { for (const k of keys) if (typeof o[k] === 'number') o[k] = Math.round((o[k] + shift) * 100) / 100; };
   mv(sc.sentence as any, ['typedBy', 'fadeStart', 'fadeEnd']);
-  mv(sc.painting as any, ['fadeStart', 'fadeEnd', 'pushStart', 'pushEnd']);
+  mv(sc.painting as any, op.fadeStart === 0 ? ['fadeEnd', 'pushStart', 'pushEnd'] : ['fadeStart', 'fadeEnd', 'pushStart', 'pushEnd']); // a lit opening starts at the first frame whatever the line's length
   mv(sc.signature as any, ['start', 'end']); mv(sc.title as any, ['start']); mv(sc.signoff as any, ['start']); mv(sc.hold as any, ['start']);
   mv(sc.audio.shimmer as any, ['from', 'to', 'until']); mv(sc.audio.note as any, ['at']);
   sc.total = Math.round((sc.total + shift) * 100) / 100;

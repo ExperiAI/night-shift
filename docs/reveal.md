@@ -172,6 +172,16 @@ the words moved into Instagram's safe band (this commit). **Signal:** the first 
 *After the Offering*, reached 251 views the same afternoon against 4–19 for every earlier post on the grid (Diego: "a huge
 jump in view numbers"). Keep that Reel's shape as the baseline for #31.
 
+**The opening A/B (2026-09-06, evening).** Its retention graph in Instagram's insights: 57 % gone by 0:02, 86 % of views
+from strangers in the Reels tab. The dark opening (a black screen, a sentence typing) is where the thumb leaves; the
+signature gap Diego wondered about never gets an audience. So the opening is now an A/B, assigned per painting by its id,
+half and half (`OPENINGS`, `openingFor` in score.ts): **dark**, the opening as designed; **lit**, the painting there on
+frame zero with the sentence typing on a soft band across it that lifts as the sentence dissolves (two renders showed a
+canvas fading up from black reads as black for three seconds on a night painting, so the lit canvas is whole from the
+first frame). The record keeps `opening`; `/api/status.openings` lists every Reel by it. **How to read it:** each Reel's
+retention at 0:03 from its insights, grouped by opening, ten of each; then keep one. Diego, 2026-09-06: *"No need to wait for
+my approval. We can post all the different variations and view on prod."* The same mechanism carries the next variants.
+
 1. `paint.ts` stores `raw` and the record carries the signature choice → the next painting has both.
    `score.ts` + `scripts/film.mjs <id>` → an MP4 of that painting plays in QuickTime at 1080×1920,
    `SCORE.total` long, with audio, the signature writing itself in its window, and the rest matching the score to

@@ -8,7 +8,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { FRAME, CANVAS, SCORE, ease, sentenceFor, typingWeights, typingPace, scoreFor, type Score } from './score.js';
+import { FRAME, CANVAS, SCORE, ease, sentenceFor, typingWeights, typingPace, scoreFor, type Score, openingFor, type Opening } from './score.js';
 import { font, fit, wrap, textFrame, blockHeight, layoutGlyphs, glyphFrame, mix, type Block } from './text.js';
 import { soundtrack } from './sound.js';
 import type { KeyPreset } from './score.js';
@@ -31,6 +31,8 @@ export type FilmInput = {
   endLine: string;
   /** For the studio's own comparisons (scripts/film.mjs --keys): which typing sound; the score's when unset. */
   keys?: KeyPreset;
+  /** The A/B of the opening (score.ts OPENINGS): openingFor(id) when unset. */
+  opening?: Opening;
 };
 export type FilmOptions = { ffmpeg?: string; workDir?: string; keepWork?: boolean; preset?: string; timings?: Record<string, number> };
 
@@ -135,7 +137,8 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     lap('stills');
 
     const sentence = await sentenceFrames(input.commission, input.line, input.id);
-    SC = scoreFor(sentence.shift);
+    const opening = input.opening ?? openingFor(input.id);
+    SC = scoreFor(sentence.shift, opening);
     const P = SC.painting, S = SC.sentence, G = SC.signature, T = SC.title, O = SC.signoff;
     await Promise.all(sentence.frames.map((b, i) => writeFile(join(dir, `txt_${pad3(i)}.png`), b)));
     const cap = await captionFrames(input.title, input.endLine);
@@ -168,6 +171,12 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     if (signs) args.push('-framerate', String(FRAME.fps), '-i', join(dir, 'sig_%03d.png'), '-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'sig_full.png')); // 5, 6
     const audioIn = signs ? 7 : 5;
     args.push('-i', join(dir, 'audio.wav'));
+    const scrimIn = audioIn + 1; // lit opening only: a soft dark band behind the sentence, riding with it and lifting as it dissolves
+    if (P.fromFill) {
+      const bh = sentence.height + 2 * P.band;
+      await writeFile(join(dir, 'veil.png'), await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${FRAME.w}" height="${bh}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="0.3" stop-color="#000" stop-opacity="${P.scrim}"/><stop offset="0.7" stop-color="#000" stop-opacity="${P.scrim}"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient></defs><rect width="${FRAME.w}" height="${bh}" fill="url(#g)"/></svg>`)).png().toBuffer());
+      args.push('-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'veil.png'));
+    }
 
     const pushDur = (P.pushEnd - P.pushStart).toFixed(3);
     const zoom = `(${P.scaleFrom}-${(P.scaleFrom - P.scaleTo).toFixed(3)}*clip((t-${P.pushStart})/${pushDur},0,1))`;
@@ -180,7 +189,15 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
       f.push(`[cv1][sgf]overlay=x=${sx}:y=${sy}:format=auto:enable='gte(t,${G.end})'[cv2]`);
     } else f.push(`[cv0]null[cv2]`);
     f.push(`[cv2]scale=w='trunc(iw*${zoom}/2)*2':h=-2:eval=frame:flags=lanczos,crop=${CANVAS.w}:${CANVAS.h}:x='(iw-ow)/2':y='(ih-oh)/2'[push]`);
-    f.push(`[0:v][push]overlay=x=${CANVAS.left}:y=${CANVAS.top}:format=auto,fade=t=in:st=${P.fadeStart}:d=${(P.fadeEnd - P.fadeStart).toFixed(2)}[bg]`);
+    if (P.fromFill) { // lit: the fill is up from the first frame, the canvas surfaces over it, the scrim lifts with the sentence
+      f.push(`[push]split=2[pFloor0][pRise0]`);
+      f.push(`[pFloor0]colorchannelmixer=aa=${P.floor}[pFloor]`); // already there on frame zero
+      f.push(`[pRise0]fade=t=in:st=${P.fadeStart}:d=${(P.fadeEnd - P.fadeStart).toFixed(2)}:alpha=1[pRise]`); // and the rest of it surfacing
+      f.push(`[0:v][pFloor]overlay=x=${CANVAS.left}:y=${CANVAS.top}:format=auto[bgF]`);
+      f.push(`[bgF][pRise]overlay=x=${CANVAS.left}:y=${CANVAS.top}:format=auto[bg0]`);
+      f.push(`[${scrimIn}:v]format=rgba,fade=t=out:st=${S.fadeStart}:d=${(S.fadeEnd - S.fadeStart).toFixed(2)}:alpha=1[veil]`);
+      f.push(`[bg0][veil]overlay=x=0:y='${sentence.top - P.band}-${S.rise}*t':format=auto:eof_action=pass[bg]`); // rides with the band
+    } else f.push(`[0:v][push]overlay=x=${CANVAS.left}:y=${CANVAS.top}:format=auto,fade=t=in:st=${P.fadeStart}:d=${(P.fadeEnd - P.fadeStart).toFixed(2)}[bg]`); // dark: from black, the one light first
     const drift = `(1+${(S.driftScale - 1).toFixed(3)}*clip((t-${S.fadeStart})/${(S.fadeEnd - S.fadeStart).toFixed(2)},0,1))`; // the sentence lifts slightly as it dissolves
     f.push(`[2:v]format=rgba,tpad=stop_mode=clone:stop_duration=2,scale=w='trunc(iw*${drift}/2)*2':h=-2:eval=frame,crop=${FRAME.w}:${sentence.height}:x='(iw-ow)/2':y='(ih-oh)/2',fade=t=out:st=${S.fadeStart}:d=${(S.fadeEnd - S.fadeStart).toFixed(2)}:alpha=1[st]`);
     f.push(`[3:v]format=rgba,fade=t=in:st=${T.start}:d=${T.fadeIn}:alpha=1[ti]`);
@@ -214,9 +231,9 @@ export async function hookLine(text: string): Promise<string | null> {
 }
 
 /** The film's inputs from a commission record: fetches the canvas, the raw and the ink layer. */
-export async function filmInputFor(c: { id: string; image?: string; raw?: string; signature?: { image: string; x: number; y: number; w: number; h: number }; anonymous?: boolean; text: string; take: { title?: string; line?: string } }): Promise<FilmInput> {
+export async function filmInputFor(c: { id: string; image?: string; raw?: string; signature?: { image: string; x: number; y: number; w: number; h: number }; anonymous?: boolean; text: string; take: { title?: string; line?: string }; opening?: Opening }): Promise<FilmInput> {
   const get = async (u: string) => Buffer.from(await (await fetch(u)).arrayBuffer());
   if (!c.image) throw new Error('no painting to film');
   const [image, raw, ink] = await Promise.all([get(c.image), c.raw ? get(c.raw) : null, c.signature ? get(c.signature.image) : null]);
-  return { id: c.id, image, raw, signature: ink && c.signature ? { ink, x: c.signature.x, y: c.signature.y, w: c.signature.w, h: c.signature.h } : null, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id) };
+  return { id: c.id, image, raw, signature: ink && c.signature ? { ink, x: c.signature.x, y: c.signature.y, w: c.signature.w, h: c.signature.h } : null, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), opening: c.opening ?? openingFor(c.id) };
 }

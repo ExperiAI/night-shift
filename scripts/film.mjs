@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The reveal of one painting as a 20 s MP4, made locally with Homebrew ffmpeg (docs/reveal.md §4).
-//   node scripts/film.mjs <id> [--out DIR] [--resign] [--keep] [--keys mech|typewriter|laptop|pen]
+//   node scripts/film.mjs <id> [--out DIR] [--resign] [--keep] [--keys mech|typewriter|laptop|pen] [--opening dark|lit]
 // --resign: for a painting from before the studio kept its unsigned canvas — lays a second mark on the still, in the
 //           other corner, so the signing beat can be seen; for checking the score, never for posting.
 import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
@@ -28,6 +28,7 @@ if (args.includes('--resign')) {
   input.raw = input.image; input.signature = { ink: s.ink, x: width - s.left - s.w, y: s.top, w: s.w, h: s.h }; // mirrored: away from the real mark
 }
 if (args.includes('--keys')) input.keys = args[args.indexOf('--keys') + 1]; // a typing sound other than the score's, for comparing
+if (args.includes('--opening')) input.opening = args[args.indexOf('--opening') + 1]; // dark | lit: the A/B of the opening, for comparing (score.ts OPENINGS)
 if (!input.line && !c.anonymous) input.line = await hookLine(c.text); // the hook, chosen not cut, for work from before the gatekeeper picked one
 console.log(`line: ${JSON.stringify(input.line ?? '(cut from the opening)')}`);
 const t0 = Date.now();
