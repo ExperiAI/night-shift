@@ -29,6 +29,8 @@ test('the ticket keeps the receipt key in this browser only, polls until the fil
   assert.match(s, /Sent<\/span>.*Painting<\/span>.*On the wall<\/span>/, 'three steps a person can read');
   assert.match(s, /Usually within fifteen minutes/);
   assert.match(s, /showTickets\(true\)/, 'after sending, the ticket is the page; the form waits behind “Send another sentence”');
+  assert.match(s, /pending = \{ words \}; showTickets\(true\); renderTickets\(\);[\s\S]*await fetch\(`\$\{origin\}\/api\/commission`/, 'the ticket appears on the tap, before the desk answers (Diego, 2026-09-06: the wait "was confuse")');
+  assert.match(s, /The painter is reading it/);
 });
 
 test('the table card prints four A6 on one A4 with the contract and the room QR', () => {

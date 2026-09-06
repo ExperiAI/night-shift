@@ -52,6 +52,7 @@
   @keyframes pulse{50%{transform:scale(.55);opacity:.6}}
   .expect{color:var(--dim);font-size:15px}
   .note{border-left:3px solid var(--amber);padding:8px 14px;background:var(--well);font:15px/1.5 var(--mono);color:var(--ink);white-space:pre-wrap}
+  .note.reading{color:var(--dim);border-color:var(--line)}
   #again{background:none;color:var(--amber);border:1px solid var(--line);font-size:15px}
   form[hidden]{display:none}
   @media (prefers-reduced-motion:reduce){.steps span.now::after{animation:none}}
@@ -103,26 +104,32 @@ async function shrink(file) {
   } finally { URL.revokeObjectURL(url); }
 }
 
+// The desk takes several seconds to answer (the painter reads the sentence before it replies). The ticket
+// appears on the tap, not on the answer: "Sent" lit, the words, and "The painter is reading it" where the
+// note will be (Diego, 2026-09-06, from his phone: the wait with a dimmed button "was confuse").
+let pending = null; // { words } while the desk is answering
 $('form').addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.target, btn = f.querySelector('button'), out = $('reply');
-  btn.disabled = true; out.textContent = '…';
+  const words = f.text.value;
+  btn.disabled = true; out.textContent = '';
+  let photo;
+  if (f.photo.files[0]) { try { photo = await shrink(f.photo.files[0]); } catch { out.textContent = 'That photo could not be read. A JPEG or PNG works.'; btn.disabled = false; return; } }
+  pending = { words }; showTickets(true); renderTickets(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  let back = null; // what goes under the button if the form has to come back
   try {
-    let photo;
-    if (f.photo.files[0]) { try { photo = await shrink(f.photo.files[0]); } catch { out.textContent = 'That photo could not be read. A JPEG or PNG works.'; btn.disabled = false; return; } }
-    const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: f.text.value, from: f.from.value || undefined, anonymous: !f.from.value, photo, room: ROOM || undefined }) });
+    const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: words, from: f.from.value || undefined, anonymous: !f.from.value, photo, room: ROOM || undefined }) });
     const j = await r.json();
-    if (j.error) { out.textContent = j.error; }
-    else if (j.status !== 'queued') { out.textContent = j.note; } // declined: the painter's word stays under the button
+    if (j.error) back = j.error;
+    else if (j.status !== 'queued') back = j.note; // declined: the painter's word stays under the button
     else { // sent: the ticket is now the page
-      out.textContent = '';
-      const t = load(); t.unshift({ id: j.id, key: j.key, room: ROOM, words: f.text.value, note: j.note, departures: j.departures, created: Date.now() }); store(t);
+      const t = load(); t.unshift({ id: j.id, key: j.key, room: ROOM, words, note: j.note, departures: j.departures, created: Date.now() }); store(t);
       f.reset(); document.querySelector('.file').classList.remove('has'); document.querySelector('.file span').textContent = FILE_LABEL;
-      showTickets(true); renderTickets(); refresh();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  } catch { out.textContent = 'The studio did not answer. Try again in a minute.'; }
-  btn.disabled = false;
+  } catch { back = 'The studio did not answer. Try again in a minute.'; }
+  pending = null; btn.disabled = false;
+  if (back !== null) { $('form').hidden = false; $('again').hidden = true; document.querySelector('main').insertBefore($('form'), $('tickets')); out.textContent = back; }
+  showTickets(true); renderTickets(); refresh();
 });
 
 // ---- the ticket: every commission sent from this phone, polled until its painting and film exist ----
@@ -130,7 +137,8 @@ const live = new Map(); // id → last public view
 function renderTickets() {
   const tickets = load().filter(t => !ROOM || t.room === ROOM);
   const el = $('tickets');
-  el.innerHTML = tickets.map(t => {
+  const reading = pending ? `<article class="ticket pending"><div class="words">${esc(pending.words)}</div><div class="note reading">The painter is reading it…</div><div class="steps"><span class="now">Sent</span><span>Painting</span><span>On the wall</span></div></article>` : '';
+  el.innerHTML = reading + tickets.map(t => {
     const c = live.get(t.id) || {};
     const done = c.image && (c.status === 'painted' || c.status === 'posted');
     const over = c.status === 'withdrawn' || c.status === 'declined' || c.status === 'failed';
@@ -182,7 +190,7 @@ $('tickets').addEventListener('click', async e => {
   }
 });
 function showTickets(ticketsFirst) {
-  const has = load().filter(t => !ROOM || t.room === ROOM).length > 0;
+  const has = !!pending || load().filter(t => !ROOM || t.room === ROOM).length > 0;
   $('form').hidden = ticketsFirst && has; $('again').hidden = !(ticketsFirst && has);
   if (ticketsFirst && has) document.querySelector('main').insertBefore($('tickets'), $('form'));
 }
