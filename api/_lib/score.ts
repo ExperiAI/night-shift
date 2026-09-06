@@ -117,9 +117,10 @@ export const SCORE = {
   /** Frame geometry the wall lays out from, so both stages move together (score.ts CANVAS/CAPTION/SAFE). */
   canvas: CANVAS, caption: CAPTION, safe: SAFE,
   /** The commission types out of the dark, then fades. Any sentence finishes typing at `typedBy`. */
-  sentence: { marginX: 72, start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, minCharInterval: 0.056, glyphFade: 0.16, driftScale: 1.03, rise: 3, ember: 0.55, emberColor: '#ffd58a' },
+  sentence: { marginX: 72, start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, minCharInterval: 0.056, glyphFade: 0.16, driftScale: 1.0, rise: 0, ember: 0.55, emberColor: '#ffd58a' }, // the words vanish where they stand: no lift, no drift (Diego, 2026-09-06: "disappears without moving or changing position")
   /** The canvas surfaces from black (a fade from black: the one light appears first) with a slow push in. */
-  painting: { transition: 'fade' as Transition, fadeStart: 4.0 as number, fadeEnd: 10.0 as number, fillStart: 4.0 as number, fillEnd: 10.0 as number, blur: 0 as number, blurStart: 0 as number, blurEnd: 0 as number, pushStart: 4.0, pushEnd: TITLE_AT, scaleFrom: 1.06 as number, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35, fromFill: false as boolean, scrim: 0 as number, floor: 0 as number, band: 0 as number },
+  /** The hand-over is `snap` (TRANSITIONS; Diego's pick 2026-09-06, "A or D": the faster one, since the retention graph left during the dark). */
+  painting: { transition: 'snap' as Transition, fadeStart: 3.9 as number, fadeEnd: 5.6 as number, fillStart: 3.7 as number, fillEnd: 5.0 as number, blur: 0 as number, blurStart: 0 as number, blurEnd: 0 as number, pushStart: 4.0, pushEnd: TITLE_AT, scaleFrom: 1.10 as number, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35, fromFill: false as boolean, scrim: 0 as number, floor: 0 as number, band: 0 as number },
   /** Which opening this score plays (OPENINGS); scoreFor sets it per film. */
   opening: 'dark' as Opening, openings: OPENINGS, transitions: TRANSITIONS,
   /** The painter signs, in real time: the mark is revealed left to right with a soft wet edge. */

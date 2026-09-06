@@ -184,6 +184,8 @@ my approval. We can post all the different variations and view on prod."* The sa
 
 **The A/B is over (2026-09-06, later that evening).** Diego saw the lit render of *After Sunday Dinner* and: *"I don't like this alternative. Best with the text coming first and the image later as if the text was input first and then processed and turned into an img. Best for the story telling. We just need to polish the transition from text typing to the image."* So `openingFor` returns `dark` for every painting; `lit` stays as `scripts/film.mjs --opening lit` for comparison only; issue #36 (reading retention per opening) is moot. Open: the transition from the typed line to the picture.
 
+**The transition (2026-09-06, night).** Four takes of the hand-over went to Diego's eye as clips (`TRANSITIONS` in score.ts, `scripts/checks/transitions.mjs --upload`): A `fade` as shipped, B `glow` the room's light first, C `resolve` the picture arriving blurred and sharpening, D `snap` the same story in half the time with a stronger push. Diego: *"A or D. Just make it so the text disappears without moving or changing position. The words simply vanish somehow."* **The score is D** (the faster one — the retention graph left during the dark), and the sentence's `rise` and `driftScale` are 0 and 1: the line fades out exactly where it stood, on the film and on the wall alike. The other takes stay as `scripts/film.mjs --transition` for comparison.
+
 1. `paint.ts` stores `raw` and the record carries the signature choice → the next painting has both.
    `score.ts` + `scripts/film.mjs <id>` → an MP4 of that painting plays in QuickTime at 1080×1920,
    `SCORE.total` long, with audio, the signature writing itself in its window, and the rest matching the score to

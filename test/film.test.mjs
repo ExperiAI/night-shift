@@ -124,7 +124,7 @@ test('the hand-over from the line to the picture: every take lights the fill by 
     const shifted = scoreFor(1.2, 'dark', k); assert.equal(shifted.painting.fillStart, Math.round((tr.fillStart + 1.2) * 100) / 100, `${k}: a long line moves the light with it`);
   }
   assert.deepEqual(SCORE.transitions, TRANSITIONS);
-  assert.equal(scoreFor(0, 'dark', 'fade').painting.fadeStart, SCORE.painting.fadeStart, 'fade is the score as shipped');
+  assert.equal(scoreFor(0).painting.transition, 'snap', 'the score is D (Diego, 2026-09-06)'); assert.equal(SCORE.sentence.rise, 0); assert.equal(SCORE.sentence.driftScale, 1, 'the words vanish where they stand');
   const w = src('public/wall.html'); assert.match(w, /SCORE\.transitions\[transition\]/); assert.match(w, /blur\(\$\{\(P\.blur \* \(1 - surfaced\)\)/, 'the wall sharpens the same pass');
   assert.match(src('api/_lib/film.ts'), /gblur=sigma=\$\{P\.blur\}/, 'the film renders the blurred pass');
 });
