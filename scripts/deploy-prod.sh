@@ -51,7 +51,10 @@ npm run check
 ok "green"
 
 step "3/5  deploy"
-OUT=$(vercel --prod --yes -e "BUILD_ID=$BUILD_ID" 2>&1) || { printf '%s\n' "$OUT"; fail "vercel --prod failed"; }
+# A non-zero exit from the CLI is not proof the deploy did not happen: on 2026-09-06 it printed "Error: Not
+# authorized" after the build had already gone live (the build id was on /api/status seconds later). The exit
+# code is reported; production decides (step 3).
+OUT=$(vercel --prod --yes -e "BUILD_ID=$BUILD_ID" 2>&1) || printf '\n\033[33mvercel exited non-zero\033[0m — checking whether the build went live anyway:\n%s\n' "$OUT"
 URL=$(printf '%s\n' "$OUT" | grep -Eo 'https://night-shift-[a-z0-9-]+\.vercel\.app' | head -1 || true)
 ok "deployed ${URL:-(url not parsed)}"
 
