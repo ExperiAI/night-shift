@@ -46,3 +46,25 @@ test('every posted Reel carries what Instagram reported for it, on /api/status a
   assert.match(critic, /On Instagram so far: \$\{ins\.views\} views/, 'the critic sees the audience numbers beside each painting');
   assert.match(critic, /\.\.\.\(reels \? \{ reels \} : \{\}\)/, 'the day\'s Reels are in the signals record');
 });
+
+test('the trial A/B (#11): half the Reels go out as trial reels by id, never a still; Instagram refusing it falls back to the feed and the record says what was accepted', async () => {
+  const { postBody, distributionFor, DISTRIBUTIONS } = await import('../api/_lib/zernio.ts');
+  assert.deepEqual([...DISTRIBUTIONS], ['feed', 'trial']);
+  const ids = Array.from({ length: 200 }, (_, i) => `id-${i}-${(i * 7919).toString(36)}`);
+  const trials = ids.filter(id => distributionFor(id) === 'trial').length;
+  assert.ok(trials > 70 && trials < 130, `about half: ${trials} of 200`);
+  assert.equal(distributionFor('mtq6q0rr-fdap4r'), distributionFor('mtq6q0rr-fdap4r'), 'stable per id');
+  const media = { video: 'https://b/films/x.mp4', cover: 'https://b/paintings/x.png' };
+  assert.deepEqual(postBody(media, 'cap', { trial: true }, 'acct').platforms[0].platformSpecificData.trialParams, { graduationStrategy: 'SS_PERFORMANCE' });
+  assert.equal(postBody(media, 'cap', {}, 'acct').platforms[0].platformSpecificData.trialParams, undefined);
+  assert.equal(postBody('https://b/p.png', 'cap', { trial: true }, 'acct').platforms[0].platformSpecificData.trialParams, undefined, 'only a Reel can be a trial');
+  assert.equal(postOptions({ id: 'x', film: 'https://b/films/x.mp4' }).trial, distributionFor('x') === 'trial' ? true : undefined);
+  assert.equal(postOptions({ id: 'x' }).trial, undefined, 'no film, no trial');
+  const zernio = readFileSync(new URL('../api/_lib/zernio.ts', import.meta.url), 'utf8');
+  assert.match(zernio, /sent = \{ \.\.\.opts, collaborators: \[\], trial: false \}/, 'a refusal never costs the painting');
+  assert.match(zernio, /const distribution: Distribution = sent\.trial \? 'trial' : 'feed'/, 'the record says what was accepted, not what was asked');
+  const paint = readFileSync(new URL('../api/paint.ts', import.meta.url), 'utf8');
+  assert.equal((paint.match(/distribution = post\.distribution/g) ?? []).length, 2, 'both publish paths keep it');
+  const status = readFileSync(new URL('../api/status.ts', import.meta.url), 'utf8');
+  assert.match(status, /distribution: c\.distribution \?\? 'feed'/);
+});

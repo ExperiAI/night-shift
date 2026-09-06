@@ -3,7 +3,20 @@
 import { HASHTAGS } from './artist.js';
 const BASE = 'https://zernio.com/api/v1';
 
-export type PostOptions = { firstComment?: string; collaborators?: string[] };
+export type PostOptions = { firstComment?: string; collaborators?: string[]; trial?: boolean };
+
+/** How a Reel goes out (#11, the trial A/B). `feed`: the ordinary Reel, on the grid, followers first. `trial`:
+ *  Instagram's trial reel — shown to non-followers first, off the grid until it graduates, which it does by
+ *  itself when it performs (SS_PERFORMANCE). At two followers the strangers ARE the audience, and a trial reel
+ *  returns comparable 24 h numbers. Assigned by id, half and half, for ten of each; then `reels` on /api/status
+ *  says which reaches more and one stays. If Instagram refuses trial params (the 1,000-follower rule creators
+ *  repeat is in no first-party text), publish() falls back to `feed` and the record says so. */
+export type Distribution = 'feed' | 'trial';
+export const DISTRIBUTIONS: readonly Distribution[] = ['feed', 'trial'];
+export function distributionFor(id: string): Distribution {
+  let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return DISTRIBUTIONS[h % DISTRIBUTIONS.length];
+}
 
 /** An Instagram username from whatever the inbox stored: '@Name.x' → 'Name.x'; a display name or the
  *  'someone' fallback (inbox.ts) is not a handle and gives null. */
@@ -16,9 +29,10 @@ export function collaboratorHandle(from?: string | null): string | null {
 /** How a painting is posted beyond caption and image (issue #11): the hashtags as the first comment,
  *  and — when the commission came in as a public comment under a handle — that person invited as a
  *  collaborator, so the painting can sit on their profile too if they accept. DMs stay anonymous. */
-export function postOptions(c: { source?: { channel: string; handle?: string } }): PostOptions {
+export function postOptions(c: { id?: string; film?: string; source?: { channel: string; handle?: string } }): PostOptions {
   const collab = c.source?.channel === 'instagram-comment' ? collaboratorHandle(c.source.handle) : null;
-  return { firstComment: HASHTAGS, ...(collab ? { collaborators: [collab] } : {}) };
+  const trial = Boolean(c.film && c.id && distributionFor(c.id) === 'trial'); // only a Reel can be a trial
+  return { firstComment: HASHTAGS, ...(collab ? { collaborators: [collab] } : {}), ...(trial ? { trial } : {}) };
 }
 
 /** A word to the owner, as an Instagram DM in the thread the owner opened with the account (OWNER_CONVERSATION_ID).
@@ -83,21 +97,25 @@ export function postBody(media: Media, caption: string, o: PostOptions, accountI
   const mediaItems = reel ? [{ type: 'video', url: media.video }] : (Array.isArray(media) ? media : [media]).map(url => ({ type: 'image', url }));
   const platformSpecificData = {
     ...(reel ? { instagramThumbnail: media.cover, isAiGenerated: true, shareToFeed: true } : {}), // the cover is the signed still; the flag is the honest one and costs nothing
+    ...(reel && o.trial ? { trialParams: { graduationStrategy: 'SS_PERFORMANCE' } } : {}),
     ...(o.firstComment ? { firstComment: o.firstComment } : {}),
     ...(o.collaborators?.length ? { collaborators: o.collaborators } : {}),
   };
   return { content: caption, mediaItems, platforms: [{ platform: 'instagram', accountId, platformSpecificData }], publishNow: true };
 }
-export async function publish(media: Media, caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string }> {
+export async function publish(media: Media, caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string; distribution: Distribution }> {
   const acct = await instagramAccount();
   if (!acct) throw new Error('no Instagram account connected in Zernio');
   const body = (o: PostOptions) => JSON.stringify(postBody(media, caption, o, acct.id));
-  let r = await fetch(`${BASE}/posts`, { method: 'POST', headers: headers(), body: body(opts) });
+  let sent = opts;
+  let r = await fetch(`${BASE}/posts`, { method: 'POST', headers: headers(), body: body(sent) });
   let j: any = await r.json();
-  if (!r.ok && opts.collaborators?.length) { // a handle Instagram will not tag (private, invalid, blocked) must never cost the painting
-    r = await fetch(`${BASE}/posts`, { method: 'POST', headers: headers(), body: body({ ...opts, collaborators: [] }) });
+  if (!r.ok && (opts.collaborators?.length || opts.trial)) { // a handle Instagram will not tag, or trial params it refuses, must never cost the painting
+    sent = { ...opts, collaborators: [], trial: false };
+    r = await fetch(`${BASE}/posts`, { method: 'POST', headers: headers(), body: body(sent) });
     j = await r.json();
   }
+  const distribution: Distribution = sent.trial ? 'trial' : 'feed';
   if (!r.ok) throw new Error(`zernio post ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
   const postId = j.post?._id ?? j.post?.id ?? j._id ?? j.id ?? '';
   // Publishing is asynchronous: the Instagram permalink and media id appear on the post record
@@ -107,10 +125,10 @@ export async function publish(media: Media, caption: string, opts: PostOptions =
     await new Promise(r => setTimeout(r, 5000));
     const p = await get(`/posts/${postId}`).catch(() => null);
     const pl = (p?.post ?? p)?.platforms?.[0];
-    if (pl?.platformPostUrl) return { postId, permalink: pl.platformPostUrl, mediaId: pl.platformPostId ?? undefined };
+    if (pl?.platformPostUrl) return { postId, permalink: pl.platformPostUrl, mediaId: pl.platformPostId ?? undefined, distribution };
     if (pl?.status === 'failed') throw new Error(`zernio publish failed: ${JSON.stringify(pl).slice(0, 200)}`);
   }
-  return { postId, permalink: fallback, mediaId: undefined };
+  return { postId, permalink: fallback, mediaId: undefined, distribution };
 }
 
 /** A permalink to a post, as opposed to the profile fallback publish() returns when Instagram was slow. */

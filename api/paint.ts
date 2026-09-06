@@ -114,7 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     b.postAttempt = new Date().toISOString();
     try {
       const post = await publish(mediaFor(b), b.take.caption ?? b.take.title ?? 'Night Shift', postOptions(b));
-      b.instagram = post.permalink; b.mediaId = post.mediaId; b.zernioPostId = post.postId; b.status = 'posted'; delete b.error;
+      b.instagram = post.permalink; b.mediaId = post.mediaId; b.zernioPostId = post.postId; b.distribution = post.distribution; b.status = 'posted'; delete b.error;
       await tellSource(b);
       await alsoStory(b);
     } catch (e: any) { b.error = String(e.message).slice(0, 500); }
@@ -168,6 +168,7 @@ async function paintOne(c: Commission, res: VercelResponse, started: number, dry
       c.instagram = post.permalink;
       c.mediaId = post.mediaId;
       c.zernioPostId = post.postId;
+      c.distribution = post.distribution; // feed or trial (zernio.ts DISTRIBUTIONS): what Instagram actually accepted
       c.status = 'posted';
       await tellSource(c);
       await alsoStory(c);

@@ -42,6 +42,7 @@ export type Commission = {
   sourceReplied?: string; // when the artist answered in the source thread with the finished painting
   mediaId?: string;      // Instagram media id of the post (for comments under it)
   zernioPostId?: string; // Zernio's own record of the post; lets reconcile() find the permalink when publishing outran the 60s wait
+  distribution?: 'feed' | 'trial'; // how the Reel went out (zernio.ts DISTRIBUTIONS, the trial A/B, #11); what Instagram accepted, not what was asked
   story?: string;        // when the painting also went up as a 24h Story
   credited?: string;     // the @handle now in a comment under the painting
   cost?: number;
