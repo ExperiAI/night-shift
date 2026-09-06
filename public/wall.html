@@ -155,7 +155,7 @@ function demoFeed(list) {
 
 // ---- the stage: one clock, the score's functions of t (mirrors api/_lib/film.ts) ----
 let glyphs = [], cues = [], sigGeom = null, t0 = 0, raf = 0;
-function layoutSentence(text) {
+function layoutSentence(text, seed) {
   const el = $('sentence'); el.innerHTML = ''; glyphs = [];
   const S = SCORE.sentence;
   const wrap = document.createElement('div');
@@ -168,14 +168,42 @@ function layoutSentence(text) {
   el.appendChild(wrap);
   el.style.fontSize = S.size + 'px';
   if (wrap.offsetHeight > S.size * 1.5 * S.maxLines + 2) el.style.fontSize = S.minSize + 'px'; // offsetHeight is in the stage's own pixels, before the scale
-  // the hand's rhythm: a breath after a comma, a longer one after a full stop; all in by typedBy
-  const chars = text.replace(/ /g, ''); let acc = 0; const cum = [];
-  for (let i = 0; i < glyphs.length; i++) { cum.push(acc); const prev = i > 0 ? glyphs[i - 1].textContent : ''; const nextW = /[.!?…]/.test(prev) ? S.pauseStop : /[,;:—–]/.test(prev) ? S.pauseComma : 1; acc += nextW; }
+  // the hand's rhythm, the film's exactly (api/_lib/score.ts typingWeights, seeded by the painting): the film's
+  // weights run over the text WITH its spaces; the wall has no glyph for a space, so its weight folds into the next letter
+  const weights = typingWeights(text, seed); const cum = []; let acc = 0, gi = 0;
+  for (let i = 0; i < text.length; i++) { if (text[i] === ' ') { acc += weights[i]; continue; } cum[gi++] = acc; acc += weights[i]; }
   const n = Math.max(1, glyphs.length);
   const unit = Math.min(S.maxCharInterval, (S.typedBy - S.glyphFade - S.start) / ((cum[n - 1] || 0) + 1));
   cues = cum.map(c => S.start + c * unit);
   return cur;
 }
+// rhythm:begin — a copy of api/_lib/score.ts seeded + typingWeights; test/sound.test.mjs evaluates this block against the original
+function seeded(seed) {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 3432918353), h = (h << 13) | (h >>> 19);
+  let a = h >>> 0;
+  return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const RHYTHM = { wordStart: 1.5, capital: 1.25, mark: 1.15, pauseComma: 3, pauseStop: 5, pair: 0.75, jitter: 0.2, hesitate: 0.06, hesitation: 2.4, burst: 0.8, burstLen: 3 };
+const PAIRS = new Set(['th', 'he', 'in', 'er', 'an', 're', 'on', 'at', 'en', 'nd', 'ti', 'es', 'or', 'te', 'of', 'ed', 'is', 'it', 'al', 'ar', 'st', 'to', 'nt', 'ng', 'se', 'ha', 'as', 'ou', 'io', 'le', 've', 'co', 'me', 'de', 'hi', 'ri', 'ro', 'ic', 'ne', 'ea', 'ra', 'ce', 'li', 'ch', 'll', 'be', 'ma', 'si', 'om', 'ur']);
+function typingWeights(chars, seed) {
+  const R = RHYTHM, rand = seeded(seed), out = []; let burst = 0;
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i], prev = i > 0 ? chars[i - 1] : '';
+    let w = 1;
+    if (/[.!?…]/.test(prev)) w *= R.pauseStop; else if (/[,;:—–]/.test(prev)) w *= R.pauseComma;
+    if (prev === ' ') w *= R.wordStart;
+    if (/[A-Z]/.test(ch)) w *= R.capital;
+    if (/[^\sA-Za-z0-9\u00C0-\u024F]/.test(ch)) w *= R.mark;
+    if (prev && PAIRS.has((prev + ch).toLowerCase())) w *= R.pair;
+    w *= 1 + (rand() * 2 - 1) * R.jitter;
+    if (burst > 0) { w *= R.burst; burst--; }
+    else if (i > 2 && rand() < R.hesitate) { w *= R.hesitation; burst = R.burstLen; }
+    out.push(w);
+  }
+  return out;
+}
+// rhythm:end
 const mix = (a, b, k) => { const c = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), A = c(a), B = c(b), t = clip(k); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
 const cut = (text, max) => text.length <= max ? text : (text.slice(0, max + 1).match(/^[\s\S]*[,;:.!?](?=\s)/) || [text.slice(0, max).replace(/\s\S*$/, '')])[0].replace(/[\s,;:]+$/, '') + '…';
 
@@ -184,7 +212,7 @@ async function startReveal(c) {
   $('idle').style.display = 'none';
   const S = SCORE;
   const words = c.commission ? (c.line || cut(c.commission, S.sentence.maxChars)) : 'a commission';
-  const cursor = layoutSentence(words);
+  const cursor = layoutSentence(words, c.id);
   $('fill').style.backgroundImage = `url("${c.image}")`;
   const base = c.raw && c.signature ? c.raw : c.image;
   const img = $('painting'); img.src = base;

@@ -5,7 +5,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
-import { SCORE } from '../api/_lib/score.ts';
+import { SCORE, typingWeights, RHYTHM } from '../api/_lib/score.ts';
+import vm from 'node:vm';
 import { synthesize, soundtrack, inkUnderEdge, SAMPLE_RATE } from '../api/_lib/sound.ts';
 import { inkProfile, sentenceFrames } from '../api/_lib/film.ts';
 import { signatureLayer } from '../api/_lib/compose.ts';
@@ -74,4 +75,20 @@ test('the wall plays the film\'s own track and is clocked by it; the ember is on
   assert.match(wall, /audio\.track\(c\.film\)/); assert.match(wall, /track\.currentTime/);
   assert.match(wall, /Sn\.emberColor/); assert.ok(SCORE.sentence.ember > 0 && /^#[0-9a-f]{6}$/i.test(SCORE.sentence.emberColor));
   assert.doesNotMatch(wall, /inspector|reject|critic|exam/i, 'nothing backstage on the wall');
+});
+
+test('the typing has a hand\'s rhythm — reaches, pairs, breaths, a hesitation — and the wall\'s copy is the film\'s exactly', () => {
+  const text = 'A company was shut down, because their whole offering was replaced by AI. Then the lights.';
+  const w = typingWeights(text, 'mtpsj0zp-cbh1jd');
+  assert.equal(w.length, text.length);
+  assert.ok(new Set(w.map(v => v.toFixed(3))).size > text.length / 2, 'not a metronome');
+  assert.ok(w[text.indexOf('because')] > 1.2, 'a word after a comma waits for the breath');
+  assert.ok(w[text.indexOf('Then') - 1] > 3 && w[text.indexOf('Then')] > 1.2, 'after a full stop the hand waits, then reaches for the capital');
+  assert.deepEqual(typingWeights(text, 'x'), typingWeights(text, 'x')); assert.notDeepEqual(typingWeights(text, 'x'), typingWeights(text, 'y'));
+  const wall = readFileSync(new URL('../public/wall.html', import.meta.url), 'utf8');
+  const block = wall.slice(wall.indexOf('// rhythm:begin'), wall.indexOf('// rhythm:end'));
+  const ctx = vm.createContext({}); vm.runInContext(block + '\nthis.typingWeights = typingWeights; this.RHYTHM = RHYTHM;', ctx);
+  const J = JSON.stringify; // values cross a vm boundary: compare by content, not prototype
+  assert.equal(J(ctx.RHYTHM), J(RHYTHM));
+  for (const [t, id] of [[text, 'mtpsj0zp-cbh1jd'], ['the bar, after close', 'abc'], ['a commission', 'zz']]) assert.equal(J(ctx.typingWeights(t, id)), J(typingWeights(t, id)), `wall == film for ${id}`);
 });

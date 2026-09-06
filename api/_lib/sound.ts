@@ -6,7 +6,7 @@
 // noise whose loudness follows the ink actually under the moving edge (dense where the mark is heavy, silent where the
 // pen lifts between letters), with paper under it and the pen's speed opening its brightness. The wall (public/wall.html)
 // plays the same design in WebAudio from the same SCORE.audio numbers; the design lives there, the samples here.
-import { SCORE, KEY_PRESETS, ease, type KeyPreset } from './score.js';
+import { SCORE, KEY_PRESETS, ease, seeded, type KeyPreset } from './score.js';
 
 export const SAMPLE_RATE = 48000;
 
@@ -25,14 +25,6 @@ export type SoundInput = {
 
 const db = (d: number) => Math.pow(10, d / 20);
 const clip01 = (x: number) => Math.min(1, Math.max(0, x));
-
-/** mulberry32: a small seeded generator, seeded from the id. */
-function rng(seed: string) {
-  let h = 1779033703 ^ seed.length;
-  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 3432918353), h = (h << 13) | (h >>> 19);
-  let a = h >>> 0;
-  return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-}
 
 /** RBJ biquad, applied in place over a whole buffer (cheap: a few multiplies a sample). */
 function biquad(buf: Float64Array, type: 'lowpass' | 'highpass', f0: number, q = 0.707): void {
@@ -205,7 +197,7 @@ function note(L: Float64Array, R: Float64Array): void {
 export function synthesize(input: SoundInput): { L: Float64Array; R: Float64Array } {
   const n = Math.round(SCORE.total * SAMPLE_RATE);
   const L = new Float64Array(n), R = new Float64Array(n);
-  const rand = rng(input.id);
+  const rand = seeded(input.id);
   bed(L, R, rand);
   room(L, R, rand);
   shimmer(L, R);

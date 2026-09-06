@@ -8,7 +8,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { FRAME, CANVAS, SCORE, ease, sentenceFor } from './score.js';
+import { FRAME, CANVAS, SCORE, ease, sentenceFor, typingWeights } from './score.js';
 import { font, fit, wrap, textFrame, blockHeight, layoutGlyphs, glyphFrame, mix, type Block } from './text.js';
 import { soundtrack } from './sound.js';
 import type { KeyPreset } from './score.js';
@@ -46,7 +46,7 @@ const run = (bin: string, args: string[]) => new Promise<void>((resolve, reject)
 export type Band = { frames: Buffer[]; top: number; height: number; /** when each glyph lands, and which are spaces: the keys in sound.ts */ cues: number[]; spaces: boolean[] };
 /** The sentence frames are a band around the text, not whole frames: 133 encodes of 1080×1920 cost a minute on
  *  one Vercel core. The compositor overlays the band at `top`. */
-export async function sentenceFrames(commission: string | null | undefined, line?: string | null): Promise<Band> {
+export async function sentenceFrames(commission: string | null | undefined, line?: string | null, id = 'night-shift'): Promise<Band> {
   const S = SCORE.sentence;
   const f = font(S.font);
   const text = sentenceFor(commission, line);
@@ -57,9 +57,9 @@ export async function sentenceFrames(commission: string | null | undefined, line
   const y0 = Math.round(size + size * 0.8); // baseline of the first line, inside the band
   const glyphs = layoutGlyphs({ lines, size, font: S.font, align: 'center', x: FRAME.w / 2, y: y0, lineHeight: lh });
   const n = glyphs.length || 1;
-  // a hand's rhythm: a breath after a comma, a longer one after a full stop; the whole line still in by typedBy
+  // a hand's rhythm (score.ts typingWeights): reaches, pairs, breaths, a hesitation now and then; the whole line still in by typedBy
   const chars = lines.join(' ');
-  const weights = glyphs.map((_, i) => { const prev = chars[i - 1] ?? ''; return /[.!?…]/.test(prev) ? S.pauseStop : /[,;:—–]/.test(prev) ? S.pauseComma : 1; });
+  const weights = typingWeights(chars, id);
   const cum: number[] = []; weights.reduce((acc, w, i) => (cum[i] = acc, acc + w), 0);
   const unit = Math.min(S.maxCharInterval, (S.typedBy - S.glyphFade - S.start) / (cum[n - 1] + 1));
   const interval = unit; // the pen's own step, used for the cursor
@@ -134,7 +134,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     await Promise.all([writeFile(join(dir, 'canvas.png'), canvas), writeFile(join(dir, 'fill.png'), fill)]);
     lap('stills');
 
-    const sentence = await sentenceFrames(input.commission, input.line);
+    const sentence = await sentenceFrames(input.commission, input.line, input.id);
     await Promise.all(sentence.frames.map((b, i) => writeFile(join(dir, `txt_${pad3(i)}.png`), b)));
     const cap = await captionFrames(input.title, input.endLine);
     await Promise.all([writeFile(join(dir, 'title.png'), cap.title), writeFile(join(dir, 'signoff.png'), cap.signoff)]);

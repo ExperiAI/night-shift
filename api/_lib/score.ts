@@ -28,7 +28,7 @@ export type KeyPreset = keyof typeof KEY_PRESETS;
 export const SCORE = {
   total: TOTAL,
   /** The commission types out of the dark, then fades. Any sentence finishes typing at `typedBy`. */
-  sentence: { start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, pauseComma: 3, pauseStop: 5, glyphFade: 0.16, driftScale: 1.03, rise: 3, ember: 0.55, emberColor: '#ffd58a' },
+  sentence: { start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, glyphFade: 0.16, driftScale: 1.03, rise: 3, ember: 0.55, emberColor: '#ffd58a' },
   /** The canvas surfaces from black (a fade from black: the one light appears first) with a slow push in. */
   painting: { fadeStart: 4.0, fadeEnd: 10.0, pushStart: 4.0, pushEnd: TITLE_AT, scaleFrom: 1.06, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35 },
   /** The painter signs, in real time: the mark is revealed left to right with a soft wet edge. */
@@ -57,6 +57,39 @@ export const SCORE = {
   },
   colors: { ground: '#0b1517', ink: '#e8e1d3', amber: '#e9a23b' }, // the website's tokens (public/index.html)
 } as const;
+
+/** mulberry32 over a string seed: the small variations of a hand, the same for the same painting. */
+export function seeded(seed: string): () => number {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 3432918353), h = (h << 13) | (h >>> 19);
+  let a = h >>> 0;
+  return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+/** How long the hand takes before each character lands, in units of the base step — the typing's rhythm (Diego,
+ *  2026-09-06: "more dynamic and rhythmic instead of linear"). A word starts after a small reach; common letter pairs
+ *  come faster; a capital or a punctuation mark slower; a comma is a breath and a full stop a longer one; now and then
+ *  the hand hesitates, then hurries the next few. Seeded by the painting's id, so the film's keys and the wall's
+ *  letters agree. MIRRORED in public/wall.html (typingWeights) — test/sound.test.mjs checks the two agree. */
+export const RHYTHM = { wordStart: 1.5, capital: 1.25, mark: 1.15, pauseComma: 3, pauseStop: 5, pair: 0.75, jitter: 0.2, hesitate: 0.06, hesitation: 2.4, burst: 0.8, burstLen: 3 } as const;
+const PAIRS = new Set(['th', 'he', 'in', 'er', 'an', 're', 'on', 'at', 'en', 'nd', 'ti', 'es', 'or', 'te', 'of', 'ed', 'is', 'it', 'al', 'ar', 'st', 'to', 'nt', 'ng', 'se', 'ha', 'as', 'ou', 'io', 'le', 've', 'co', 'me', 'de', 'hi', 'ri', 'ro', 'ic', 'ne', 'ea', 'ra', 'ce', 'li', 'ch', 'll', 'be', 'ma', 'si', 'om', 'ur']);
+export function typingWeights(chars: string, seed: string): number[] {
+  const R = RHYTHM, rand = seeded(seed), out: number[] = []; let burst = 0;
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i], prev = i > 0 ? chars[i - 1] : '';
+    let w = 1;
+    if (/[.!?…]/.test(prev)) w *= R.pauseStop; else if (/[,;:—–]/.test(prev)) w *= R.pauseComma;
+    if (prev === ' ') w *= R.wordStart;
+    if (/[A-Z]/.test(ch)) w *= R.capital;
+    if (/[^\sA-Za-z0-9\u00C0-\u024F]/.test(ch)) w *= R.mark;
+    if (prev && PAIRS.has((prev + ch).toLowerCase())) w *= R.pair;
+    w *= 1 + (rand() * 2 - 1) * R.jitter;
+    if (burst > 0) { w *= R.burst; burst--; }
+    else if (i > 2 && rand() < R.hesitate) { w *= R.hesitation; burst = R.burstLen; }
+    out.push(w);
+  }
+  return out;
+}
 
 /** Ease-in-out for the signing hand and the wall's mask: 0→1 over the signature's window. */
 export const ease = (x: number) => (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, x)))) / 2;
