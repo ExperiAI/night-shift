@@ -9,6 +9,8 @@ test('the wall plays the reveal to the score it is served, signs from the ink la
   assert.match(w, /SCORE = j\.score/, 'one timeline: the score comes from the feed, never a copy');
   for (const k of ['sentence.glyphFade', 'sentence.pauseStop', 'painting.fadeStart', 'signature.edgePx', 'title.fadeIn', 'signoff.fadeIn']) assert.ok(w.includes(k.split('.')[1]), k);
   assert.match(w, /c\.raw && c\.signature/); assert.match(w, /maskImage/);
+  assert.match(w, /#canvas #sig\{[^}]*inset:auto/, 'the ink layer is placed by the score, not by the canvas image rule (it sat top-left on the first live run)');
+  assert.doesNotMatch(w, /inset: 'auto'/);
   assert.match(w, /c\.status === 'withdrawn' \|\| c\.status === 'declined'/);
   assert.match(w, /\?room=\$\{encodeURIComponent\(ROOM\)\}/); assert.match(w, /demo/);
   assert.doesNotMatch(w, /inspector|reject|critic|exam/i, 'the moderation stays backstage (§2)');

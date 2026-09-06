@@ -34,7 +34,7 @@
   #fill{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(40px) brightness(.35);transform:scale(1.08)}
   #canvas{position:absolute;left:0;top:285px;width:1080px;height:1350px;overflow:hidden;transform-origin:50% 50%}
   #canvas img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-  #sig{position:absolute;display:none}
+  #canvas #sig{position:absolute;display:none;inset:auto;width:auto;height:auto;object-fit:fill} /* placed by the score, not the canvas rule above */
   #black{position:absolute;inset:0;background:#000}
   #sentence{position:absolute;left:72px;right:72px;top:0;height:1920px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--mono);font-size:44px;line-height:1.5;color:var(--ink);will-change:transform,opacity}
   #sentence .w{white-space:nowrap}
@@ -192,7 +192,7 @@ async function startReveal(c) {
   if (c.raw && c.signature && img.naturalWidth) {
     const k = 1080 / img.naturalWidth;
     sigGeom = { x: c.signature.x * k, y: c.signature.y * k, w: c.signature.w * k, h: c.signature.h * k };
-    sig.src = c.signature.image; Object.assign(sig.style, { left: sigGeom.x + 'px', top: sigGeom.y + 'px', width: sigGeom.w + 'px', height: sigGeom.h + 'px', display: 'block', inset: 'auto', objectFit: 'fill' });
+    sig.src = c.signature.image; Object.assign(sig.style, { left: sigGeom.x + 'px', top: sigGeom.y + 'px', width: sigGeom.w + 'px', height: sigGeom.h + 'px', display: 'block' });
   } else sig.style.display = 'none';
   $('title').textContent = c.title || 'Night Shift';
   $('endline').textContent = c.endLine || '';
