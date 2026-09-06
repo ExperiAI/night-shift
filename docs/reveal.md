@@ -29,12 +29,12 @@ canvas 1080×1920, 30 fps, total **20.0 s**.
 
 | t | Layer | What happens |
 |---|---|---|
-| 0.0–3.6 | sentence | Black. The commission's **line** types out, IBM Plex Mono 44 px, centred, max three lines, a thin amber cursor. Every glyph is laid out first and fades in on its own cue (no pop, no re-centring); the pace is a hand's, never faster than 85 ms a glyph, and any line is in by 3.4 s. **The line is at most 90 characters** (Diego, 2026-09-06: never an overwhelming text): the gatekeeper picks it as a VERBATIM excerpt of the commission (`take.line`, checked in code by `isExcerpt`, a rewrite is dropped); without one the commission is cut at a sentence, else a clause, else a word (`excerpt`). |
+| 0.0–3.6 | sentence | Black. The commission's **line** types out, IBM Plex Mono 44 px, centred, max three lines, a thin amber cursor. Every glyph is laid out first and fades in on its own cue (no pop, no re-centring); the pace is a hand's — a breath after a comma, a longer one after a full stop — never faster than 85 ms a glyph, and any line is in by 3.4 s; the sentence rises slowly the whole time it is up. **The line is at most 90 characters** (Diego, 2026-09-06: never an overwhelming text): the gatekeeper picks it as a VERBATIM excerpt of the commission (`take.line`, checked in code by `isExcerpt`, a rewrite is dropped); without one the commission is cut at a sentence, else a clause, else a word (`excerpt`). |
 | 3.6–4.4 | sentence | Fades out, lifting 3 % as it dissolves. |
 | 4.0–12.0 | painting | Behind: the painting scaled to fill 9:16, blurred (σ≈40) and darkened to 35 %. Front: the **unsigned** painting at 4:5, width 1080, centred. Fade from black 4.0→10.0 (the surfacing: this is a `fade` from black, not an opacity fade, so the first thing to appear is the one light). Slow push from scale 1.06 to 1.00 across 4.0–13.8. |
 | 12.0–13.8 | signature | **The painter signs, in real time** (Diego, 2026-09-06). The same signature PNG and position `signPainting` chose for this canvas (`signatureChoice(id)` is deterministic) is written onto the canvas left to right: a reveal whose edge moves across the mark with an ease-in-out over 1.8 s, the way a cursive hand crosses the paper, with a soft 24 px edge so it reads as wet ink rather than a wipe. Nothing else moves during these seconds. |
 | 13.8–16.8 | title | Instrument Serif 64 px, amber-ink `#ffd58a`, bottom-left with 72 px margins, fade in 0.6 s. The soft note sounds here. |
-| 16.8–19.4 | sign-off | Under the title, IBM Plex Mono 30 px, muted `#a2abbb`: the `SIGNOFF` constant from `artist.ts`, word for word. Fade in 0.6 s. |
+| 16.8–19.4 | last words | Under the title, IBM Plex Mono 30 px, muted `#a2abbb`: one of `END_LINES` in `artist.ts`, fixed per painting by its id (Diego, 2026-09-06: not the caption's disclosure — a line that plays with curiosity and makes people reflect, using the fact that a machine made this; the limit stays plain, it asks rather than tells, it never narrates the sender). The caption keeps `SIGNOFF`. Fade in 0.6 s. |
 | 19.4–20.0 | hold | Everything stays. Last frame = cover candidate (identical to the signed still). |
 | 0.0–20.0 | audio | Generated, never licensed: a low drone (sine 55 Hz, −26 dB) fading in over 2 s and out over 3 s, a faint dry scratch under the signature (filtered noise, `anoisesrc` through a band-pass, −34 dB, 12.0–13.8), plus one soft note (sine 220 Hz with a 1.2 s decay) at 13.8 s under the title. ffmpeg `aevalsrc`/`anoisesrc`; no file, no rights. `muteAudio` is not set. |
 
@@ -42,9 +42,13 @@ canvas 1080×1920, 30 fps, total **20.0 s**.
 
 The reveal in ffmpeg: the signature PNG as an overlay whose visible width grows with `crop=w='iw*clip((t-12)/1.8,0,1)'` on an eased time (`(1-cos(PI*x))/2`) and a horizontal alpha ramp of 24 px at the leading edge (`geq` on the alpha plane, or a pre-rendered gradient mask blended with `alphamerge`). On the wall the same beat is a CSS `mask-image` linear gradient whose position animates over 1.8 s with the same easing, from a shared constant in the score.
 
-Copy in the film: the commission text (or, for an anonymous commission, nothing types: the film opens
-on "a commission" in the same mono, since an anonymous sentence is never shown, see `publicView`), the
-title, the sign-off. No credit line, no hashtags, no departures: those stay in the caption.
+Copy in the film: the line (or, for an anonymous commission, nothing types: the film opens on
+"a commission" in the same mono, since an anonymous sentence is never shown, see `publicView`), the
+title, the last words. No credit line, no hashtags, no departures: those stay in the caption.
+**The line is the hook** (Diego, 2026-09-06, third note): the gatekeeper chooses it under `LINE_BRIEF` —
+the phrase that creates the most expectation and curiosity, verbatim — and for paintings from before
+the brief `hookLine()` asks the model the same at film time (Haiku, ~$0.001), falling back to the
+opening cut only when the pick is not the commission's own words.
 
 Colour and type are the wall's and the website's: ground `#0b1517`, ink `#e8e1d3`, amber `#e9a23b` (`public/index.html`'s tokens, carried in `SCORE.colors`).
 Fonts ship in the repo under `public/fonts/` as TTF (Instrument Serif and IBM Plex Mono, both OFL).

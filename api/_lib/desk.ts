@@ -314,6 +314,7 @@ export function publicView(c: Commission) {
     id: c.id, status: c.status, created: c.created, from: c.anonymous ? null : c.from,
     commission: c.anonymous ? null : c.text, line: c.anonymous ? null : c.take.line, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene, // a private sentence stays private on the wall too
     image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides, holdUntil: c.holdUntil, register: c.take.register,
+    film: c.film, raw: c.raw, signature: c.signature, // the reveal (docs/reveal.md): the film for the Reel and the ticket; the unsigned canvas and the ink layer for the wall to sign in real time
     ...(c.rejects?.length ? { rejects: c.rejects } : {}), // what the inspector refused on the way to this canvas
     ...(isStudioSender(c.from) ? { studio: true } : {}), // the studio's own commission (an exam), marked so the wall is not read as a client list (#18)
     ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),

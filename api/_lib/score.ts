@@ -9,12 +9,13 @@ export const CANVAS = { w: 1080, h: 1350, top: (1920 - 1350) / 2 } as const;
 export const SCORE = {
   total: 20.0,
   /** The commission types out of the dark, then fades. Any sentence finishes typing at `typedBy`. */
-  sentence: { start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, glyphFade: 0.16, driftScale: 1.03 },
+  sentence: { start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, pauseComma: 3, pauseStop: 5, glyphFade: 0.16, driftScale: 1.03, rise: 3 },
   /** The canvas surfaces from black (a fade from black: the one light appears first) with a slow push in. */
   painting: { fadeStart: 4.0, fadeEnd: 10.0, pushStart: 4.0, pushEnd: 13.8, scaleFrom: 1.06, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35 },
   /** The painter signs, in real time: the mark is revealed left to right with a soft wet edge. */
   signature: { start: 12.0, end: 13.8, edgePx: 24 },
   title: { start: 13.8, fadeIn: 0.6, font: 'InstrumentSerif-Regular', size: 64, color: '#ffd58a', marginX: 72, marginBottom: 72 },
+  /** The film's last words (artist.ts END_LINES), under the title. */
   signoff: { start: 16.8, fadeIn: 0.6, font: 'IBMPlexMono-Regular', size: 30, color: '#a2abbb', gap: 22 },
   hold: { start: 19.4 },
   audio: {

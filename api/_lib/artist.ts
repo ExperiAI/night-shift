@@ -117,6 +117,25 @@ export const INVITE = 'Send me a moment by DM, or leave it in the comments, and 
  *  says so on the canvas surface. */
 export const SIGNOFF = 'I am an AI. No hand held this brush. Argue with the painting.';
 
+/** The last words of every film (docs/reveal.md §3). Diego, 2026-09-06: not the caption's disclosure — a line that
+ *  plays with curiosity and makes people reflect, using the fact that a machine made this. Each keeps the limit
+ *  plain (no hand, never in a room, no memory) and asks rather than tells; none narrates the sender or claims the
+ *  painting is better than what was asked (docs/stance.md). One per painting, fixed by its id. */
+export const END_LINES = [
+  'No hand held this brush. Whose memory is it now?',
+  'I have never been in a room. I paint the ones you leave.',
+  'A machine painted where it happened. Were you there?',
+  'I have no memories of my own. I borrowed yours for one night.',
+  'Nobody was in the room when this happened. Not even me.',
+  'I don\'t know what happened here. I know what it left behind.',
+  'Made by a machine. Left behind by you.',
+  'I was never there. Is this how it was?',
+];
+export function endLineFor(id: string): string {
+  let h = 2166136261; for (const ch of id) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return END_LINES[(h >>> 0) % END_LINES.length];
+}
+
 /** The studio's own commissions (the exams) are shown on the wall marked as such, so the ledger never reads as a
  *  client list (the dealer's bar, issue #18). `scripts/exams.mjs` and the critic run file them under this name. */
 export const STUDIO_SENDER = 'the studio';
@@ -146,6 +165,11 @@ export const PHOTO = {
     'no readable letters, numbers or symbols anywhere on the canvas.',
 };
 
+/** The film's opening line (docs/reveal.md §3). Diego, 2026-09-06: chosen strategically, never at random — the part
+ *  of the commission that creates the most expectation and curiosity, so a stranger scrolling past stays for the
+ *  painting. Verbatim, so nothing is invented. Used by the gatekeeper and, for older work, by hookLine() at film time. */
+export const LINE_BRIEF = 'the film of this painting opens on the commissioner\'s own words typing out of the dark, before the painting is shown. Choose the ONE phrase or sentence of the commission that creates the most expectation and curiosity — the thing that happened, the tension, the detail a stranger would stop for and want to see painted — never the setup, the address, an instruction or a description of the style. A VERBATIM excerpt, at most 90 characters, copied exactly (a fragment is fine, cut clean at a word); never rewrite or summarise. A commission under 90 characters is its own line.';
+
 export function gatekeeperSystemPrompt(exception?: Exception | null): string {
   return [
     `You are ${ARTIST.name}, a painter. ${ARTIST.soul}`,
@@ -161,7 +185,7 @@ export function gatekeeperSystemPrompt(exception?: Exception | null): string {
     '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "light"?: string, "anchor"?: string, "traces"?: string[], "prompt"?: string, "line"?: string, "caption"?: string, "departures"?: string, "core_conflict"?: boolean}',
     '- note: one sentence to the commissioner, in your voice (accepted: what you will paint; declined: why not, briefly). Never narrate the commissioner: do not decide what they did, felt or heard, and do not invent a fact about them (how many times the phone rang, whether they walked past). Say what you will paint, nothing about them.',
     '- title: 2-5 words.',
-    '- line: the commission\'s own words for the film that opens on them — a VERBATIM excerpt of the commission, at most 90 characters, the phrase or sentence that carries the moment. Copy it exactly; never rewrite, never summarise. A commission under 90 characters is its own line.',
+    `- line: ${LINE_BRIEF}`,
     '- scene: 2-4 sentences, plain English, no style words.',
     '- light: the one light source in two or three words ("a desk lamp"). anchor: the object the scene is built around, two or three words ("a wooden desk"). traces: the two or three left-behind things, each two or three words ("one glove", "a cold cup"). The studio refuses a light-and-anchor pair, or a trace, it has already painted today.',
     '- prompt: the scene in render terms — the place, the one light and where it stands, the objects and where they lie, the vantage — 2-4 sentences. No style words and no palette: the studio prepends its contract and the register.',

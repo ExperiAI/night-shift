@@ -58,12 +58,23 @@ export async function instagramAccount(): Promise<{ id: string; username?: strin
   return a ? { id: a._id ?? a.id, username: a.username } : null;
 }
 
-/** One image posts a single; several post a carousel in the given order (first = the grid tile). */
-export async function publish(images: string | string[], caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string }> {
+/** What a post carries: one image (a single), several (a carousel, first = the grid tile), or the film with the
+ *  still as its cover (a Reel — Zernio posts a single 9:16 video as a Reel; docs/reveal.md §4). */
+export type Media = string | string[] | { video: string; cover: string };
+export function postBody(media: Media, caption: string, o: PostOptions, accountId: string) {
+  const reel = typeof media === 'object' && !Array.isArray(media);
+  const mediaItems = reel ? [{ type: 'video', url: media.video }] : (Array.isArray(media) ? media : [media]).map(url => ({ type: 'image', url }));
+  const platformSpecificData = {
+    ...(reel ? { instagramThumbnail: media.cover, isAiGenerated: true, shareToFeed: true } : {}), // the cover is the signed still; the flag is the honest one and costs nothing
+    ...(o.firstComment ? { firstComment: o.firstComment } : {}),
+    ...(o.collaborators?.length ? { collaborators: o.collaborators } : {}),
+  };
+  return { content: caption, mediaItems, platforms: [{ platform: 'instagram', accountId, platformSpecificData }], publishNow: true };
+}
+export async function publish(media: Media, caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string }> {
   const acct = await instagramAccount();
   if (!acct) throw new Error('no Instagram account connected in Zernio');
-  const urls = Array.isArray(images) ? images : [images];
-  const body = (o: PostOptions) => JSON.stringify({ content: caption, mediaItems: urls.map(url => ({ type: 'image', url })), platforms: [{ platform: 'instagram', accountId: acct.id, platformSpecificData: { ...(o.firstComment ? { firstComment: o.firstComment } : {}), ...(o.collaborators?.length ? { collaborators: o.collaborators } : {}) } }], publishNow: true });
+  const body = (o: PostOptions) => JSON.stringify(postBody(media, caption, o, acct.id));
   let r = await fetch(`${BASE}/posts`, { method: 'POST', headers: headers(), body: body(opts) });
   let j: any = await r.json();
   if (!r.ok && opts.collaborators?.length) { // a handle Instagram will not tag (private, invalid, blocked) must never cost the painting

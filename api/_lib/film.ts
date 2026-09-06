@@ -10,6 +10,10 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { FRAME, CANVAS, SCORE, ease, sentenceFor } from './score.js';
 import { font, fit, wrap, textFrame, blockHeight, layoutGlyphs, glyphFrame, type Block } from './text.js';
+import { isExcerpt, excerpt } from './score.js';
+import { chatJSON } from './openrouter.js';
+import { LINE_BRIEF, endLineFor } from './artist.js';
+import ffmpegStatic from 'ffmpeg-static'; // the Linux binary on Vercel, this machine's locally; a string path
 
 export type FilmInput = {
   id: string;
@@ -18,11 +22,11 @@ export type FilmInput = {
   /** The canvas before signing, and the ink layer with its place on it (paint.ts). */
   raw?: Buffer | null;
   signature?: { ink: Buffer; x: number; y: number; w: number; h: number } | null;
-  /** The commission as the public sees it (null for an anonymous one), the gatekeeper's excerpt of it, the title, the sign-off. */
+  /** The commission as the public sees it (null for an anonymous one), the gatekeeper's excerpt of it, the title, the film's last words (artist.ts endLineFor). */
   commission?: string | null;
   line?: string | null;
   title: string;
-  signoff: string;
+  endLine: string;
 };
 export type FilmOptions = { ffmpeg?: string; workDir?: string; keepWork?: boolean; preset?: string };
 
@@ -45,14 +49,19 @@ export async function sentenceFrames(commission: string | null | undefined, line
   const y0 = Math.round(FRAME.h / 2 - (lines.length * lh) / 2 + size * 0.8);
   const glyphs = layoutGlyphs({ lines, size, font: S.font, align: 'center', x: FRAME.w / 2, y: y0, lineHeight: lh });
   const n = glyphs.length || 1;
-  const interval = Math.min(S.maxCharInterval, (S.typedBy - S.glyphFade) / n); // short sentences type at a hand's pace; long ones still finish in time
-  const cue = (i: number) => S.start + i * interval;
+  // a hand's rhythm: a breath after a comma, a longer one after a full stop; the whole line still in by typedBy
+  const chars = lines.join(' ');
+  const weights = glyphs.map((_, i) => { const prev = chars[i - 1] ?? ''; return /[.!?…]/.test(prev) ? S.pauseStop : /[,;:—–]/.test(prev) ? S.pauseComma : 1; });
+  const cum: number[] = []; weights.reduce((acc, w, i) => (cum[i] = acc, acc + w), 0);
+  const unit = Math.min(S.maxCharInterval, (S.typedBy - S.glyphFade - S.start) / (cum[n - 1] + 1));
+  const interval = unit; // the pen's own step, used for the cursor
+  const cue = (i: number) => S.start + (cum[i] ?? 0) * unit;
   const frames: Buffer[] = [];
   const count = Math.ceil(S.fadeEnd * FRAME.fps) + 1;
   for (let k = 0; k < count; k++) {
     const t = k / FRAME.fps;
     const opacity = (i: number) => Math.min(1, Math.max(0, (t - cue(i)) / S.glyphFade));
-    const started = Math.min(n, Math.max(0, Math.floor((t - S.start) / interval) + 1));
+    const started = Math.min(n, cum.filter(c => S.start + c * interval <= t).length);
     const last = glyphs[Math.max(0, started - 1)];
     const done = t >= cue(n - 1) + S.glyphFade;
     const cur = started === 0 ? { x: glyphs[0]?.x ?? FRAME.w / 2, y: glyphs[0]?.y ?? y0 } : { x: last.x + last.adv + size * 0.1, y: last.y };
@@ -62,11 +71,11 @@ export async function sentenceFrames(commission: string | null | undefined, line
   return frames;
 }
 
-/** Title and sign-off, bottom-left under the canvas, each as its own frame so they fade in on their own cues. */
-export async function captionFrames(title: string, signoff: string): Promise<{ title: Buffer; signoff: Buffer }> {
+/** Title and the film's last words, bottom-left under the canvas, each as its own frame so they fade in on their own cues. */
+export async function captionFrames(title: string, endLine: string): Promise<{ title: Buffer; signoff: Buffer }> {
   const T = SCORE.title, O = SCORE.signoff;
   const maxW = FRAME.w - 2 * T.marginX;
-  const so: Block = { lines: wrap(signoff, font(O.font), O.size, maxW), size: O.size, font: O.font, color: O.color, align: 'left', x: T.marginX, y: 0, lineHeight: Math.round(O.size * 1.4) };
+  const so: Block = { lines: wrap(endLine, font(O.font), O.size, maxW), size: O.size, font: O.font, color: O.color, align: 'left', x: T.marginX, y: 0, lineHeight: Math.round(O.size * 1.4) };
   const ti: Block = { lines: fit(title, font(T.font), T.size, maxW, 2).lines, size: T.size, font: T.font, color: T.color, align: 'left', x: T.marginX, y: 0, lineHeight: Math.round(T.size * 1.1) };
   so.y = FRAME.h - T.marginBottom - blockHeight(so) + O.size; // baseline of the first line
   ti.y = so.y - O.size - O.gap - blockHeight(ti) + T.size;
@@ -90,7 +99,7 @@ export async function signatureFrames(ink: Buffer, edgePx = SCORE.signature.edge
 
 /** The whole film as MP4 bytes. */
 export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promise<Buffer> {
-  const ffmpeg = opts.ffmpeg ?? process.env.FFMPEG_PATH ?? 'ffmpeg';
+  const ffmpeg = opts.ffmpeg ?? process.env.FFMPEG_PATH ?? (typeof ffmpegStatic === 'string' ? ffmpegStatic : 'ffmpeg');
   const dir = opts.workDir ?? await mkdtemp(join(tmpdir(), `film-${input.id}-`));
   const P = SCORE.painting, S = SCORE.sentence, G = SCORE.signature, T = SCORE.title, O = SCORE.signoff, A = SCORE.audio;
   try {
@@ -102,7 +111,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
 
     const sentence = await sentenceFrames(input.commission, input.line);
     await Promise.all(sentence.map((b, i) => writeFile(join(dir, `txt_${pad3(i)}.png`), b)));
-    const cap = await captionFrames(input.title, input.signoff);
+    const cap = await captionFrames(input.title, input.endLine);
     await Promise.all([writeFile(join(dir, 'title.png'), cap.title), writeFile(join(dir, 'signoff.png'), cap.signoff)]);
 
     const signs = Boolean(input.raw && input.signature);
@@ -141,7 +150,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     f.push(`[2:v]format=rgba,tpad=stop_mode=clone:stop_duration=2,scale=w='trunc(iw*${drift}/2)*2':h=-2:eval=frame,crop=${FRAME.w}:${FRAME.h}:x='(iw-ow)/2':y='(ih-oh)/2',fade=t=out:st=${S.fadeStart}:d=${(S.fadeEnd - S.fadeStart).toFixed(2)}:alpha=1[st]`);
     f.push(`[3:v]format=rgba,fade=t=in:st=${T.start}:d=${T.fadeIn}:alpha=1[ti]`);
     f.push(`[4:v]format=rgba,fade=t=in:st=${O.start}:d=${O.fadeIn}:alpha=1[so]`);
-    f.push(`[bg][st]overlay=0:0:format=auto:eof_action=pass[v1]`);
+    f.push(`[bg][st]overlay=x=0:y='-${S.rise}*t':format=auto:eof_action=pass[v1]`); // the sentence rises a little the whole time it is up
     f.push(`[v1][ti]overlay=0:0:format=auto[v2]`);
     f.push(`[v2][so]overlay=0:0:format=auto,format=yuv420p[v]`);
     // audio: generated, never licensed
@@ -161,10 +170,23 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
   }
 }
 
+/** The hook for a painting whose take has no line (work from before the film): the model picks it under the same
+ *  brief as the gatekeeper, and the pick is kept only if it is the commission's own words. Null on any failure —
+ *  the film then opens on the commission's opening (score.ts excerpt). ~$0.001 on Haiku. */
+export async function hookLine(text: string): Promise<string | null> {
+  const out = await chatJSON<{ line?: string }>(`You choose one line for a short film. Answer ONLY with JSON: {"line": string}. The line: ${LINE_BRIEF}`, `Commission:\n${text}`, process.env.HOOK_MODEL ?? 'anthropic/claude-haiku-4-5').catch((e: any) => { console.warn(`hookLine: ${String(e?.message).slice(0, 200)}`); return null; });
+  const raw = out?.line?.trim();
+  if (!raw) return null;
+  const l = raw.length > SCORE.sentence.maxChars ? excerpt(raw, SCORE.sentence.maxChars) : raw; // a pick over the cap is cut clean, not thrown away
+  const ok = isExcerpt(text, l);
+  if (!ok) console.warn(`hookLine: not the commission's words, dropped: ${JSON.stringify(raw)}`);
+  return ok ? l : null;
+}
+
 /** The film's inputs from a commission record: fetches the canvas, the raw and the ink layer. */
-export async function filmInputFor(c: { id: string; image?: string; raw?: string; signature?: { image: string; x: number; y: number; w: number; h: number }; anonymous?: boolean; text: string; take: { title?: string; line?: string } }, signoff: string): Promise<FilmInput> {
+export async function filmInputFor(c: { id: string; image?: string; raw?: string; signature?: { image: string; x: number; y: number; w: number; h: number }; anonymous?: boolean; text: string; take: { title?: string; line?: string } }): Promise<FilmInput> {
   const get = async (u: string) => Buffer.from(await (await fetch(u)).arrayBuffer());
   if (!c.image) throw new Error('no painting to film');
   const [image, raw, ink] = await Promise.all([get(c.image), c.raw ? get(c.raw) : null, c.signature ? get(c.signature.image) : null]);
-  return { id: c.id, image, raw, signature: ink && c.signature ? { ink, x: c.signature.x, y: c.signature.y, w: c.signature.w, h: c.signature.h } : null, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', signoff };
+  return { id: c.id, image, raw, signature: ink && c.signature ? { ink, x: c.signature.x, y: c.signature.y, w: c.signature.w, h: c.signature.h } : null, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id) };
 }

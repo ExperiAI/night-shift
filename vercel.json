@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "api/paint.ts": { "memory": 3008, "maxDuration": 300 }
+  },
   "crons": [
     {
       "path": "/api/paint",

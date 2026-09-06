@@ -8,7 +8,7 @@ import { SCORE, FRAME, CANVAS, ease, sentenceFor, excerpt, isExcerpt } from '../
 import { font, wrap, fit } from '../api/_lib/text.ts';
 import { sentenceFrames, captionFrames, signatureFrames, makeFilm } from '../api/_lib/film.ts';
 import { signatureLayer } from '../api/_lib/compose.ts';
-import { SIGNOFF } from '../api/_lib/artist.ts';
+import { END_LINES, endLineFor } from '../api/_lib/artist.ts';
 
 const alphaSum = async (png) => { const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true }); let s = 0; for (let i = 3; i < data.length; i += info.channels) s += data[i]; return s; };
 
@@ -34,6 +34,18 @@ test('the film never opens on a wall of text: the gatekeeper\'s verbatim line, e
   assert.equal(excerpt('word '.repeat(40).trim(), 90).length <= 91, true);
 });
 
+test('the film ends on a line that asks, states the machine plainly, and never narrates the sender (Diego, 2026-09-06)', () => {
+  const f = font('IBMPlexMono-Regular');
+  for (const l of END_LINES) {
+    assert.ok(l.length <= 64, `fits two mono lines: ${l}`);
+    assert.ok(wrap(l, f, SCORE.signoff.size, FRAME.w - 2 * SCORE.title.marginX).length <= 2);
+    assert.match(l, /machine|hand|never|no memories|nobody|not even me|don't know/i, `the limit is plain: ${l}`);
+    assert.doesNotMatch(l, /better|more than|you felt|you cried|you remember/i);
+  }
+  assert.equal(endLineFor('abc'), endLineFor('abc')); assert.ok(END_LINES.includes(endLineFor('mtpj3bel-mtnldu')));
+  assert.ok(new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map(endLineFor)).size >= 4, 'ids spread over the lines');
+});
+
 test('words wrap by measured width and a long sentence shrinks before it is cut', () => {
   const f = font('IBMPlexMono-Regular');
   const lines = wrap('one two three four five six seven eight nine ten', f, 44, 400);
@@ -48,7 +60,7 @@ test('the sentence types out over the score and the caption frames are frame-siz
   const m = await sharp(frames[0]).metadata(); assert.equal(m.width, FRAME.w); assert.equal(m.height, FRAME.h);
   const a0 = await alphaSum(frames[2]), aMid = await alphaSum(frames[45]), aEnd = await alphaSum(frames[Math.ceil(SCORE.sentence.typedBy * FRAME.fps) + 1]);
   assert.ok(a0 < aMid && aMid < aEnd, 'more ink as the sentence types');
-  const { title, signoff } = await captionFrames('Three Things, Tatami', SIGNOFF);
+  const { title, signoff } = await captionFrames('Three Things, Tatami', END_LINES[0]);
   assert.ok(await alphaSum(title) > 0 && await alphaSum(signoff) > 0);
   const anon = await sentenceFrames(null); assert.ok(await alphaSum(anon.at(-1)) > 0, 'an anonymous commission opens on “a commission”');
 });
@@ -69,7 +81,7 @@ test('the film is 1080×1920, 20.0 s, H.264 + AAC, with the signing beat', { ski
   const raw = await sharp({ create: { width: 928, height: 1152, channels: 3, background: '#1b2a33' } }).composite([{ input: await sharp({ create: { width: 200, height: 200, channels: 3, background: '#f0a83a' } }).png().toBuffer(), left: 364, top: 300 }]).png().toBuffer();
   const s = await signatureLayer(raw, 'film-test');
   const image = await sharp(raw).composite([{ input: s.ink, left: s.left, top: s.top }]).png().toBuffer();
-  const mp4 = await makeFilm({ id: 'film-test', image, raw, signature: { ink: s.ink, x: s.left, y: s.top, w: s.w, h: s.h }, commission: 'a test', title: 'A Test', signoff: SIGNOFF }, { ffmpeg, preset: 'ultrafast' });
+  const mp4 = await makeFilm({ id: 'film-test', image, raw, signature: { ink: s.ink, x: s.left, y: s.top, w: s.w, h: s.h }, commission: 'a test', title: 'A Test', endLine: endLineFor('film-test') }, { ffmpeg, preset: 'ultrafast' });
   assert.ok(mp4.length > 50_000);
   assert.equal(mp4.subarray(4, 8).toString(), 'ftyp');
   const { execFileSync } = await import('node:child_process');
