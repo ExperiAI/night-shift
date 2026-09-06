@@ -42,6 +42,23 @@ export async function audience(): Promise<{ followers: number; follows: number; 
   return { followers: a.currentFollowers ?? 0, follows: a.accountStats?.followsCount ?? 0, posts: a.accountStats?.mediaCount ?? 0 };
 }
 
+/** What Instagram reports for one post, through Zernio's analytics (synced hourly; up to 48 h behind). For a Reel the
+ *  watch time is the retention the opening A/B (#36) was read by hand for: `held` is the average watch as a share of
+ *  the film's length; `skipRate` is Instagram's own "swiped away" share. Zero everywhere means not synced yet. */
+export type PostInsight = { views: number; reach: number; likes: number; comments: number; shares: number; saves: number; avgWatchS: number | null; durationS: number | null; held: number | null; skipRate: number | null; syncedAt: string | null };
+export async function postInsights(accountId: string): Promise<Map<string, PostInsight>> {
+  const j = await get(`/analytics?platform=instagram&accountId=${accountId}`);
+  const out = new Map<string, PostInsight>();
+  for (const p of (j.posts ?? []) as any[]) {
+    const pl = (p.platforms ?? []).find((x: any) => x.platform === 'instagram') ?? p.platforms?.[0];
+    const a = pl?.analytics ?? p.analytics; const id = pl?.platformPostId;
+    if (!id || !a) continue;
+    const dur = a.videoDurationSeconds || null; const avg = a.igReelsAvgWatchTime != null ? a.igReelsAvgWatchTime / 1000 : null;
+    out.set(String(id), { views: a.views ?? 0, reach: a.reach ?? 0, likes: a.likes ?? 0, comments: a.comments ?? 0, shares: a.shares ?? 0, saves: a.saves ?? 0, avgWatchS: avg, durationS: dur, held: avg != null && dur ? Number(Math.min(1, avg / dur).toFixed(2)) : null, skipRate: a.reelsSkipRate ?? null, syncedAt: a.lastUpdated ?? null });
+  }
+  return out;
+}
+
 function headers() {
   const key = process.env.ZERNIO_API_KEY;
   if (!key) throw new Error('ZERNIO_API_KEY missing');

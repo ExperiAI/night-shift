@@ -7,7 +7,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, allFeedback, saveFeedback, saveCritique, latestCritiques, newId, type Critique, type ExamSitting } from './_lib/store.js';
 import { ARTIST, REGISTERS, registerByKey, isTestSender } from './_lib/artist.js';
 import { ORIGIN } from './_lib/origin.js';
-import { instagramAccount, audience, publishStory, canPost } from './_lib/zernio.js';
+import { instagramAccount, audience, publishStory, canPost, postInsights, type PostInsight } from './_lib/zernio.js';
 import { openDoorStory } from './_lib/compose.js';
 import { captionMatches } from './_lib/reconcile.js';
 import { nextExam, STUDIO_SENDER } from './_lib/exams.js';
@@ -78,19 +78,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Reactions per post, from the same inbox listing the reactor uses (likes/comments per media id).
   let likes = 0, comments = 0, followers: number | undefined; const reactions = new Map<string, { likes: number; comments: number }>();
+  let insights: Map<string, PostInsight> | null = null; // Instagram's own numbers per post (views, reach, watch time), through Zernio
   try {
     const acct = await instagramAccount();
     if (acct) {
       const r = await fetch(`https://zernio.com/api/v1/inbox/comments?platform=instagram&accountId=${acct.id}&minComments=0&limit=50`, { headers: { Authorization: `Bearer ${process.env.ZERNIO_API_KEY}` } });
       for (const p of ((await r.json()) as any).data ?? []) reactions.set(String(p.id), { likes: p.likeCount ?? 0, comments: p.commentCount ?? 0 });
       for (const c of posted) { const x = c.mediaId ? reactions.get(c.mediaId) : undefined; likes += x?.likes ?? 0; comments += x?.comments ?? 0; }
+      insights = await postInsights(acct.id).catch(() => null);
     }
   } catch { /* reactions are a nice-to-have */ }
+  // The day's Reels as Instagram saw them, for the record (#11): a critique can say whether the audience held, not only whether the craft did.
+  const reelOf = (c: { mediaId?: string }) => (c.mediaId && insights?.get(c.mediaId)) || null;
+  const dayReels = posted.map(reelOf).filter((x): x is PostInsight => Boolean(x) && (x as PostInsight).syncedAt != null);
+  const reels = dayReels.length ? { synced: dayReels.length, views: dayReels.reduce((s, x) => s + x.views, 0), reach: dayReels.reduce((s, x) => s + x.reach, 0), held: Number((dayReels.filter(x => x.held != null).reduce((s, x) => s + (x.held ?? 0), 0) / Math.max(1, dayReels.filter(x => x.held != null).length)).toFixed(2)) } : undefined;
   followers = (await audience().catch(() => null))?.followers; // the number every lever in #11 is measured against
 
   const date = new Date().toISOString().slice(0, 10);
   const door = posted.length === 0 ? await openDoor() : false; // idle day: a Story keeps the door lit
-  const signals = { posted: posted.length, failed: failed.length, declined: declined.length, likes, comments, humanFeedback: human.length, ...(followers != null ? { followers } : {}) };
+  const signals = { posted: posted.length, failed: failed.length, declined: declined.length, likes, comments, humanFeedback: human.length, ...(followers != null ? { followers } : {}), ...(reels ? { reels } : {}) };
   if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: [door ? 'nothing to review; the open-door Story went up' : 'nothing to review'], next_painter: [], this_painter: [], signals, exam }; await saveCritique(empty); return res.json(empty); }
 
   const content: any[] = [{ type: 'text', text: [
@@ -99,8 +105,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     'Paintings follow, each with its commission. The image after each block is that painting.',
   ].join('\n\n') }];
   for (const c of posted) {
-    const x = c.mediaId ? reactions.get(c.mediaId) : undefined;
-    content.push({ type: 'text', text: `--- id ${c.id} — "${c.take.title}" — from ${c.anonymous ? 'anonymous' : c.from ?? 'anonymous'} via ${c.source?.channel ?? 'api'}${c.photo ? ' (with a photograph of the place)' : ''}\nRegister: ${registerByKey(c.take.register)?.name ?? 'none recorded (before registers)'}\nCommission: ${c.text}\nDepartures: ${c.take.departures ?? 'none stated'}\nReactions: ${x ? `${x.likes} likes, ${x.comments} comments` : 'unknown'}${captionMatches(c) === false ? `\nCAPTION ON INSTAGRAM DIFFERS from the one sent (issue #22). On the post: ${c.postedCaption!.slice(0, 300)}` : captionMatches(c) ? '\nCaption on Instagram: read back, matches what was sent' : '\nCaption on Instagram: not read back yet'}` });
+    const x = c.mediaId ? reactions.get(c.mediaId) : undefined; const ins = reelOf(c);
+    content.push({ type: 'text', text: `--- id ${c.id} — "${c.take.title}" — from ${c.anonymous ? 'anonymous' : c.from ?? 'anonymous'} via ${c.source?.channel ?? 'api'}${c.photo ? ' (with a photograph of the place)' : ''}\nRegister: ${registerByKey(c.take.register)?.name ?? 'none recorded (before registers)'}\nCommission: ${c.text}\nDepartures: ${c.take.departures ?? 'none stated'}\nReactions: ${x ? `${x.likes} likes, ${x.comments} comments` : 'unknown'}${ins?.syncedAt ? `\nOn Instagram so far: ${ins.views} views, reach ${ins.reach}${ins.held != null ? `, ${Math.round(ins.held * 100)}% of the film watched on average, ${ins.skipRate ?? 0}% swiped away` : ''}, ${ins.shares} shares, ${ins.saves} saves` : ''}${captionMatches(c) === false ? `\nCAPTION ON INSTAGRAM DIFFERS from the one sent (issue #22). On the post: ${c.postedCaption!.slice(0, 300)}` : captionMatches(c) ? '\nCaption on Instagram: read back, matches what was sent' : '\nCaption on Instagram: not read back yet'}` });
     content.push({ type: 'image_url', image_url: { url: c.image } });
   }
   const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
