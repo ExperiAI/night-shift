@@ -1,5 +1,5 @@
 // The Reveal (docs/reveal.md): the score is one object, words are set without system fonts, the signature writes
-// itself across its window, and the whole film is 1080×1920 at 20.0 s with audio.
+// itself across its window, and the whole film is 1080×1920 at SCORE.total seconds with audio.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
@@ -77,7 +77,7 @@ test('the signature writes itself: nothing at the start of its window, the whole
 });
 
 const ffmpeg = process.env.FFMPEG_PATH ?? ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg'].find(existsSync);
-test('the film is 1080×1920, 20.0 s, H.264 + AAC, with the signing beat', { skip: !ffmpeg && 'no ffmpeg on this machine' }, async () => {
+test('the film is 1080×1920, SCORE.total long, H.264 + AAC, with the signing beat', { skip: !ffmpeg && 'no ffmpeg on this machine' }, async () => {
   const raw = await sharp({ create: { width: 928, height: 1152, channels: 3, background: '#1b2a33' } }).composite([{ input: await sharp({ create: { width: 200, height: 200, channels: 3, background: '#f0a83a' } }).png().toBuffer(), left: 364, top: 300 }]).png().toBuffer();
   const s = await signatureLayer(raw, 'film-test');
   const image = await sharp(raw).composite([{ input: s.ink, left: s.left, top: s.top }]).png().toBuffer();
@@ -88,5 +88,5 @@ test('the film is 1080×1920, 20.0 s, H.264 + AAC, with the signing beat', { ski
   const { writeFileSync, mkdtempSync } = await import('node:fs'); const { join } = await import('node:path'); const { tmpdir } = await import('node:os');
   const p = join(mkdtempSync(join(tmpdir(), 'film-')), 'f.mp4'); writeFileSync(p, mp4);
   const probe = execFileSync(ffmpeg.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-show_entries', 'stream=codec_name,width,height,duration', '-of', 'csv=p=0', p]).toString();
-  assert.match(probe, /h264,1080,1920,20\.0/); assert.match(probe, /aac/);
+  assert.match(probe, new RegExp(`h264,1080,1920,${SCORE.total.toFixed(1).replace('.', '\\.')}`)); assert.match(probe, /aac/);
 });

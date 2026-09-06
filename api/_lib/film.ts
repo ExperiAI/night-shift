@@ -1,4 +1,4 @@
-// The film: one painting's making as a 20 s vertical reveal, composed from the score (score.ts) with sharp and one
+// The film: one painting's making as a short vertical reveal (score.ts total), composed from the score (score.ts) with sharp and one
 // ffmpeg run. Text is rendered by text.ts (no fonts on the server); the painting fades from black, pushes in, is
 // signed in real time from the same ink layer signPainting laid on the canvas, then the title and the sign-off.
 // Audio is synthesised by sound.ts into one WAV (keys on the glyph cues, a living bed, a pen that follows the ink) — nothing licensed.
@@ -11,6 +11,7 @@ import sharp from 'sharp';
 import { FRAME, CANVAS, SCORE, ease, sentenceFor } from './score.js';
 import { font, fit, wrap, textFrame, blockHeight, layoutGlyphs, glyphFrame, mix, type Block } from './text.js';
 import { soundtrack } from './sound.js';
+import type { KeyPreset } from './score.js';
 import { isExcerpt, excerpt } from './score.js';
 import { chatJSON } from './openrouter.js';
 import { LINE_BRIEF, endLineFor } from './artist.js';
@@ -28,6 +29,8 @@ export type FilmInput = {
   line?: string | null;
   title: string;
   endLine: string;
+  /** For the studio's own comparisons (scripts/film.mjs --keys): which typing sound; the score's when unset. */
+  keys?: KeyPreset;
 };
 export type FilmOptions = { ffmpeg?: string; workDir?: string; keepWork?: boolean; preset?: string; timings?: Record<string, number> };
 
@@ -149,7 +152,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     }
     lap('signature');
 
-    await writeFile(join(dir, 'audio.wav'), soundtrack({ id: input.id, cues: sentence.cues, spaces: sentence.spaces, ink: inkCols }));
+    await writeFile(join(dir, 'audio.wav'), soundtrack({ id: input.id, cues: sentence.cues, spaces: sentence.spaces, ink: inkCols, keys: input.keys }));
     lap('sound');
 
     const T0 = String(SCORE.total);

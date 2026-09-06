@@ -1,4 +1,4 @@
-// The film's sound, made from numbers and never licensed: the whole 20 s track is synthesised here into one WAV that
+// The film's sound, made from numbers and never licensed: the whole track is synthesised here into one WAV that
 // ffmpeg muxes (film.ts). Diego, 2026-09-06, on the first Reels: the typing wants sound in step with the letters, the
 // bed wants life, and the signature should sound like a hand really writing. So every glyph cue gets a soft key; the
 // bed is a low chord whose partials beat against each other and breathe, under the room at night (air in a duct, a
@@ -6,7 +6,7 @@
 // noise whose loudness follows the ink actually under the moving edge (dense where the mark is heavy, silent where the
 // pen lifts between letters), with paper under it and the pen's speed opening its brightness. The wall (public/wall.html)
 // plays the same design in WebAudio from the same SCORE.audio numbers; the design lives there, the samples here.
-import { SCORE, ease } from './score.js';
+import { SCORE, KEY_PRESETS, ease, type KeyPreset } from './score.js';
 
 export const SAMPLE_RATE = 48000;
 
@@ -19,6 +19,8 @@ export type SoundInput = {
   /** Ink under each column of the mark, left to right, 0..1, one value per CANVAS pixel column (film.ts inkProfile).
    *  Null: no signing beat, no pen. */
   ink?: number[] | null;
+  /** Which keys (score.ts KEY_PRESETS); the score's choice when unset. For the studio's own comparisons. */
+  keys?: KeyPreset;
 };
 
 const db = (d: number) => Math.pow(10, d / 20);
@@ -103,8 +105,8 @@ function shimmer(L: Float64Array, R: Float64Array): void {
 /** The keys: on every glyph cue a key — the finger landing (a low thump), a short plastic click on top, the case
  *  ringing a little — then the key's return, quieter and mostly click. Each press is slightly its own — level and
  *  pitch vary by the seed — because a hand is not a clock. A space is the wide key: lower, a touch louder. */
-function keys(L: Float64Array, R: Float64Array, cues: number[], spaces: boolean[] | undefined, rand: () => number): void {
-  const K = SCORE.audio.keys, n = L.length;
+function keys(L: Float64Array, R: Float64Array, cues: number[], spaces: boolean[] | undefined, rand: () => number, preset?: KeyPreset): void {
+  const K = preset ? KEY_PRESETS[preset] : SCORE.audio.keys, n = L.length;
   const thumps = new Float64Array(n), clicks = new Float64Array(n), cases = new Float64Array(n);
   const tauT = K.thumpMs / 1000 / 3, tauC = K.clickMs / 1000 / 3, tauK = K.caseMs / 1000 / 3;
   cues.forEach((c, k) => {
@@ -207,7 +209,7 @@ export function synthesize(input: SoundInput): { L: Float64Array; R: Float64Arra
   bed(L, R, rand);
   room(L, R, rand);
   shimmer(L, R);
-  keys(L, R, input.cues, input.spaces, rand);
+  keys(L, R, input.cues, input.spaces, rand, input.keys);
   if (input.ink && input.ink.length && input.ink.some(v => v > 0)) pen(L, R, input.ink, rand);
   note(L, R);
   // soft ceiling: nothing here should reach it, but a track never clips

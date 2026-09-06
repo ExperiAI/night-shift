@@ -13,7 +13,7 @@ export type Commission = {
   image?: string;       // public Blob URL — the signed canvas
   raw?: string;         // the canvas before the studio signed it (paintings/<id>-raw.png); the film and the wall sign it in real time. Never shown as a painting
   signature?: { image: string; x: number; y: number; w: number; h: number }; // the ink layer signPainting laid on `raw`, and where: what the reveal writes on (docs/reveal.md §3)
-  film?: string;        // the 20 s reveal, films/<id>.mp4 — the Reel and the wall (docs/reveal.md)
+  film?: string;        // the reveal (SCORE.total seconds), films/<id>.mp4 — the Reel and the wall (docs/reveal.md)
   filmed?: string;      // when the film was made; a painting with `raw` and no `film` is a job for the next cron (paint.ts filmJob)
   filmMs?: number;      // how long the film took on the server: the Vercel-or-Actions measurement (docs/reveal.md §4)
   filmStages?: Record<string, number>; // where that time went: inputs, stills, text, signature, ffmpeg, upload (ms)
