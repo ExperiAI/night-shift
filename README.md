@@ -177,7 +177,8 @@ never paid for again. The letter exam sits itself too: it carries `exception: 'l
 contract is broken on purpose — one hand-lettered word on one canvas, threaded through the gatekeeper, the
 render prompt (`contractFor`) and the inspector. Only the studio can set it (the desk reads `exception` only
 behind the internal header; MCP has no such field). `scripts/exams.mjs --go` needs `CRON_SECRET` in `.env`.
-The sitting is filed at `ORIGIN` (`api/_lib/origin.ts`), never at the hostname the cron called: Vercel runs
+Every self-call — the sitting, the inbox turning a DM or comment into a commission or feedback — goes to `ORIGIN`
+(`api/_lib/origin.ts`), never to the hostname the cron called: Vercel runs
 crons on the deployment URL, which is behind Deployment Protection and answered 401 to every sitting from
 2026-09-05 to 2026-09-06 while nothing recorded it. Each critique now carries `exam` (key, status, body); `/api/status`
 shows `exams.sat` / `exams.next` and `lastCritique.exam`, so a sitting that did not file is visible next morning.

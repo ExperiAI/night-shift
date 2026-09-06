@@ -1,6 +1,7 @@
 // The studio session. Runs on a cron; paints the oldest queued commission and posts it.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, save, storeImage } from './_lib/store.js';
+import { ORIGIN } from './_lib/origin.js';
 import { renderImage, inspectImage } from './_lib/openrouter.js';
 import { publish, publishStory, canPost, postOptions } from './_lib/zernio.js';
 import { reconcile } from './_lib/reconcile.js';
@@ -47,8 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   c.status = 'painting'; await save(c);
   try {
-    const origin = `https://${req.headers.host}`;
-    const refs = (process.env.STYLE_REFS ?? '').split(',').filter(Boolean).map(p => p.startsWith('http') ? p : `${origin}${p}`);
+    const refs = (process.env.STYLE_REFS ?? '').split(',').filter(Boolean).map(p => p.startsWith('http') ? p : `${ORIGIN}${p}`);
     if (c.photo) refs.push(c.photo);
     const prompt = c.photo ? `${c.take.prompt!}\n\n${PHOTO.render}` : c.take.prompt!;
     const reg = registerByKey(c.take.register);

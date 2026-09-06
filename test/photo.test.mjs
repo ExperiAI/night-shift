@@ -45,6 +45,6 @@ test('anonymity exists at the machine gateway; DMs use it, comments are credited
 
 test('the human gateway commissions through the machine gateway, never around it', () => {
   const inbox = readFileSync(new URL('../api/inbox.ts', import.meta.url), 'utf8');
-  assert.match(inbox, /fetch\(`\$\{origin\}\/api\/commission`/);
+  assert.match(inbox, /fetch\(`\$\{ORIGIN\}\/api\/commission`/);
   assert.doesNotMatch(inbox, /import \{ receive \}/);
 });

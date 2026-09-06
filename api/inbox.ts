@@ -7,6 +7,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { chatJSON } from './_lib/openrouter.js';
 import { instagramAccount, listComments, listMessages, replyToComment, sendMessage, commentOnPost } from './_lib/zernio.js';
 import { loadInboxState, saveInboxState, all, load, save } from './_lib/store.js';
+import { ORIGIN } from './_lib/origin.js';
 import { cancel, isHeld, awaitYes } from './_lib/desk.js';
 import type { Receipt } from './_lib/desk.js';
 import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, isStop, isYes, consentNote, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
@@ -15,12 +16,20 @@ import { sendOnce } from './_lib/outbound.js';
 export const config = { maxDuration: 300 };
 
 /** Commission through the public API, as any agent does. Throws with the API's own words on 4xx. */
-async function commissionViaApi(origin: string, body: { text: string; from: string; photo?: string; anonymous?: boolean }): Promise<Receipt> {
-  const r = await fetch(`${origin}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-night-shift-internal': process.env.CRON_SECRET ?? '' }, body: JSON.stringify(body) });
-  const j: any = await r.json();
-  if (!r.ok) throw new Error(j.error ?? `commission ${r.status}`);
+async function commissionViaApi(body: { text: string; from: string; photo?: string; anonymous?: boolean }): Promise<Receipt> {
+  const r = await fetch(`${ORIGIN}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-night-shift-internal': process.env.CRON_SECRET ?? '' }, body: JSON.stringify(body) });
+  const j: any = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    // Only the desk's own sentence (a 4xx written for the sender: a limit, a bad photo) may be repeated to them. Anything else —
+    // Vercel's `{error:{message:'Protected deployment'}}` from the deployment host (2026-09-06), a 5xx — is ours, not theirs.
+    const desk = typeof j.error === 'string' && r.status >= 400 && r.status < 500 && r.status !== 401 && r.status !== 403;
+    throw Object.assign(new Error(desk ? j.error : `commission ${r.status}`), { internal: !desk });
+  }
   return j as Receipt;
 }
+
+/** What a sender hears when the desk itself failed: never the error. */
+export const DESK_CLOSED = "The desk is closed for a moment. Ask me again in a little while and I'll take it up.";
 
 const MAX_REACTIONS_PER_RUN = 15;
 const MAX_INSTAGRAM_COMMISSIONS_PER_DAY = Number(process.env.INBOX_DAILY_COMMISSIONS ?? 10);
@@ -52,7 +61,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const dayAgo = Date.now() - 86_400_000;
   const docs = await all();
   let igCommissionsToday = docs.filter(c => c.source && Date.parse(c.created) > dayAgo).length;
-  const origin = `https://${req.headers.host}`;
   const log: any[] = [];
 
   for (const it of fresh) {
@@ -122,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // Credit rule (2026-09-05): a comment was asked in public, so the caption credits and mentions
           // the handle; a DM is private, so it is credited anonymously (Zernio also gives DMs a display
           // name, not a handle). `from` still keys the per-sender limit either way.
-          const receipt = await commissionViaApi(origin, { text: r.commission, from: it.kind === 'comment' ? `@${it.handle}` : it.handle, anonymous: it.kind === 'dm', ...(it.photo ? { photo: it.photo } : {}) });
+          const receipt = await commissionViaApi({ text: r.commission, from: it.kind === 'comment' ? `@${it.handle}` : it.handle, anonymous: it.kind === 'dm', ...(it.photo ? { photo: it.photo } : {}) });
           about = await load(receipt.id);
           // A private disclosure is not painted on silence (issue #18): the DM hold waits for a yes, and the receipt says so.
           const waitForYes = it.kind === 'dm' && receipt.status === 'queued' && Boolean(about?.holdUntil);
@@ -132,11 +140,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             igCommissionsToday++; commissionId = receipt.id;
             if (about) { about.source = { channel: it.kind === 'dm' ? 'instagram-dm' : 'instagram-comment', handle: it.handle, ...it.ref }; if (waitForYes) awaitYes(about); await save(about); }
           }
-        } catch (e: any) { text = replyFor(r, null, String(e.message).slice(0, 300)); }
+        } catch (e: any) { text = replyFor(r, null, e.internal ? DESK_CLOSED : String(e.message).slice(0, 300)); }
       }
     } else if (r.kind === 'feedback' && r.feedback) {
       // Through the machine gateway, like a commission: the record is the same whoever wrote it.
-      await fetch(`${origin}/api/feedback`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: r.feedback, from: it.kind === 'comment' ? `@${it.handle}` : it.handle, channel: it.kind === 'dm' ? 'instagram-dm' : 'instagram-comment' }) }).catch(() => {});
+      await fetch(`${ORIGIN}/api/feedback`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: r.feedback, from: it.kind === 'comment' ? `@${it.handle}` : it.handle, channel: it.kind === 'dm' ? 'instagram-dm' : 'instagram-comment' }) }).catch(() => {});
       text = replyFor({ kind: 'reply', reply: r.reply || 'Heard. I work one way, but what you say shapes the next painter.' });
     } else if (r.kind === 'reply') text = replyFor(r);
 

@@ -13,7 +13,7 @@ const mcp = readFileSync(new URL('../api/mcp.ts', import.meta.url), 'utf8');
 test('the exam is filed at the public origin, never at the hostname the cron happened to call', () => {
   assert.match(critic, /import \{ ORIGIN \} from '\.\/_lib\/origin\.js'/);
   assert.match(critic, /fetch\(`\$\{ORIGIN\}\/api\/commission`/);
-  assert.doesNotMatch(critic, /req\.headers\.host/);
+  for (const f of ['critic', 'inbox', 'commission', 'paint', 'mcp', 'status', 'feedback', 'ingest']) assert.doesNotMatch(readFileSync(new URL(`../api/${f}.ts`, import.meta.url), 'utf8'), /req\.headers\.host/, f); // the inbox posted every Instagram commission the same way
   assert.match(mcp, /import \{ ORIGIN \} from '\.\/_lib\/origin\.js'/); // one address, one place
 });
 
@@ -29,4 +29,13 @@ test('the critic is told what the studio\'s own signature looks like, so it does
   // The 2026-09-06 critique called the signed Newsagent "an inspector failure": the mark is signPainting(), applied after inspection.
   assert.match(critic, /The studio\\'s own signature is a small hand-lettered "night shift" in one lower corner, added by the studio after the inspector passed the canvas/);
   assert.match(critic, /Caption on Instagram: read back, matches what was sent/); // the critic asked for proof captions match; the record now says so per painting
+});
+
+test('a failed self-call is never repeated to the Instagram sender; only the desk\'s own 4xx sentence is', async () => {
+  const inbox = readFileSync(new URL('../api/inbox.ts', import.meta.url), 'utf8');
+  const { DESK_CLOSED } = await import('../api/inbox.ts');
+  assert.match(inbox, /const desk = typeof j\.error === 'string' && r\.status >= 400 && r\.status < 500 && r\.status !== 401 && r\.status !== 403/);
+  assert.match(inbox, /\{ internal: !desk \}/);
+  assert.match(inbox, /replyFor\(r, null, e\.internal \? DESK_CLOSED : /);
+  assert.doesNotMatch(DESK_CLOSED, /\d|commission|error|deploy|vercel/i); // a sentence for a person, not a status line
 });

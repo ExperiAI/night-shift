@@ -13,6 +13,6 @@ test('POST /api/feedback is public, GET needs the secret, MCP has leave_feedback
 
 test('the inbox routes feedback through the API and thanks without promising change', () => {
   const inbox = read('../api/inbox.ts');
-  assert.match(inbox, /fetch\(`\$\{origin\}\/api\/feedback`/);
+  assert.match(inbox, /fetch\(`\$\{ORIGIN\}\/api\/feedback`/);
   assert.match(inbox, /shapes the next painter/);
 });
