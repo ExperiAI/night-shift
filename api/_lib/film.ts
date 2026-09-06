@@ -8,7 +8,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { FRAME, CANVAS, SCORE, ease, sentenceFor, typingWeights } from './score.js';
+import { FRAME, CANVAS, SCORE, ease, sentenceFor, typingWeights, typingPace, scoreFor, type Score } from './score.js';
 import { font, fit, wrap, textFrame, blockHeight, layoutGlyphs, glyphFrame, mix, type Block } from './text.js';
 import { soundtrack } from './sound.js';
 import type { KeyPreset } from './score.js';
@@ -43,7 +43,7 @@ const run = (bin: string, args: string[]) => new Promise<void>((resolve, reject)
  *  cue (no pop, no re-centring), the pace never faster than the score's interval, the whole sentence in by
  *  `typedBy`; a thin amber cursor breathes once the sentence is in. Diego, 2026-09-06: this is the hook — smooth
  *  and cinematic, never a wall of text (the sentence itself is capped by sentenceFor). */
-export type Band = { frames: Buffer[]; top: number; height: number; /** when each glyph lands, and which are spaces: the keys in sound.ts */ cues: number[]; spaces: boolean[] };
+export type Band = { frames: Buffer[]; top: number; height: number; /** when each glyph lands, and which are spaces: the keys in sound.ts */ cues: number[]; spaces: boolean[]; /** how much later than SCORE this film's tail runs (score.ts typingPace) */ shift: number };
 /** The sentence frames are a band around the text, not whole frames: 133 encodes of 1080×1920 cost a minute on
  *  one Vercel core. The compositor overlays the band at `top`. */
 export async function sentenceFrames(commission: string | null | undefined, line?: string | null, id = 'night-shift'): Promise<Band> {
@@ -61,11 +61,11 @@ export async function sentenceFrames(commission: string | null | undefined, line
   const chars = lines.join(' ');
   const weights = typingWeights(chars, id);
   const cum: number[] = []; weights.reduce((acc, w, i) => (cum[i] = acc, acc + w), 0);
-  const unit = Math.min(S.maxCharInterval, (S.typedBy - S.glyphFade - S.start) / (cum[n - 1] + 1));
+  const { unit, shift } = typingPace(chars, id); // never faster than a hand; a long line takes its time and the film waits
   const interval = unit; // the pen's own step, used for the cursor
   const cue = (i: number) => S.start + (cum[i] ?? 0) * unit;
   const frames: Buffer[] = [];
-  const count = Math.ceil(S.fadeEnd * FRAME.fps) + 1;
+  const count = Math.ceil((S.fadeEnd + shift) * FRAME.fps) + 1;
   for (let k = 0; k < count; k++) {
     const t = k / FRAME.fps;
     const opacity = (i: number) => Math.min(1, Math.max(0, (t - cue(i)) / S.glyphFade));
@@ -78,7 +78,7 @@ export async function sentenceFrames(commission: string | null | undefined, line
     const color = (i: number) => mix(S.emberColor, SCORE.colors.ink, (t - cue(i)) / S.ember);
     frames.push(await glyphFrame(glyphs, opacity, color, size, { ...cur, opacity: breathe, color: SCORE.colors.amber }, FRAME.w, height));
   }
-  return { frames, top, height, cues: glyphs.map((_, i) => cue(i)), spaces: glyphs.map(g => !g.d) };
+  return { frames, top, height, cues: glyphs.map((_, i) => cue(i)), spaces: glyphs.map(g => !g.d), shift };
 }
 
 /** Title and the film's last words, bottom-left under the canvas, each as its own frame so they fade in on their own cues. */
@@ -125,16 +125,18 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
   const dir = opts.workDir ?? await mkdtemp(join(tmpdir(), `film-${input.id}-`));
   if (opts.workDir) await mkdir(dir, { recursive: true });
   const timings = opts.timings ?? {}; let mark = Date.now(); const lap = (k: string) => { timings[k] = Date.now() - mark; mark = Date.now(); };
-  const P = SCORE.painting, S = SCORE.sentence, G = SCORE.signature, T = SCORE.title, O = SCORE.signoff;
+  let SC: Score = scoreFor(0); // this film's score: set once the sentence knows how long it needs
   try {
     const base = input.raw && input.signature ? input.raw : input.image;
     const meta = await sharp(base).metadata(); const k = CANVAS.w / (meta.width ?? CANVAS.w); // painting pixels → canvas pixels
     const canvas = await sharp(base).resize(CANVAS.w, CANVAS.h, { fit: 'cover' }).png().toBuffer();
-    const fill = await sharp(input.image).resize(FRAME.w, FRAME.h, { fit: 'cover' }).blur(P.fillBlur).linear(P.fillLevel, 0).png().toBuffer();
+    const fill = await sharp(input.image).resize(FRAME.w, FRAME.h, { fit: 'cover' }).blur(SCORE.painting.fillBlur).linear(SCORE.painting.fillLevel, 0).png().toBuffer();
     await Promise.all([writeFile(join(dir, 'canvas.png'), canvas), writeFile(join(dir, 'fill.png'), fill)]);
     lap('stills');
 
     const sentence = await sentenceFrames(input.commission, input.line, input.id);
+    SC = scoreFor(sentence.shift);
+    const P = SC.painting, S = SC.sentence, G = SC.signature, T = SC.title, O = SC.signoff;
     await Promise.all(sentence.frames.map((b, i) => writeFile(join(dir, `txt_${pad3(i)}.png`), b)));
     const cap = await captionFrames(input.title, input.endLine);
     await Promise.all([writeFile(join(dir, 'title.png'), cap.title), writeFile(join(dir, 'signoff.png'), cap.signoff)]);
@@ -152,10 +154,10 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     }
     lap('signature');
 
-    await writeFile(join(dir, 'audio.wav'), soundtrack({ id: input.id, cues: sentence.cues, spaces: sentence.spaces, ink: inkCols, keys: input.keys }));
+    await writeFile(join(dir, 'audio.wav'), soundtrack({ id: input.id, cues: sentence.cues, spaces: sentence.spaces, ink: inkCols, keys: input.keys, score: SC }));
     lap('sound');
 
-    const T0 = String(SCORE.total);
+    const T0 = String(SC.total);
     const args: string[] = ['-y', '-hide_banner', '-loglevel', 'error',
       '-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'fill.png'),     // 0
       '-loop', '1', '-framerate', String(FRAME.fps), '-t', T0, '-i', join(dir, 'canvas.png'),   // 1

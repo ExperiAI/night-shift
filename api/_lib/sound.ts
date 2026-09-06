@@ -6,7 +6,7 @@
 // noise whose loudness follows the ink actually under the moving edge (dense where the mark is heavy, silent where the
 // pen lifts between letters), with paper under it and the pen's speed opening its brightness. The wall (public/wall.html)
 // plays the same design in WebAudio from the same SCORE.audio numbers; the design lives there, the samples here.
-import { SCORE, KEY_PRESETS, ease, seeded, type KeyPreset } from './score.js';
+import { SCORE, KEY_PRESETS, ease, seeded, type KeyPreset, type Score } from './score.js';
 
 export const SAMPLE_RATE = 48000;
 
@@ -21,8 +21,11 @@ export type SoundInput = {
   ink?: number[] | null;
   /** Which keys (score.ts KEY_PRESETS); the score's choice when unset. For the studio's own comparisons. */
   keys?: KeyPreset;
+  /** This film's score (score.ts scoreFor) when its tail runs later than SCORE; SCORE itself when unset. */
+  score?: Score;
 };
 
+let SC: Score | typeof SCORE = SCORE; // the score of the film being synthesised (set by synthesize)
 const db = (d: number) => Math.pow(10, d / 20);
 const clip01 = (x: number) => Math.min(1, Math.max(0, x));
 
@@ -47,10 +50,10 @@ function pink(n: number, rand: () => number): Float64Array {
 
 /** The bed: a low chord that beats and breathes, a room under it. Fades with the film. */
 function bed(L: Float64Array, R: Float64Array, rand: () => number): void {
-  const B = SCORE.audio.bed, n = L.length, g = db(B.gainDb), phi = rand() * Math.PI * 2;
+  const B = SC.audio.bed, n = L.length, g = db(B.gainDb), phi = rand() * Math.PI * 2;
   for (let i = 0; i < n; i++) {
     const t = i / SAMPLE_RATE;
-    const env = clip01(t / B.fadeIn) * clip01((SCORE.total - t) / B.fadeOut);
+    const env = clip01(t / B.fadeIn) * clip01((SC.total - t) / B.fadeOut);
     const breath = 1 - B.breathe * (1 + Math.sin(2 * Math.PI * B.breatheHz * t + phi)) / 2;
     // root twice, detuned so they beat slowly; a fifth; the octave; a faint third partial
     const v = Math.sin(2 * Math.PI * B.hz * t) + Math.sin(2 * Math.PI * (B.hz + B.beatHz) * t)
@@ -63,14 +66,14 @@ function bed(L: Float64Array, R: Float64Array, rand: () => number): void {
 /** The room at night: air through a duct (low noise, drifting slowly, a little wider than the rest) and a strip
  *  light's hum with a faint flicker. Present the whole film, so the blanks between the keys and the pen are never empty. */
 function room(L: Float64Array, R: Float64Array, rand: () => number): void {
-  const Rm = SCORE.audio.room, n = L.length;
+  const Rm = SC.audio.room, n = L.length;
   const airL = pink(n, rand), airR = pink(n, rand);
   band(airL, Rm.airLowHz, Rm.airHighHz); band(airR, Rm.airLowHz, Rm.airHighHz);
   const ag = db(Rm.airDb) / Math.max(peak(airL), peak(airR)), hg = db(Rm.humDb), phi = rand() * Math.PI * 2;
   let flick = 1;
   for (let i = 0; i < n; i++) {
     const t = i / SAMPLE_RATE;
-    const env = clip01(t / Rm.fadeIn) * clip01((SCORE.total - t) / Rm.fadeOut);
+    const env = clip01(t / Rm.fadeIn) * clip01((SC.total - t) / Rm.fadeOut);
     const drift = 1 - Rm.drift * (1 + Math.sin(2 * Math.PI * Rm.driftHz * t + phi)) / 2;
     if ((i & 1023) === 0) flick += ((1 - Rm.flicker * rand()) - flick) * 0.3; // the hum's level wanders a little, in steps too fast to hear as steps
     const hum = (Math.sin(2 * Math.PI * Rm.humHz * t) + 0.4 * Math.sin(2 * Math.PI * Rm.humHz * 2 * t + 0.3) + 0.2 * Math.sin(2 * Math.PI * Rm.humHz * 3 * t + 1.1)) * hg * flick;
@@ -82,7 +85,7 @@ function room(L: Float64Array, R: Float64Array, rand: () => number): void {
 
 /** A faint high shimmer that arrives with the light and leaves with the title: two close sines beating, tremolo. */
 function shimmer(L: Float64Array, R: Float64Array): void {
-  const S = SCORE.audio.shimmer, g = db(S.gainDb);
+  const S = SC.audio.shimmer, g = db(S.gainDb);
   const i0 = Math.floor(S.from * SAMPLE_RATE), i1 = Math.ceil((S.until + S.release) * SAMPLE_RATE);
   for (let i = i0; i < Math.min(L.length, i1); i++) {
     const t = i / SAMPLE_RATE;
@@ -98,11 +101,11 @@ function shimmer(L: Float64Array, R: Float64Array): void {
  *  ringing a little — then the key's return, quieter and mostly click. Each press is slightly its own — level and
  *  pitch vary by the seed — because a hand is not a clock. A space is the wide key: lower, a touch louder. */
 function keys(L: Float64Array, R: Float64Array, cues: number[], spaces: boolean[] | undefined, rand: () => number, preset?: KeyPreset): void {
-  const K = preset ? KEY_PRESETS[preset] : SCORE.audio.keys, n = L.length;
+  const K = preset ? KEY_PRESETS[preset] : SC.audio.keys, n = L.length;
   const thumps = new Float64Array(n), clicks = new Float64Array(n), cases = new Float64Array(n);
   const tauT = K.thumpMs / 1000 / 3, tauC = K.clickMs / 1000 / 3, tauK = K.caseMs / 1000 / 3;
   cues.forEach((c, k) => {
-    if (c < 0 || c > SCORE.total) return;
+    if (c < 0 || c > SC.total) return;
     const space = Boolean(spaces?.[k]);
     const level = (space ? db(K.spaceDb) : 1) * (1 + (rand() * 2 - 1) * K.vary), pitch = 1 + (rand() * 2 - 1) * K.vary;
     const caseHz = K.caseHz * (space ? 0.8 : 1) * pitch, thumpTau = tauT * (space ? 1.3 : 1);
@@ -135,7 +138,7 @@ const speed = (u: number) => Math.sin(Math.PI * clip01(u));
 
 /** Ink under the edge at time t: the profile's column the mask edge stands over, with the soft edge's own width. */
 export function inkUnderEdge(ink: number[], t: number): number {
-  const G = SCORE.signature, n = ink.length; if (!n) return 0;
+  const G = SC.signature, n = ink.length; if (!n) return 0;
   const u = (t - G.start) / (G.end - G.start); if (u < 0 || u > 1) return 0;
   const p = ease(u);
   // the mask edge in the ink layer's own columns (film.ts signatureFrames: from just off the left to just off the right)
@@ -149,7 +152,7 @@ export function inkUnderEdge(ink: number[], t: number): number {
 /** The pen: friction that follows the ink, paper under it, brightness that follows the hand's speed, a touch when
  *  the nib lands and a lift when it leaves. Panned a little to the side the mark is on. */
 function pen(L: Float64Array, R: Float64Array, ink: number[], rand: () => number): void {
-  const P = SCORE.audio.pen, G = SCORE.signature, n = L.length;
+  const P = SC.audio.pen, G = SC.signature, n = L.length;
   const out = new Float64Array(n); // the pen's own layer, normalised to its peak before it joins the mix
   const i0 = Math.floor(G.start * SAMPLE_RATE), i1 = Math.min(n, Math.ceil((G.end + 0.25) * SAMPLE_RATE)), len = i1 - i0;
   const src = pink(len, rand);
@@ -182,7 +185,7 @@ function pen(L: Float64Array, R: Float64Array, ink: number[], rand: () => number
 
 /** One soft chord under the title: the note, its fifth quieter, the octave fainter, a slow decay. */
 function note(L: Float64Array, R: Float64Array): void {
-  const N = SCORE.audio.note, g = db(N.gainDb), n = L.length;
+  const N = SC.audio.note, g = db(N.gainDb), n = L.length;
   const i0 = Math.floor(N.at * SAMPLE_RATE), len = Math.ceil(N.decay * 3 * SAMPLE_RATE);
   for (let i = i0; i < Math.min(n, i0 + len); i++) {
     const t = (i - i0) / SAMPLE_RATE;
@@ -195,7 +198,8 @@ function note(L: Float64Array, R: Float64Array): void {
 
 /** The whole track as stereo samples in [-1, 1]. Exposed for tests; makeWav wraps it. */
 export function synthesize(input: SoundInput): { L: Float64Array; R: Float64Array } {
-  const n = Math.round(SCORE.total * SAMPLE_RATE);
+  SC = input.score ?? SCORE;
+  const n = Math.round(SC.total * SAMPLE_RATE);
   const L = new Float64Array(n), R = new Float64Array(n);
   const rand = seeded(input.id);
   bed(L, R, rand);
@@ -205,7 +209,7 @@ export function synthesize(input: SoundInput): { L: Float64Array; R: Float64Arra
   if (input.ink && input.ink.length && input.ink.some(v => v > 0)) pen(L, R, input.ink, rand);
   note(L, R);
   // soft ceiling: nothing here should reach it, but a track never clips
-  const ceil = db(SCORE.audio.ceilingDb);
+  const ceil = db(SC.audio.ceilingDb);
   for (let i = 0; i < n; i++) { L[i] = Math.tanh(L[i] / ceil) * ceil; R[i] = Math.tanh(R[i] / ceil) * ceil; }
   return { L, R };
 }

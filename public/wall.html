@@ -154,7 +154,7 @@ function demoFeed(list) {
 }
 
 // ---- the stage: one clock, the score's functions of t (mirrors api/_lib/film.ts) ----
-let glyphs = [], cues = [], sigGeom = null, t0 = 0, raf = 0;
+let glyphs = [], cues = [], sigGeom = null, t0 = 0, raf = 0, SC = null; // SC: this reveal's score (scoreFor), set by layoutSentence
 function layoutSentence(text, seed) {
   const el = $('sentence'); el.innerHTML = ''; glyphs = [];
   const S = SCORE.sentence;
@@ -172,8 +172,8 @@ function layoutSentence(text, seed) {
   // weights run over the text WITH its spaces; the wall has no glyph for a space, so its weight folds into the next letter
   const weights = typingWeights(text, seed); const cum = []; let acc = 0, gi = 0;
   for (let i = 0; i < text.length; i++) { if (text[i] === ' ') { acc += weights[i]; continue; } cum[gi++] = acc; acc += weights[i]; }
-  const n = Math.max(1, glyphs.length);
-  const unit = Math.min(S.maxCharInterval, (S.typedBy - S.glyphFade - S.start) / ((cum[n - 1] || 0) + 1));
+  const { unit, shift } = typingPace(text, seed);
+  SC = scoreFor(shift); // this reveal's score: a long line takes its time and everything after it waits (film.ts does the same)
   cues = cum.map(c => S.start + c * unit);
   return cur;
 }
@@ -203,6 +203,23 @@ function typingWeights(chars, seed) {
   }
   return out;
 }
+function typingPace(chars, seed) {
+  const S = SCORE.sentence, sum = typingWeights(chars, seed).reduce((a, b) => a + b, 0);
+  const unit = Math.min(S.maxCharInterval, Math.max(S.minCharInterval, (S.typedBy - S.glyphFade - S.start) / (sum + 1)));
+  const need = S.start + (sum + 1) * unit + S.glyphFade;
+  return { unit, shift: Math.max(0, Math.round((need - S.typedBy) * 100) / 100) };
+}
+function scoreFor(shift) {
+  const sc = JSON.parse(JSON.stringify(SCORE));
+  if (!shift) return sc;
+  const mv = (o, keys) => { for (const k of keys) if (typeof o[k] === 'number') o[k] = Math.round((o[k] + shift) * 100) / 100; };
+  mv(sc.sentence, ['typedBy', 'fadeStart', 'fadeEnd']);
+  mv(sc.painting, ['fadeStart', 'fadeEnd', 'pushStart', 'pushEnd']);
+  mv(sc.signature, ['start', 'end']); mv(sc.title, ['start']); mv(sc.signoff, ['start']); mv(sc.hold, ['start']);
+  mv(sc.audio.shimmer, ['from', 'to', 'until']); mv(sc.audio.note, ['at']);
+  sc.total = Math.round((sc.total + shift) * 100) / 100;
+  return sc;
+}
 // rhythm:end
 const mix = (a, b, k) => { const c = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), A = c(a), B = c(b), t = clip(k); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
 const cut = (text, max) => text.length <= max ? text : (text.slice(0, max + 1).match(/^[\s\S]*[,;:.!?](?=\s)/) || [text.slice(0, max).replace(/\s\S*$/, '')])[0].replace(/[\s,;:]+$/, '') + '…';
@@ -210,9 +227,9 @@ const cut = (text, max) => text.length <= max ? text : (text.slice(0, max + 1).m
 async function startReveal(c) {
   playing = c; document.getElementById('wall').classList.add('revealing');
   $('idle').style.display = 'none';
-  const S = SCORE;
-  const words = c.commission ? (c.line || cut(c.commission, S.sentence.maxChars)) : 'a commission';
+  const words = c.commission ? (c.line || cut(c.commission, SCORE.sentence.maxChars)) : 'a commission';
   const cursor = layoutSentence(words, c.id);
+  const S = SC;
   $('fill').style.backgroundImage = `url("${c.image}")`;
   const base = c.raw && c.signature ? c.raw : c.image;
   const img = $('painting'); img.src = base;
@@ -240,7 +257,7 @@ async function startReveal(c) {
   raf = requestAnimationFrame(frame);
 }
 function render(t, cursor) {
-  const S = SCORE, P = S.painting, G = S.signature, Sn = S.sentence;
+  const S = SC, P = S.painting, G = S.signature, Sn = S.sentence;
   // the sentence
   const sen = $('sentence');
   let pen = -1;

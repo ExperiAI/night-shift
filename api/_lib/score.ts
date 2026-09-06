@@ -19,7 +19,7 @@ export const KEY_PRESETS = {
   /** A typewriter: a hard metal strike, bright and short, the carriage frame ringing. */
   typewriter: { gainDb: -11, thumpLowHz: 150, thumpHighHz: 1400, thumpMs: 18, clickLowHz: 1500, clickHighHz: 5000, clickMs: 7, click: 0.9, caseHz: 1150, caseMs: 30, case: 0.6, vary: 0.1, spaceDb: -2, returnMs: 70, returnDb: -10 },
   /** A laptop: quiet, low, short — a pat more than a click. */
-  laptop: { gainDb: -19, thumpLowHz: 180, thumpHighHz: 1200, thumpMs: 16, clickLowHz: 3000, clickHighHz: 7000, clickMs: 2.5, click: 0.15, caseHz: 700, caseMs: 10, case: 0.25, vary: 0.18, spaceDb: -1, returnMs: 80, returnDb: -18 },
+  laptop: { gainDb: -25, thumpLowHz: 180, thumpHighHz: 1200, thumpMs: 16, clickLowHz: 3000, clickHighHz: 7000, clickMs: 2.5, click: 0.15, caseHz: 700, caseMs: 10, case: 0.25, vary: 0.18, spaceDb: -1, returnMs: 80, returnDb: -18 },
   /** A pen: each letter a short scratch on paper, the same family as the signature's pen; no key at all. */
   pen: { gainDb: -14, thumpLowHz: 900, thumpHighHz: 6500, thumpMs: 55, clickLowHz: 4000, clickHighHz: 9000, clickMs: 1.5, click: 0.1, caseHz: 300, caseMs: 6, case: 0.12, vary: 0.25, spaceDb: -30, returnMs: 40, returnDb: -40 },
 } as const;
@@ -28,7 +28,7 @@ export type KeyPreset = keyof typeof KEY_PRESETS;
 export const SCORE = {
   total: TOTAL,
   /** The commission types out of the dark, then fades. Any sentence finishes typing at `typedBy`. */
-  sentence: { start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, glyphFade: 0.16, driftScale: 1.03, rise: 3, ember: 0.55, emberColor: '#ffd58a' },
+  sentence: { start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, minCharInterval: 0.056, glyphFade: 0.16, driftScale: 1.03, rise: 3, ember: 0.55, emberColor: '#ffd58a' },
   /** The canvas surfaces from black (a fade from black: the one light appears first) with a slow push in. */
   painting: { fadeStart: 4.0, fadeEnd: 10.0, pushStart: 4.0, pushEnd: TITLE_AT, scaleFrom: 1.06, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35 },
   /** The painter signs, in real time: the mark is revealed left to right with a soft wet edge. */
@@ -89,6 +89,31 @@ export function typingWeights(chars: string, seed: string): number[] {
     out.push(w);
   }
   return out;
+}
+
+/** The base step of the typing for a line, and how much longer than the score's window the line needs (Diego,
+ *  2026-09-06, hearing two films: the slower one "feels better" — 17 characters a second against 22). No line types
+ *  faster than `minCharInterval` a step; a line that cannot finish by `typedBy` at that pace takes the time it needs
+ *  and everything after the sentence moves later by `shift` (scoreFor). MIRRORED in public/wall.html. */
+export function typingPace(chars: string, seed: string): { unit: number; shift: number } {
+  const S = SCORE.sentence, sum = typingWeights(chars, seed).reduce((a, b) => a + b, 0);
+  const unit = Math.min(S.maxCharInterval, Math.max(S.minCharInterval, (S.typedBy - S.glyphFade - S.start) / (sum + 1)));
+  const need = S.start + (sum + 1) * unit + S.glyphFade;
+  return { unit, shift: Math.max(0, Math.round((need - S.typedBy) * 100) / 100) };
+}
+
+export type Score = { [K in keyof typeof SCORE]: { -readonly [P in keyof (typeof SCORE)[K]]: (typeof SCORE)[K][P] } } & { total: number };
+/** The score of one film: SCORE with every beat from the sentence's fade onward moved later by `shift` seconds. */
+export function scoreFor(shift: number): Score {
+  const sc = JSON.parse(JSON.stringify(SCORE)) as Score;
+  if (!shift) return sc;
+  const mv = (o: Record<string, any>, keys: string[]) => { for (const k of keys) if (typeof o[k] === 'number') o[k] = Math.round((o[k] + shift) * 100) / 100; };
+  mv(sc.sentence as any, ['typedBy', 'fadeStart', 'fadeEnd']);
+  mv(sc.painting as any, ['fadeStart', 'fadeEnd', 'pushStart', 'pushEnd']);
+  mv(sc.signature as any, ['start', 'end']); mv(sc.title as any, ['start']); mv(sc.signoff as any, ['start']); mv(sc.hold as any, ['start']);
+  mv(sc.audio.shimmer as any, ['from', 'to', 'until']); mv(sc.audio.note as any, ['at']);
+  sc.total = Math.round((sc.total + shift) * 100) / 100;
+  return sc;
 }
 
 /** Ease-in-out for the signing hand and the wall's mask: 0→1 over the signature's window. */

@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
-import { SCORE, typingWeights, RHYTHM } from '../api/_lib/score.ts';
+import { SCORE, typingWeights, typingPace, scoreFor, RHYTHM } from '../api/_lib/score.ts';
 import vm from 'node:vm';
 import { synthesize, soundtrack, inkUnderEdge, SAMPLE_RATE } from '../api/_lib/sound.ts';
 import { inkProfile, sentenceFrames } from '../api/_lib/film.ts';
@@ -87,8 +87,22 @@ test('the typing has a hand\'s rhythm — reaches, pairs, breaths, a hesitation 
   assert.deepEqual(typingWeights(text, 'x'), typingWeights(text, 'x')); assert.notDeepEqual(typingWeights(text, 'x'), typingWeights(text, 'y'));
   const wall = readFileSync(new URL('../public/wall.html', import.meta.url), 'utf8');
   const block = wall.slice(wall.indexOf('// rhythm:begin'), wall.indexOf('// rhythm:end'));
-  const ctx = vm.createContext({}); vm.runInContext(block + '\nthis.typingWeights = typingWeights; this.RHYTHM = RHYTHM;', ctx);
+  const ctx = vm.createContext({ SCORE: JSON.parse(JSON.stringify(SCORE)) }); vm.runInContext(block + '\nthis.typingWeights = typingWeights; this.RHYTHM = RHYTHM; this.typingPace = typingPace; this.scoreFor = scoreFor;', ctx);
   const J = JSON.stringify; // values cross a vm boundary: compare by content, not prototype
   assert.equal(J(ctx.RHYTHM), J(RHYTHM));
-  for (const [t, id] of [[text, 'mtpsj0zp-cbh1jd'], ['the bar, after close', 'abc'], ['a commission', 'zz']]) assert.equal(J(ctx.typingWeights(t, id)), J(typingWeights(t, id)), `wall == film for ${id}`);
+  for (const [t, id] of [[text, 'mtpsj0zp-cbh1jd'], ['the bar, after close', 'abc'], ['a commission', 'zz']]) { assert.equal(J(ctx.typingWeights(t, id)), J(typingWeights(t, id)), `wall == film for ${id}`); assert.equal(J(ctx.typingPace(t, id)), J(typingPace(t, id))); }
+  assert.equal(J(ctx.scoreFor(1.2)), J(scoreFor(1.2)));
 });
+
+test('no line types faster than a hand; a long line takes its time and the film\'s tail waits for it (Diego, 2026-09-06)', () => {
+  const S = SCORE.sentence;
+  const short = typingPace('a bar at closing', 'a'), long = typingPace('A company was shut down because their whole offering was replaced by AI', 'mtpsj0zp-cbh1jd'), longest = typingPace('x'.repeat(90), 'b');
+  assert.equal(short.unit, S.maxCharInterval); assert.equal(short.shift, 0);
+  assert.equal(long.unit, S.minCharInterval); assert.ok(long.shift > 0.3 && long.shift < 1.5, `a 71-char line waits ${long.shift}s`);
+  assert.ok(longest.shift < 2.6, 'the cap on the line caps the wait');
+  const sc = scoreFor(long.shift);
+  assert.equal(sc.signature.start, Math.round((SCORE.signature.start + long.shift) * 100) / 100); assert.equal(sc.total, Math.round((SCORE.total + long.shift) * 100) / 100);
+  assert.equal(sc.sentence.start, SCORE.sentence.start); assert.equal(sc.audio.keys.gainDb, SCORE.audio.keys.gainDb, 'only the beats move');
+  assert.deepEqual(scoreFor(0), JSON.parse(JSON.stringify(SCORE)));
+});
+

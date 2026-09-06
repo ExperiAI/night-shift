@@ -55,8 +55,8 @@ test('words wrap by measured width and a long sentence shrinks before it is cut'
 });
 
 test('the sentence types out over the score and the caption frames are frame-sized', async () => {
-  const { frames, top, height } = await sentenceFrames('The bar after the last round, one glass left on the counter.');
-  assert.equal(frames.length, Math.ceil(SCORE.sentence.fadeEnd * FRAME.fps) + 1);
+  const { frames, top, height, shift } = await sentenceFrames('The bar after the last round, one glass left on the counter.');
+  assert.equal(frames.length, Math.ceil((SCORE.sentence.fadeEnd + shift) * FRAME.fps) + 1);
   const m = await sharp(frames[0]).metadata(); assert.equal(m.width, FRAME.w); assert.equal(m.height, height); assert.ok(height < FRAME.h / 3 && top > 0, 'a band around the text, not a whole frame');
   const a0 = await alphaSum(frames[2]), aMid = await alphaSum(frames[45]), aEnd = await alphaSum(frames[Math.ceil(SCORE.sentence.typedBy * FRAME.fps) + 1]);
   assert.ok(a0 < aMid && aMid < aEnd, 'more ink as the sentence types');
