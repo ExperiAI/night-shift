@@ -29,14 +29,14 @@ canvas 1080×1920, 30 fps, total **20.0 s**.
 
 | t | Layer | What happens |
 |---|---|---|
-| 0.0–3.6 | sentence | Black. The commission's **line** types out, IBM Plex Mono 44 px, centred, max three lines, a thin amber cursor. Every glyph is laid out first and fades in on its own cue (no pop, no re-centring); the pace is a hand's — a breath after a comma, a longer one after a full stop — never faster than 85 ms a glyph, and any line is in by 3.4 s; the sentence rises slowly the whole time it is up. **The line is at most 90 characters** (Diego, 2026-09-06: never an overwhelming text): the gatekeeper picks it as a VERBATIM excerpt of the commission (`take.line`, checked in code by `isExcerpt`, a rewrite is dropped); without one the commission is cut at a sentence, else a clause, else a word (`excerpt`). |
+| 0.0–3.6 | sentence | Black. The commission's **line** types out, IBM Plex Mono 44 px, centred, max three lines, a thin amber cursor. Every glyph is laid out first and fades in on its own cue (no pop, no re-centring); the pace is a hand's — a breath after a comma, a longer one after a full stop — never faster than 85 ms a glyph, and any line is in by 3.4 s; the sentence rises slowly the whole time it is up; **each glyph lands as an amber ember (`emberColor`) and cools to ink over `ember` seconds** — wet type, the same idea as the signature's wet ink (Diego, 2026-09-06: the hook wants polish; a Matrix look was raised and not taken — that is the icon of the machine, and the film's job is the opposite). **The line is at most 90 characters** (Diego, 2026-09-06: never an overwhelming text): the gatekeeper picks it as a VERBATIM excerpt of the commission (`take.line`, checked in code by `isExcerpt`, a rewrite is dropped); without one the commission is cut at a sentence, else a clause, else a word (`excerpt`). |
 | 3.6–4.4 | sentence | Fades out, lifting 3 % as it dissolves. |
 | 4.0–12.0 | painting | Behind: the painting scaled to fill 9:16, blurred (σ≈40) and darkened to 35 %. Front: the **unsigned** painting at 4:5, width 1080, centred. Fade from black 4.0→10.0 (the surfacing: this is a `fade` from black, not an opacity fade, so the first thing to appear is the one light). Slow push from scale 1.06 to 1.00 across 4.0–13.8. |
 | 12.0–13.8 | signature | **The painter signs, in real time** (Diego, 2026-09-06). The same signature PNG and position `signPainting` chose for this canvas (`signatureChoice(id)` is deterministic) is written onto the canvas left to right: a reveal whose edge moves across the mark with an ease-in-out over 1.8 s, the way a cursive hand crosses the paper, with a soft 24 px edge so it reads as wet ink rather than a wipe. Nothing else moves during these seconds. |
 | 13.8–16.8 | title | Instrument Serif 64 px, amber-ink `#ffd58a`, bottom-left with 72 px margins, fade in 0.6 s. The soft note sounds here. |
 | 16.8–19.4 | last words | Under the title, IBM Plex Mono 30 px, muted `#a2abbb`: one of `END_LINES` in `artist.ts`, fixed per painting by its id. Written with Diego in three rounds (2026-09-06): each opens on the machine-made fact and then makes the viewer take a side on whether it is art; never an empty question, never a dare, never "after everyone left", never a phrase that could read as naming the picture. A fixed set, not generated: a one-off line cannot be reviewed before it ships. The caption keeps `SIGNOFF`. Fade in 0.6 s. |
 | 19.4–20.0 | hold | Everything stays. Last frame = cover candidate (identical to the signed still). |
-| 0.0–20.0 | audio | Generated, never licensed: a low drone (sine 55 Hz, −26 dB) fading in over 2 s and out over 3 s, a faint dry scratch under the signature (filtered noise, `anoisesrc` through a band-pass, −34 dB, 12.0–13.8), plus one soft note (sine 220 Hz with a 1.2 s decay) at 13.8 s under the title. ffmpeg `aevalsrc`/`anoisesrc`; no file, no rights. `muteAudio` is not set. |
+| 0.0–20.0 | audio | Generated, never licensed, and **synthesised by `api/_lib/sound.ts` into one WAV** that ffmpeg muxes (Diego, 2026-09-06, after the first Reels: the typing wants sound in step with the letters, the bed wants life, the signature should sound like a hand really writing). Layers, each a peak level in `SCORE.audio`: **keys** — on every glyph cue a soft press (a click through a 1.5–5.5 kHz band and a low body) and its quieter return 85 ms later, gain and pitch varying a little by a seed from the painting's id, spaces lower and softer; **bed** — the root at 55 Hz twice, detuned so they beat, a fifth, the octave, breathing over 14 s, a faint room tone under it, in over 2 s and out over 3; **shimmer** — two close sines with tremolo arriving with the light (4→10 s) and leaving after the title; **pen** — pink noise in three bands (paper 120–520 Hz, dull 0.9–3 kHz, bright 3–8 kHz) whose loudness follows the ink actually under the moving edge (`inkUnderEdge` over `inkProfile`, one value per canvas column: loud where the mark is heavy, silent where the pen lifts between letters), the hand's speed opening the bright band, a soft touch when the nib lands and lifts, panned a little toward the mark; **note** — one soft chord (220 Hz, its fifth, the octave) under the title, decaying over 1.8 s. The same id always gives the same track. `muteAudio` is not set. |
 
 **The signature needs the unsigned canvas.** `paint.ts` stores the canvas before signing at `paintings/<id>-raw.png` (`raw` on the record, never shown as a painting) and the ink layer it laid on it at `paintings/<id>-sig.png` with its place (`signature: { image, x, y, w, h }`, painting pixels): `signatureLayer()` in compose.ts is the one source of the mark, `signPainting` composites it, the film and the wall write the same pixels on. **The paint of the mark is chosen by contrast** (Diego, 2026-09-06, the second time): amber as painted, cream or umber, whichever makes the highest WCAG contrast ratio against the patch under the mark; the brush shape (the alpha) is kept and only the paint changes, so a mark on tatami straw is cream, on a lit pavement umber. A painting with no `raw` (everything before this ships) is filmed from the signed still and skips the signing beat: the push simply continues to 13.8 s. The one backfill Reel (§4) is such a painting; say so in nothing, it just does not sign.
 
@@ -64,7 +64,7 @@ Fonts ship in the repo under `public/fonts/` as TTF (Instrument Serif and IBM Pl
 - One `ffmpeg` invocation with a `filter_complex`: the painting as a looped image input with `scale`,
   `zoompan` for the push, `fade=t=in:st=4:d=6`; the blurred fill as a second scaled input with
   `gblur` and `eq`; the title and sign-off PNGs as `overlay` inputs with `format=rgba` and alpha fades;
-  the generated audio as `aevalsrc` mixed with `amix`; output H.264 (`libx264`, `yuv420p`, CRF 20,
+  the soundtrack WAV (sound.ts) as the audio input; output H.264 (`libx264`, `yuv420p`, CRF 20,
   30 fps, `+faststart`) at 1080×1920, AAC audio.
 - **Measured and decided, 2026-09-06: Vercel.** On a laptop 7–9 s a film (six cores); on the paint function
   100–130 s, of which ffmpeg is 97 % (`filmStages` on the record). The first real painting painted, filmed
@@ -128,7 +128,9 @@ Three states, in one layout:
    column ("painting next").
 3. **Reveal**: when a commission reaches `painted`/`posted`, its reveal plays once, full screen, using
    the same score in HTML/CSS (typing, fade from black, push, **the signature writing itself**, title,
-   last words, the drone via WebAudio). The wall needs `raw` and the ink layer from the public view
+   last words). **The sound is the film's own track**: the wall plays the painting's MP4 audio and clocks the
+   reveal from it, so the room hears exactly what the Reel carries and picture and sound cannot drift; a painting
+   not yet filmed gets the bed and the note from WebAudio. The wall needs `raw` and the ink layer from the public view
    (`publicView` exposes `raw`, `signature: { image, x, y, w, h }`, `line` and `endLine` for every
    commission — they are public blobs and the `?demo=1` replay needs them for studio work too; the
    studio page never uses them). Then it joins the loop. One tap starts the wall (fullscreen and the
@@ -149,8 +151,16 @@ Nothing on the wall or the ticket mentions the inspector, rejects, the critic or
 **Status 2026-09-06 evening: steps 1–6 built and live** (commits 4b55e1e…, builds 7af5ea1 → 33a0668 → the
 wall fix). Proved on the first real painting, *Last Call, Unclaimed* (room `lab-test`): film 100 s on Vercel,
 Reel at instagram.com/reel/Dc8hTa5gtiN, the gatekeeper's own hook line, the wall showing the arrival and the
-reveal. Left for Diego: the three-phones check of step 5 (Share on iOS, Burn from the ticket) and the
-caption read-back after the next cron (`/api/status` → `lastPosted.captionOnInstagram`).
+reveal. Left for Diego: the three-phones check of step 5 (Share on iOS, Burn from the ticket). The caption read-back passed on
+its own on the second Reel (2026-09-06, `captionOnInstagram: matches what was sent`).
+
+**2026-09-06, later — the sound and the hook, after Diego watched the Reel** (*"very cool… make the writing part of the
+experience more polished… typing noises in sync… polish the bg sound… the signature should sound like the signature is
+really happening in front of you"*): the audio moved out of ffmpeg's generators into `api/_lib/sound.ts` (§3, audio row),
+each glyph lands as an ember (§3, sentence row), and the wall plays the film's own track (§5). Built and checked locally:
+`scripts/film.mjs mtpsj0zp-cbh1jd` (7.6 s on the laptop), levels per layer measured, the wall's film clock and its
+no-film fallback driven headless. **Awaiting Diego's ear on the rendered MP4 before it deploys**; when it does, watch
+`filmStages.sound` on the first record (the synth is ~1 s on six cores; the Vercel core has the 110 s inline budget).
 
 1. `paint.ts` stores `raw` and the record carries the signature choice → the next painting has both.
    `score.ts` + `scripts/film.mjs <id>` → an MP4 of that painting plays in QuickTime at 1080×1920,

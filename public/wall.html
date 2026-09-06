@@ -133,7 +133,7 @@ async function poll() {
     if (DEMO) return demoFeed(list.filter(c => c.image).slice(-12));
     for (const c of list) {
       if (!seen.has(c.id) && (c.status === 'queued' || c.status === 'painting')) { seen.add(c.id); arrive(c); }
-      if (c.image && (c.status === 'painted' || c.status === 'posted') && !revealed.has(c.id) && !toReveal.some(x => x.id === c.id) && playing?.id !== c.id) { seen.add(c.id); toReveal.push(c); }
+      if (c.image && (c.status === 'painted' || c.status === 'posted') && !revealed.has(c.id) && !toReveal.some(x => x.id === c.id) && playing?.id !== c.id) { seen.add(c.id); toReveal.push(c); audio.prime(c.film); }
       if (c.status === 'withdrawn' || c.status === 'declined') { // burned or stopped: off the wall, now
         revealed.delete(c.id); loop = loop.filter(x => x.id !== c.id); const i = toReveal.findIndex(x => x.id === c.id); if (i >= 0) toReveal.splice(i, 1);
         const li = [...$('queue').children].find(l => l.dataset.id === c.id); if (li) li.remove();
@@ -149,7 +149,7 @@ let demoQueue = null, demoTimer = null;
 function demoFeed(list) {
   if (demoQueue) return;
   demoQueue = list.slice().reverse();
-  const next = () => { const c = demoQueue.shift(); if (!c) { demoQueue = list.slice().reverse(); return next(); } arrive(c); setTimeout(() => { toReveal.push(c); markNext(); }, 6000); demoTimer = setTimeout(next, 32000); };
+  const next = () => { const c = demoQueue.shift(); if (!c) { demoQueue = list.slice().reverse(); return next(); } arrive(c); audio.prime(c.film); setTimeout(() => { toReveal.push(c); markNext(); }, 6000); demoTimer = setTimeout(next, 32000); };
   next();
 }
 
@@ -176,6 +176,7 @@ function layoutSentence(text) {
   cues = cum.map(c => S.start + c * unit);
   return cur;
 }
+const mix = (a, b, k) => { const c = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), A = c(a), B = c(b), t = clip(k); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
 const cut = (text, max) => text.length <= max ? text : (text.slice(0, max + 1).match(/^[\s\S]*[,;:.!?](?=\s)/) || [text.slice(0, max).replace(/\s\S*$/, '')])[0].replace(/[\s,;:]+$/, '') + '…';
 
 async function startReveal(c) {
@@ -197,12 +198,16 @@ async function startReveal(c) {
   $('title').textContent = c.title || 'Night Shift';
   $('endline').textContent = c.endLine || '';
   $('title').style.bottom = (72 + $('endline').offsetHeight + S.signoff.gap) + 'px';
-  audio.reveal();
+  // the sound: the film's own track when the painting has one (the same samples the Reel carries — keys on the
+  // letters, the bed, the pen on the ink; api/_lib/sound.ts), and the reveal is clocked FROM it so picture and sound
+  // cannot drift. A painting not yet filmed gets the bed and the note from WebAudio (below).
+  const track = await audio.track(c.film);
+  if (!track) audio.reveal();
   t0 = performance.now(); cancelAnimationFrame(raf);
   const frame = () => {
-    const t = (performance.now() - t0) / 1000;
+    const t = track ? track.currentTime : (performance.now() - t0) / 1000;
     render(t, cursor);
-    if (t < S.total) raf = requestAnimationFrame(frame); else endReveal();
+    if (t < S.total && !(track && track.ended)) raf = requestAnimationFrame(frame); else endReveal();
   };
   raf = requestAnimationFrame(frame);
 }
@@ -211,7 +216,7 @@ function render(t, cursor) {
   // the sentence
   const sen = $('sentence');
   let pen = -1;
-  glyphs.forEach((g, i) => { g.style.opacity = clip((t - cues[i]) / Sn.glyphFade); if (t >= cues[i]) pen = i; });
+  glyphs.forEach((g, i) => { g.style.opacity = clip((t - cues[i]) / Sn.glyphFade); g.style.color = mix(Sn.emberColor, S.colors.ink, (t - cues[i]) / Sn.ember); if (t >= cues[i]) pen = i; }); // each letter lands as an ember and cools to ink (film.ts)
   const last = cues.length ? cues[cues.length - 1] + Sn.glyphFade : 0;
   cursor.style.opacity = t < last ? 1 : 0.55 + 0.45 * Math.sin(2 * Math.PI * 0.9 * (t - last));
   const at = pen >= 0 ? glyphs[pen] : glyphs[0];
@@ -235,45 +240,60 @@ function render(t, cursor) {
   $('endline').style.opacity = clip((t - S.signoff.start) / S.signoff.fadeIn);
 }
 function endReveal() {
+  audio.stop();
   if (playing && !revealed.has(playing.id)) { revealed.add(playing.id); loop.push(playing); const li = [...$('queue').children].find(l => l.dataset.id === playing.id); if (li) li.remove(); }
   playing = null; document.getElementById('wall').classList.remove('revealing');
   setTimeout(tick, 1800);
 }
-function stopReveal() { cancelAnimationFrame(raf); playing = null; document.getElementById('wall').classList.remove('revealing'); $('black').style.opacity = 1; setTimeout(tick, 600); }
+function stopReveal() { cancelAnimationFrame(raf); audio.stop(); playing = null; document.getElementById('wall').classList.remove('revealing'); $('black').style.opacity = 1; setTimeout(tick, 600); }
 
 // ---- what plays next: a new painting first, else the loop of tonight's, else the window ----
 function tick() {
   if (playing) return;
   if (toReveal.length) { markNext(); return startReveal(toReveal.shift()); }
-  if (loop.length) { const c = loop[loopIndex++ % loop.length]; return startReveal(c); }
+  if (loop.length) { const c = loop[loopIndex++ % loop.length]; audio.prime(loop[loopIndex % loop.length]?.film); return startReveal(c); }
   $('black').style.opacity = 1; $('idle').style.display = 'flex';
   setTimeout(tick, 4000);
 }
 setInterval(poll, 4000); poll();
 
-// ---- audio: generated, as in the film; unlocked by the first tap ----
+// ---- audio: the film's track when there is one; else the bed and the note, generated (SCORE.audio); unlocked by the first tap ----
 const audio = {
-  ctx: null,
+  ctx: null, el: null, primed: new Map(), nodes: [],
   init() { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch {} },
   db: d => Math.pow(10, d / 20),
+  /** Start loading a film's track the moment its painting is queued, so the reveal never waits on the network
+   *  (a cold film took ~1 s to become playable in the check of 2026-09-06; the first one missed a 4 s wait). */
+  prime(url) {
+    if (!url || !this.ctx || this.primed.has(url)) return;
+    const el = Object.assign(document.createElement('audio'), { preload: 'auto', src: url }); el.load(); this.primed.set(url, el);
+    if (this.primed.size > 4) this.primed.delete(this.primed.keys().next().value);
+  },
+  /** The film's audio, playing from 0, or null (no film yet, no tap yet, or it would not load in time). */
+  async track(url) {
+    if (!url || !this.ctx) return null;
+    const el = this.primed.get(url) ?? Object.assign(document.createElement('audio'), { preload: 'auto', src: url });
+    this.primed.delete(url);
+    if (this.el && this.el !== el) { this.el.pause(); this.el.removeAttribute('src'); }
+    this.el = el; el.currentTime = 0;
+    const ok = el.readyState >= 3 || await new Promise(res => { const t = setTimeout(() => res(false), 6000); el.oncanplay = () => { clearTimeout(t); res(true); }; el.onerror = () => { clearTimeout(t); res(false); }; if (el.readyState >= 3) { clearTimeout(t); res(true); } });
+    if (!ok) return null;
+    try { await el.play(); } catch { return null; }
+    return el;
+  },
+  stop() { if (this.el) { this.el.pause(); } for (const n of this.nodes) { try { n.stop(); } catch {} } this.nodes = []; },
   tone(hz, gain, at, dur, attack = 0.01, release = 0.4) {
     const c = this.ctx; if (!c) return; const o = c.createOscillator(), g = c.createGain(); o.frequency.value = hz; o.connect(g); g.connect(c.destination);
-    const s = c.currentTime + at; g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(gain, s + attack); g.gain.setValueAtTime(gain, s + Math.max(attack, dur - release)); g.gain.linearRampToValueAtTime(0, s + dur); o.start(s); o.stop(s + dur + 0.05);
+    const s = c.currentTime + at; g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(gain, s + attack); g.gain.setValueAtTime(gain, s + Math.max(attack, dur - release)); g.gain.linearRampToValueAtTime(0, s + dur); o.start(s); o.stop(s + dur + 0.05); this.nodes.push(o);
   },
   arrive() { this.tone(660, this.db(-30), 0, 0.25, 0.005, 0.2); },
+  /** Without a film: the bed (the root twice, beating; a fifth; the octave) and the note under the title. */
   reveal() {
-    const c = this.ctx; if (!c || !SCORE) return; const A = SCORE.audio, T = SCORE.total;
-    this.tone(A.drone.hz, this.db(A.drone.gainDb), 0, T, A.drone.fadeIn, A.drone.fadeOut);
-    this.tone(A.drone.hz * 2, this.db(A.drone.gainDb) * 0.35, 0, T, A.drone.fadeIn, A.drone.fadeOut);
-    // the scratch under the signature: filtered noise
-    const G = SCORE.signature, len = Math.round(c.sampleRate * (G.end - G.start)), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
-    let b0 = 0, b1 = 0, b2 = 0; for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; b0 = 0.99765 * b0 + w * 0.099; b1 = 0.963 * b1 + w * 0.2965; b2 = 0.57 * b2 + w * 1.0526; d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.2; }
-    const src = c.createBufferSource(); src.buffer = buf; const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = A.scratch.lowHz; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = A.scratch.highHz; const g = c.createGain();
-    const s = c.currentTime + G.start; g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(this.db(A.scratch.gainDb), s + 0.2); g.gain.setValueAtTime(this.db(A.scratch.gainDb), s + (G.end - G.start) - 0.3); g.gain.linearRampToValueAtTime(0, s + (G.end - G.start));
-    src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(c.destination); src.start(s);
-    // one soft note under the title
-    const o = c.createOscillator(), ng = c.createGain(); o.frequency.value = A.note.hz; o.connect(ng); ng.connect(c.destination);
-    const n0 = c.currentTime + A.note.at; ng.gain.setValueAtTime(this.db(A.note.gainDb), n0); ng.gain.exponentialRampToValueAtTime(0.0001, n0 + A.note.decay * 1.5); o.start(n0); o.stop(n0 + A.note.decay * 1.6);
+    const c = this.ctx; if (!c || !SCORE) return; const A = SCORE.audio, T = SCORE.total, B = A.bed, g = this.db(B.gainDb) * 0.5;
+    this.tone(B.hz, g, 0, T, B.fadeIn, B.fadeOut); this.tone(B.hz + B.beatHz, g, 0, T, B.fadeIn, B.fadeOut);
+    this.tone(B.hz * 1.5, g * 0.45, 0, T, B.fadeIn, B.fadeOut); this.tone(B.hz * 2, g * 0.3, 0, T, B.fadeIn, B.fadeOut);
+    const N = A.note, o = c.createOscillator(), ng = c.createGain(); o.frequency.value = N.hz; o.connect(ng); ng.connect(c.destination);
+    const n0 = c.currentTime + N.at; ng.gain.setValueAtTime(this.db(N.gainDb), n0); ng.gain.exponentialRampToValueAtTime(0.0001, n0 + N.decay * 2); o.start(n0); o.stop(n0 + N.decay * 2.1); this.nodes.push(o);
   },
 };
 </script>

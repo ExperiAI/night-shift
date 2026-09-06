@@ -97,12 +97,19 @@ export function layoutGlyphs(b: Pick<Block, 'lines' | 'size' | 'font' | 'align' 
 }
 
 /** A frame with each glyph at its own opacity, and a thin cursor bar after the pen. */
-export async function glyphFrame(glyphs: Glyph[], opacity: (i: number) => number, color: string, size: number, cursor?: { x: number; y: number; opacity: number; color: string }, w: number = FRAME.w, h: number = FRAME.h): Promise<Buffer> {
+export async function glyphFrame(glyphs: Glyph[], opacity: (i: number) => number, color: string | ((i: number) => string), size: number, cursor?: { x: number; y: number; opacity: number; color: string }, w: number = FRAME.w, h: number = FRAME.h): Promise<Buffer> {
   const parts: string[] = [];
-  glyphs.forEach((g, i) => { const o = opacity(i); if (o > 0.005 && g.d) parts.push(`<path fill="${color}" fill-opacity="${o.toFixed(3)}" d="${g.d}"/>`); });
+  glyphs.forEach((g, i) => { const o = opacity(i); if (o > 0.005 && g.d) parts.push(`<path fill="${typeof color === 'string' ? color : color(i)}" fill-opacity="${o.toFixed(3)}" d="${g.d}"/>`); });
   if (cursor && cursor.opacity > 0.005) parts.push(`<rect fill="${cursor.color}" fill-opacity="${cursor.opacity.toFixed(3)}" x="${cursor.x.toFixed(1)}" y="${(cursor.y - size * 0.72).toFixed(1)}" width="${(size * 0.08).toFixed(1)}" height="${(size * 0.9).toFixed(1)}" rx="1"/>`);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${parts.join('')}</svg>`;
   return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+/** A colour between two hex colours, `k` of the way from `a` to `b`. */
+export function mix(a: string, b: string, k: number): string {
+  const c = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const A = c(a), B = c(b), t = Math.min(1, Math.max(0, k));
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
 }
 
 /** Height of a block's box, for stacking one under another. */

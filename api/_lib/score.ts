@@ -9,7 +9,7 @@ export const CANVAS = { w: 1080, h: 1350, top: (1920 - 1350) / 2 } as const;
 export const SCORE = {
   total: 20.0,
   /** The commission types out of the dark, then fades. Any sentence finishes typing at `typedBy`. */
-  sentence: { start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, pauseComma: 3, pauseStop: 5, glyphFade: 0.16, driftScale: 1.03, rise: 3 },
+  sentence: { start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, pauseComma: 3, pauseStop: 5, glyphFade: 0.16, driftScale: 1.03, rise: 3, ember: 0.55, emberColor: '#ffd58a' },
   /** The canvas surfaces from black (a fade from black: the one light appears first) with a slow push in. */
   painting: { fadeStart: 4.0, fadeEnd: 10.0, pushStart: 4.0, pushEnd: 13.8, scaleFrom: 1.06, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35 },
   /** The painter signs, in real time: the mark is revealed left to right with a soft wet edge. */
@@ -18,10 +18,21 @@ export const SCORE = {
   /** The film's last words (artist.ts END_LINES), under the title. */
   signoff: { start: 16.8, fadeIn: 0.6, font: 'IBMPlexMono-Regular', size: 30, color: '#a2abbb', gap: 22 },
   hold: { start: 19.4 },
+  /** The sound, generated (sound.ts for the film, wall.html in WebAudio): every number the two stages share. dB are peak
+   *  levels of each layer against full scale; the film is meant to be quiet, a room at night, the keys and the pen the
+   *  loudest things in it. */
   audio: {
-    drone: { hz: 55, gainDb: -26, fadeIn: 2, fadeOut: 3 },
-    scratch: { gainDb: -34, lowHz: 1800, highHz: 6000 },   // under the signature, 12.0–13.8
-    note: { hz: 220, gainDb: -20, decay: 1.2, at: 13.8 },   // one soft note under the title
+    /** A low chord: the root twice, detuned so they beat, a fifth, the octave; it breathes; a room tone under it. */
+    bed: { hz: 55, gainDb: -25, fadeIn: 2, fadeOut: 3, beatHz: 0.35, breatheHz: 0.07, breathe: 0.22, roomDb: -50, roomHz: 500 },
+    /** Every glyph cue: a soft key (a click through a band, a low body), then the key's return; small variation by seed. */
+    keys: { gainDb: -12, clickLowHz: 1500, clickHighHz: 5500, clickMs: 8, bodyHz: 230, bodyMs: 24, body: 0.9, vary: 0.14, spaceDb: -5, returnMs: 85, returnDb: -12 },
+    /** Arrives with the light (4→10 s), leaves after the title. */
+    shimmer: { hz: 440, beatHz: 2.3, gainDb: -42, tremHz: 5.5, from: 4.0, to: 10.0, until: 13.8, release: 2.2 },
+    /** Under the signature: friction that follows the ink under the moving edge, paper under it, the hand's speed opening the brightness. */
+    pen: { gainDb: -14, lowHz: 900, midHz: 3000, highHz: 8000, paperDb: -8, paperLowHz: 120, paperHighHz: 520, curve: 0.65, floor: 0.35, touch: 0.06, touchDb: -26, pan: 0.3 },
+    /** One soft chord under the title. */
+    note: { hz: 220, gainDb: -22, decay: 1.8, at: 13.8, fifth: 0.4 },
+    ceilingDb: -1,
   },
   colors: { ground: '#0b1517', ink: '#e8e1d3', amber: '#e9a23b' }, // the website's tokens (public/index.html)
 } as const;
