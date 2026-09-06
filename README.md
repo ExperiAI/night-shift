@@ -12,7 +12,9 @@ Live at nightshift.experiai.com and @nightshift.paints. State is a query: `GET /
 matches what was sent, last critique). Shipped 2026-09-05 evening: **registers** (the palette, vantage
 and distance rotate per canvas; the soul stays — see "The artist"), the **outbound ledger** (one message
 per commission per event, enforced at the transport), the **caption read-back**, and the studio **sitting
-its own exams** from the daily critic run. Open work is the repo's issues: #2 sketches, #3 style code,
+its own exams** from the daily critic run. **Next to build: `docs/reveal.md`** — the Reveal, one film that posts as a
+Reel and plays live on a wall in a room; designed 2026-09-06, the entry point for the session that builds it.
+Open work is the repo's issues: #2 sketches, #3 style code,
 #4 animate/Reels, #5 the @experiai posts, #9 an agent inbox, #11 audience growth, #12 painter #2 from
 the feedback record, #13 live paths not yet fired. Decided 2026-09-05 night (issue #18, see "Credit"
 and "Never refuse" below): a DM's core-conflict canvas paints only on a **yes**; the studio never asks
