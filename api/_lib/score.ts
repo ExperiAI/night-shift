@@ -19,7 +19,7 @@ export const KEY_PRESETS = {
   /** A typewriter: a hard metal strike, bright and short, the carriage frame ringing. */
   typewriter: { gainDb: -11, thumpLowHz: 150, thumpHighHz: 1400, thumpMs: 18, clickLowHz: 1500, clickHighHz: 5000, clickMs: 7, click: 0.9, caseHz: 1150, caseMs: 30, case: 0.6, vary: 0.1, spaceDb: -2, returnMs: 70, returnDb: -10 },
   /** A laptop: quiet, low, short — a pat more than a click. */
-  laptop: { gainDb: -16, thumpLowHz: 180, thumpHighHz: 1200, thumpMs: 16, clickLowHz: 3000, clickHighHz: 7000, clickMs: 2.5, click: 0.15, caseHz: 700, caseMs: 10, case: 0.25, vary: 0.18, spaceDb: -1, returnMs: 80, returnDb: -18 },
+  laptop: { gainDb: -19, thumpLowHz: 180, thumpHighHz: 1200, thumpMs: 16, clickLowHz: 3000, clickHighHz: 7000, clickMs: 2.5, click: 0.15, caseHz: 700, caseMs: 10, case: 0.25, vary: 0.18, spaceDb: -1, returnMs: 80, returnDb: -18 },
   /** A pen: each letter a short scratch on paper, the same family as the signature's pen; no key at all. */
   pen: { gainDb: -14, thumpLowHz: 900, thumpHighHz: 6500, thumpMs: 55, clickLowHz: 4000, clickHighHz: 9000, clickMs: 1.5, click: 0.1, caseHz: 300, caseMs: 6, case: 0.12, vary: 0.25, spaceDb: -30, returnMs: 40, returnDb: -40 },
 } as const;
@@ -46,7 +46,7 @@ export const SCORE = {
     /** The room at night, under everything (Diego, 2026-09-06: fill the blanks between the typing and the signature):
      *  air moving through a duct — low noise that drifts — and a strip light's hum, flickering a little. */
     room: { airDb: -26, airLowHz: 70, airHighHz: 1100, driftHz: 0.11, drift: 0.3, humHz: 100, humDb: -38, flicker: 0.25, fadeIn: 1.5, fadeOut: 3 },
-    keys: KEY_PRESETS.mech,
+    keys: KEY_PRESETS.laptop,
     /** Arrives with the light (4→10 s), leaves after the title. */
     shimmer: { hz: 440, beatHz: 2.3, gainDb: -42, tremHz: 5.5, from: 4.0, to: 10.0, until: TITLE_AT, release: 2.2 },
     /** Under the signature: friction that follows the ink under the moving edge, paper under it, the hand's speed opening the brightness. */

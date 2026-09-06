@@ -25,11 +25,12 @@ test('the track is 20.0 s of stereo 48 kHz WAV, never clipping', () => {
 
 test('a key sounds on every glyph cue and nowhere else in the dark', () => {
   const { L } = synthesize({ id: 'k', cues: [1.0, 2.0], ink: null });
-  const onKey = rms(L, 1.0, 1.03), onKey2 = rms(L, 2.0, 2.03), between = rms(L, 1.4, 1.8), before = rms(L, 0.6, 0.9);
-  assert.ok(onKey > 4 * between && onKey2 > 4 * between, `the press stands out: ${onKey.toFixed(4)} vs ${between.toFixed(4)}`);
-  assert.ok(Math.abs(before - between) < between * 0.6, 'no key where no cue');
   const { L: quiet } = synthesize({ id: 'k', cues: [], ink: null });
-  assert.ok(rms(quiet, 1.0, 1.03) < onKey / 4, 'no cues, no keys');
+  const keys = L.map((v, i) => v - quiet[i]); // the bed and the room are seeded identically: the difference is the keys alone
+  const onKey = rms(keys, 1.0, 1.03), onKey2 = rms(keys, 2.0, 2.03), between = rms(keys, 1.4, 1.8), before = rms(keys, 0.6, 0.9);
+  assert.ok(onKey > 20 * Math.max(between, 1e-6) && onKey2 > 20 * Math.max(between, 1e-6), `the press stands out: ${onKey.toFixed(4)} vs ${between.toFixed(5)}`);
+  assert.ok(before < 1e-6 && between < 1e-6, 'no key where no cue');
+  assert.ok(onKey > 0.3 * rms(quiet, 1.0, 1.03), `a key is heard over the room, quiet as it is: ${onKey.toFixed(4)} vs ${rms(quiet, 1.0, 1.03).toFixed(4)}`);
 });
 
 test('the pen follows the ink: silent over a blank stretch, sounding where the mark is, absent without a mark', () => {
