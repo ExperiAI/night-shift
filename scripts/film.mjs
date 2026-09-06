@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The reveal of one painting as a 20 s MP4, made locally with Homebrew ffmpeg (docs/reveal.md §4).
-//   node scripts/film.mjs <id> [--out DIR] [--resign] [--keep] [--keys mech|typewriter|laptop|pen] [--pen spray|quiet|pencil|brush|hush] [--opening dark|lit] [--silence electric|still|soft|open|wet]
+//   node scripts/film.mjs <id> [--out DIR] [--resign] [--keep] [--keys mech|typewriter|laptop|pen] [--pen spray|quiet|pencil|brush|hush] [--transition fade|glow|resolve|snap] [--opening dark|lit] [--silence electric|still|soft|open|wet]
 // --resign: for a painting from before the studio kept its unsigned canvas — lays a second mark on the still, in the
 //           other corner, so the signing beat can be seen; for checking the score, never for posting.
 import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
@@ -29,12 +29,13 @@ if (args.includes('--resign')) {
 }
 if (args.includes('--keys')) input.keys = args[args.indexOf('--keys') + 1]; // a typing sound other than the score's, for comparing
 if (args.includes('--pen')) input.pen = args[args.indexOf('--pen') + 1]; // a pen under the signature other than the score's (score.ts PEN_PRESETS, issue #35), for comparing
+if (args.includes('--transition')) input.transition = args[args.indexOf('--transition') + 1]; // how the line hands over to the picture (score.ts TRANSITIONS), for comparing
 if (args.includes('--silence')) input.silence = args[args.indexOf('--silence') + 1]; // electric|still|soft|open|wet: the silence of the place, for comparing (score.ts SILENCES)
 if (args.includes('--opening')) input.opening = args[args.indexOf('--opening') + 1]; // dark | lit: the A/B of the opening, for comparing (score.ts OPENINGS)
 if (!input.line && !c.anonymous) input.line = await hookLine(c.text); // the hook, chosen not cut, for work from before the gatekeeper picked one
 console.log(`line: ${JSON.stringify(input.line ?? '(cut from the opening)')}`);
 const t0 = Date.now();
 const mp4 = await makeFilm(input, { ffmpeg: process.env.FFMPEG_PATH ?? '/opt/homebrew/bin/ffmpeg', keepWork: args.includes('--keep'), workDir: args.includes('--keep') ? resolve(outDir, `work-${id}`) : undefined });
-const file = resolve(outDir, `${id}${input.keys ? `-${input.keys}` : ''}${input.pen ? `-pen-${input.pen}` : ''}.mp4`);
+const file = resolve(outDir, `${id}${input.keys ? `-${input.keys}` : ''}${input.pen ? `-pen-${input.pen}` : ''}${input.transition ? `-${input.transition}` : ''}.mp4`);
 writeFileSync(file, mp4);
 console.log(`${file}  ${(mp4.length / 1e6).toFixed(1)} MB  ${((Date.now() - t0) / 1000).toFixed(1)} s  signing beat: ${input.raw ? 'yes' : 'no (no raw canvas)'}`);

@@ -11,7 +11,7 @@ import sharp from 'sharp';
 import { FRAME, CANVAS, SCORE, ease, sentenceFor, typingWeights, typingPace, scoreFor, type Score, openingFor, type Opening, type Silence } from './score.js';
 import { font, fit, wrap, textFrame, blockHeight, layoutGlyphs, glyphFrame, mix, type Block } from './text.js';
 import { soundtrack } from './sound.js';
-import type { KeyPreset, PenPreset } from './score.js';
+import type { KeyPreset, PenPreset, Transition } from './score.js';
 import { isExcerpt, excerpt } from './score.js';
 import { chatJSON } from './openrouter.js';
 import { LINE_BRIEF, endLineFor, silenceFor } from './artist.js';
@@ -33,6 +33,8 @@ export type FilmInput = {
   keys?: KeyPreset;
   /** For the studio's own comparisons (scripts/film.mjs --pen): which pen under the signature (score.ts PEN_PRESETS); the score's when unset. */
   pen?: PenPreset;
+  /** For the studio's own comparisons (scripts/film.mjs --transition): how the line hands over to the picture (score.ts TRANSITIONS); the score's when unset. */
+  transition?: Transition;
   /** The A/B of the opening (score.ts OPENINGS): openingFor(id) when unset. */
   opening?: Opening;
   /** The silence of the place under the film (score.ts SILENCES): 'electric' when unset. */
@@ -142,7 +144,7 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
 
     const sentence = await sentenceFrames(input.commission, input.line, input.id);
     const opening = input.opening ?? openingFor(input.id);
-    SC = scoreFor(sentence.shift, opening);
+    SC = scoreFor(sentence.shift, opening, input.transition);
     const P = SC.painting, S = SC.sentence, G = SC.signature, T = SC.title, O = SC.signoff;
     await Promise.all(sentence.frames.map((b, i) => writeFile(join(dir, `txt_${pad3(i)}.png`), b)));
     const cap = await captionFrames(input.title, input.endLine);
@@ -201,7 +203,20 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
       f.push(`[bgF][pRise]overlay=x=${CANVAS.left}:y=${CANVAS.top}:format=auto[bg0]`);
       f.push(`[${scrimIn}:v]format=rgba,fade=t=out:st=${S.fadeStart}:d=${(S.fadeEnd - S.fadeStart).toFixed(2)}:alpha=1[veil]`);
       f.push(`[bg0][veil]overlay=x=0:y='${sentence.top - P.band}-${S.rise}*t':format=auto:eof_action=pass[bg]`); // rides with the band
-    } else f.push(`[0:v][push]overlay=x=${CANVAS.left}:y=${CANVAS.top}:format=auto,fade=t=in:st=${P.fadeStart}:d=${(P.fadeEnd - P.fadeStart).toFixed(2)}[bg]`); // dark: from black, the one light first
+    } else { // dark: the line hands over to the picture (score.ts TRANSITIONS) — the fill (the room's light) first, a blurred pass when the take has one, then the canvas
+      const dur = (a: number, b: number) => Math.max(0.01, b - a).toFixed(2);
+      f.push(`[0:v]fade=t=in:st=${P.fillStart}:d=${dur(P.fillStart, P.fillEnd)}[fillF]`);
+      if (P.blur > 0) {
+        f.push(`[push]split=2[pB0][pS0]`);
+        f.push(`[pB0]gblur=sigma=${P.blur}:enable='lt(t,${P.fadeEnd})',fade=t=in:st=${P.blurStart}:d=${dur(P.blurStart, P.blurEnd)}:alpha=1[pB]`); // the picture out of focus, sharpening as the sharp one lands over it
+        f.push(`[pS0]fade=t=in:st=${P.fadeStart}:d=${dur(P.fadeStart, P.fadeEnd)}:alpha=1[pS]`);
+        f.push(`[fillF][pB]overlay=x=${CANVAS.left}:y=${CANVAS.top}:format=auto[bgB]`);
+        f.push(`[bgB][pS]overlay=x=${CANVAS.left}:y=${CANVAS.top}:format=auto[bg]`);
+      } else {
+        f.push(`[push]fade=t=in:st=${P.fadeStart}:d=${dur(P.fadeStart, P.fadeEnd)}:alpha=1[pS]`);
+        f.push(`[fillF][pS]overlay=x=${CANVAS.left}:y=${CANVAS.top}:format=auto[bg]`);
+      }
+    }
     const drift = `(1+${(S.driftScale - 1).toFixed(3)}*clip((t-${S.fadeStart})/${(S.fadeEnd - S.fadeStart).toFixed(2)},0,1))`; // the sentence lifts slightly as it dissolves
     f.push(`[2:v]format=rgba,tpad=stop_mode=clone:stop_duration=2,scale=w='trunc(iw*${drift}/2)*2':h=-2:eval=frame,crop=${FRAME.w}:${sentence.height}:x='(iw-ow)/2':y='(ih-oh)/2',fade=t=out:st=${S.fadeStart}:d=${(S.fadeEnd - S.fadeStart).toFixed(2)}:alpha=1[st]`);
     f.push(`[3:v]format=rgba,fade=t=in:st=${T.start}:d=${T.fadeIn}:alpha=1[ti]`);

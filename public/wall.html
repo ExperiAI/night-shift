@@ -210,14 +210,19 @@ function typingPace(chars, seed) {
   const need = S.start + (sum + 1) * unit + S.glyphFade;
   return { unit, shift: Math.max(0, Math.round((need - S.typedBy) * 100) / 100) };
 }
-function scoreFor(shift, opening = 'dark') {
+function scoreFor(shift, opening = 'dark', transition = SCORE.painting.transition) {
   const sc = JSON.parse(JSON.stringify(SCORE));
   const op = SCORE.openings[opening]; sc.opening = opening;
   sc.painting.fadeStart = op.fadeStart; sc.painting.fadeEnd = op.fadeEnd; sc.painting.fromFill = op.fromFill; sc.painting.scrim = op.scrim; sc.painting.floor = op.floor; sc.painting.band = op.band;
+  if (opening === 'dark') { // the transition from the line to the picture (score.ts TRANSITIONS); the film does the same
+    const tr = SCORE.transitions[transition]; sc.painting.transition = transition;
+    sc.painting.fadeStart = tr.canvasStart; sc.painting.fadeEnd = tr.canvasEnd; sc.painting.fillStart = tr.fillStart; sc.painting.fillEnd = tr.fillEnd;
+    sc.painting.blur = tr.blur; sc.painting.blurStart = tr.blurStart; sc.painting.blurEnd = tr.blurEnd; sc.painting.scaleFrom = tr.scaleFrom;
+  }
   if (!shift) return sc;
   const mv = (o, keys) => { for (const k of keys) if (typeof o[k] === 'number') o[k] = Math.round((o[k] + shift) * 100) / 100; };
   mv(sc.sentence, ['typedBy', 'fadeStart', 'fadeEnd']);
-  mv(sc.painting, op.fadeStart === 0 ? ['fadeEnd', 'pushStart', 'pushEnd'] : ['fadeStart', 'fadeEnd', 'pushStart', 'pushEnd']);
+  mv(sc.painting, op.fadeStart === 0 ? ['fadeEnd', 'pushStart', 'pushEnd'] : ['fadeStart', 'fadeEnd', 'fillStart', 'fillEnd', 'blurStart', 'blurEnd', 'pushStart', 'pushEnd']);
   mv(sc.signature, ['start', 'end']); mv(sc.title, ['start']); mv(sc.signoff, ['start']); mv(sc.hold, ['start']);
   mv(sc.audio.shimmer, ['from', 'to', 'until']); mv(sc.audio.note, ['at']);
   sc.total = Math.round((sc.total + shift) * 100) / 100;
@@ -277,8 +282,13 @@ function render(t, cursor) {
   // the painting surfaces and pushes in: from black (dark), or over the fill under a scrim that lifts with the sentence (lit)
   const surfaced = clip((t - P.fadeStart) / (P.fadeEnd - P.fadeStart));
   sen.classList.toggle('lit', !!P.fromFill); sen.style.setProperty('--band', P.band + 'px'); sen.style.setProperty('--scrim', P.scrim);
-  if (P.fromFill) { $('canvas').style.opacity = P.floor + (1 - P.floor) * surfaced; $('black').style.opacity = 0; }
-  else { $('canvas').style.opacity = 1; $('black').style.opacity = 1 - surfaced; }
+  if (P.fromFill) { $('canvas').style.opacity = P.floor + (1 - P.floor) * surfaced; $('black').style.opacity = 0; $('canvas').style.filter = ''; }
+  else { // dark: the fill (the room's light) first, a blurred pass sharpening under the sharp one when the take has one, then the canvas (score.ts TRANSITIONS; film.ts does the same)
+    const fillRisen = clip((t - P.fillStart) / (P.fillEnd - P.fillStart)), blurRisen = P.blur > 0 ? clip((t - P.blurStart) / (P.blurEnd - P.blurStart)) : 0;
+    $('black').style.opacity = 1 - fillRisen;
+    $('canvas').style.opacity = Math.max(blurRisen, surfaced);
+    $('canvas').style.filter = P.blur > 0 && surfaced < 1 ? `blur(${(P.blur * (1 - surfaced)).toFixed(1)}px)` : '';
+  }
   $('canvas').style.transform = `scale(${P.scaleFrom - (P.scaleFrom - P.scaleTo) * clip((t - P.pushStart) / (P.pushEnd - P.pushStart))})`;
   // the painter signs
   if (sigGeom) {

@@ -56,6 +56,22 @@ export const PEN_KEYS = Object.keys(PEN_PRESETS) as PenPreset[];
  *  gone by 0:02); it stays only as a comparison switch for scripts/film.mjs --opening, never assigned to a painting.
  *  What is open is the TRANSITION from the typed line to the picture (docs/reveal.md §3). */
 export type Opening = 'dark' | 'lit';
+
+/** The transition from the typed line to the picture, on the dark opening (Diego, 2026-09-06: the text is the input,
+ *  the picture is what it was processed into — "we just need to polish the transition"). Four takes, lettered for his
+ *  eye (scripts/checks/transitions.mjs): `fade` (A) as shipped — the words dissolve and the whole frame fades up from
+ *  black over six seconds; `glow` (B) the light first — the blurred fill rises as the words go, then the canvas
+ *  surfaces out of it; `resolve` (C) the canvas arrives blurred over the glow and sharpens, a render resolving out of
+ *  the text; `snap` (D) the same story in half the time with a stronger push in. Seconds are film time before the
+ *  line's shift (scoreFor moves them). `blur` is a gaussian sigma in canvas pixels; 0 means no blurred pass. */
+export type Transition = 'fade' | 'glow' | 'resolve' | 'snap';
+export const TRANSITIONS = {
+  fade: { fillStart: 4.0, fillEnd: 10.0, blur: 0, blurStart: 0, blurEnd: 0, canvasStart: 4.0, canvasEnd: 10.0, scaleFrom: 1.06 },
+  glow: { fillStart: 3.6, fillEnd: 5.2, blur: 0, blurStart: 0, blurEnd: 0, canvasStart: 5.0, canvasEnd: 8.6, scaleFrom: 1.06 },
+  resolve: { fillStart: 3.6, fillEnd: 5.0, blur: 34, blurStart: 3.9, blurEnd: 5.4, canvasStart: 5.4, canvasEnd: 8.8, scaleFrom: 1.06 },
+  snap: { fillStart: 3.7, fillEnd: 5.0, blur: 0, blurStart: 0, blurEnd: 0, canvasStart: 3.9, canvasEnd: 5.6, scaleFrom: 1.10 },
+} as const;
+export const TRANSITION_KEYS = Object.keys(TRANSITIONS) as Transition[];
 export const OPENINGS = {
   dark: { fadeStart: 4.0, fadeEnd: 10.0, fromFill: false, scrim: 0, floor: 0, band: 0 },
   /** `floor`: how much of the canvas is there on frame zero — all of it: a thumb decides in half a second, and a night
@@ -103,9 +119,9 @@ export const SCORE = {
   /** The commission types out of the dark, then fades. Any sentence finishes typing at `typedBy`. */
   sentence: { marginX: 72, start: 0.0, typedBy: 3.4, fadeStart: 3.6, fadeEnd: 4.4, font: 'IBMPlexMono-Regular', size: 44, minSize: 36, maxLines: 3, maxChars: 90, maxCharInterval: 0.085, minCharInterval: 0.056, glyphFade: 0.16, driftScale: 1.03, rise: 3, ember: 0.55, emberColor: '#ffd58a' },
   /** The canvas surfaces from black (a fade from black: the one light appears first) with a slow push in. */
-  painting: { fadeStart: 4.0 as number, fadeEnd: 10.0 as number, pushStart: 4.0, pushEnd: TITLE_AT, scaleFrom: 1.06, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35, fromFill: false as boolean, scrim: 0 as number, floor: 0 as number, band: 0 as number },
+  painting: { transition: 'fade' as Transition, fadeStart: 4.0 as number, fadeEnd: 10.0 as number, fillStart: 4.0 as number, fillEnd: 10.0 as number, blur: 0 as number, blurStart: 0 as number, blurEnd: 0 as number, pushStart: 4.0, pushEnd: TITLE_AT, scaleFrom: 1.06 as number, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35, fromFill: false as boolean, scrim: 0 as number, floor: 0 as number, band: 0 as number },
   /** Which opening this score plays (OPENINGS); scoreFor sets it per film. */
-  opening: 'dark' as Opening, openings: OPENINGS,
+  opening: 'dark' as Opening, openings: OPENINGS, transitions: TRANSITIONS,
   /** The painter signs, in real time: the mark is revealed left to right with a soft wet edge. */
   signature: { start: SIGN_AT, end: SIGN_END, edgePx: 24 },
   title: { start: TITLE_AT, fadeIn: 0.6, font: 'InstrumentSerif-Regular', size: 64, color: '#ffd58a', marginX: CAPTION.x, maxW: CAPTION.maxW, top: CAPTION.top },
@@ -181,14 +197,19 @@ export function typingPace(chars: string, seed: string): { unit: number; shift: 
 
 export type Score = { -readonly [K in keyof typeof SCORE]: { -readonly [P in keyof (typeof SCORE)[K]]: (typeof SCORE)[K][P] } } & { total: number };
 /** The score of one film: SCORE with every beat from the sentence's fade onward moved later by `shift` seconds. */
-export function scoreFor(shift: number, opening: Opening = 'dark'): Score {
+export function scoreFor(shift: number, opening: Opening = 'dark', transition: Transition = SCORE.painting.transition): Score {
   const sc = JSON.parse(JSON.stringify(SCORE)) as Score;
   const op = OPENINGS[opening]; sc.opening = opening;
   sc.painting.fadeStart = op.fadeStart; sc.painting.fadeEnd = op.fadeEnd; sc.painting.fromFill = op.fromFill; sc.painting.scrim = op.scrim; sc.painting.floor = op.floor; sc.painting.band = op.band;
+  if (opening === 'dark') { // the transition from the line to the picture (TRANSITIONS); the lit opening has its own way in
+    const tr = TRANSITIONS[transition]; sc.painting.transition = transition;
+    sc.painting.fadeStart = tr.canvasStart; sc.painting.fadeEnd = tr.canvasEnd; sc.painting.fillStart = tr.fillStart; sc.painting.fillEnd = tr.fillEnd;
+    sc.painting.blur = tr.blur; sc.painting.blurStart = tr.blurStart; sc.painting.blurEnd = tr.blurEnd; sc.painting.scaleFrom = tr.scaleFrom;
+  }
   if (!shift) return sc;
   const mv = (o: Record<string, any>, keys: string[]) => { for (const k of keys) if (typeof o[k] === 'number') o[k] = Math.round((o[k] + shift) * 100) / 100; };
   mv(sc.sentence as any, ['typedBy', 'fadeStart', 'fadeEnd']);
-  mv(sc.painting as any, op.fadeStart === 0 ? ['fadeEnd', 'pushStart', 'pushEnd'] : ['fadeStart', 'fadeEnd', 'pushStart', 'pushEnd']); // a lit opening starts at the first frame whatever the line's length
+  mv(sc.painting as any, op.fadeStart === 0 ? ['fadeEnd', 'pushStart', 'pushEnd'] : ['fadeStart', 'fadeEnd', 'fillStart', 'fillEnd', 'blurStart', 'blurEnd', 'pushStart', 'pushEnd']); // a lit opening starts at the first frame whatever the line's length
   mv(sc.signature as any, ['start', 'end']); mv(sc.title as any, ['start']); mv(sc.signoff as any, ['start']); mv(sc.hold as any, ['start']);
   mv(sc.audio.shimmer as any, ['from', 'to', 'until']); mv(sc.audio.note as any, ['at']);
   sc.total = Math.round((sc.total + shift) * 100) / 100;

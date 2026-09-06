@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import sharp from 'sharp';
-import { SCORE, FRAME, CANVAS, CAPTION, SAFE, OPENINGS, openingFor, scoreFor, ease, sentenceFor, excerpt, isExcerpt } from '../api/_lib/score.ts';
+import { SCORE, FRAME, CANVAS, CAPTION, SAFE, OPENINGS, TRANSITIONS, openingFor, scoreFor, ease, sentenceFor, excerpt, isExcerpt } from '../api/_lib/score.ts';
 import { font, wrap, fit } from '../api/_lib/text.ts';
 import { sentenceFrames, captionFrames, signatureFrames, makeFilm } from '../api/_lib/film.ts';
 import { signatureLayer } from '../api/_lib/compose.ts';
@@ -107,9 +107,24 @@ test('the opening: dark from black, for every painting (Diego, 2026-09-06); lit 
   assert.deepEqual(SCORE.openings, OPENINGS);
   const ids = Array.from({ length: 200 }, (_, i) => `id-${i}-x`); const lits = ids.filter(id => openingFor(id) === 'lit').length;
   assert.equal(lits, 0, 'no painting is ever assigned lit: text first, then the picture, is the story (Diego, 2026-09-06)');
-  const f = src('api/_lib/film.ts'); assert.match(f, /scoreFor\(sentence\.shift, opening\)/); assert.match(f, /veil\.png/, 'the lit film carries the band'); assert.match(f, /stop-opacity="\$\{P\.scrim\}"/);
+  const f = src('api/_lib/film.ts'); assert.match(f, /scoreFor\(sentence\.shift, opening, input\.transition\)/); assert.match(f, /veil\.png/, 'the lit film carries the band'); assert.match(f, /stop-opacity="\$\{P\.scrim\}"/);
   assert.match(src('api/paint.ts'), /inp\.opening = c\.opening \?\? \(c\.opening = openingFor\(c\.id\)\)/, 'the record keeps the opening it was filmed with');
   assert.match(src('api/_lib/desk.ts'), /opening: c\.opening/, 'the public view says which, so the wall plays the same');
   const w = src('public/wall.html'); assert.match(w, /layoutSentence\(words, c\.id, c\.opening \|\| 'dark'\)/); assert.match(w, /if \(P\.fromFill\) \{ \$\('canvas'\)\.style\.opacity = P\.floor/); assert.match(w, /#sentence\.lit>div\{[^}]*--scrim/, 'the wall\'s band behind the words');
   assert.match(src('api/status.ts'), /openings: \{ dark:/, 'status lists every Reel by its opening, to read against Instagram\'s retention graph');
+});
+
+test('the hand-over from the line to the picture: every take lights the fill by the words\' fade, lands the canvas before the signature, and the wall plays the same', () => {
+  const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+  for (const [k, tr] of Object.entries(TRANSITIONS)) {
+    const sc = scoreFor(0, 'dark', k);
+    assert.ok(tr.fillStart <= sc.sentence.fadeEnd, `${k}: the light rises while the words go`);
+    assert.ok(tr.canvasStart >= tr.fillStart && tr.canvasEnd <= sc.signature.start, `${k}: the picture is there before the hand signs`);
+    if (tr.blur > 0) assert.ok(tr.blurStart <= tr.canvasStart && tr.blurEnd <= tr.canvasEnd, `${k}: the blurred pass leads the sharp one`);
+    const shifted = scoreFor(1.2, 'dark', k); assert.equal(shifted.painting.fillStart, Math.round((tr.fillStart + 1.2) * 100) / 100, `${k}: a long line moves the light with it`);
+  }
+  assert.deepEqual(SCORE.transitions, TRANSITIONS);
+  assert.equal(scoreFor(0, 'dark', 'fade').painting.fadeStart, SCORE.painting.fadeStart, 'fade is the score as shipped');
+  const w = src('public/wall.html'); assert.match(w, /SCORE\.transitions\[transition\]/); assert.match(w, /blur\(\$\{\(P\.blur \* \(1 - surfaced\)\)/, 'the wall sharpens the same pass');
+  assert.match(src('api/_lib/film.ts'), /gblur=sigma=\$\{P\.blur\}/, 'the film renders the blurred pass');
 });
