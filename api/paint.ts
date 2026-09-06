@@ -1,6 +1,6 @@
 // The studio session. Runs on a cron; paints the oldest queued commission and posts it.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { all, save, storeImage, storeFilm, type Commission } from './_lib/store.js';
+import { all, load, save, storeImage, storeFilm, type Commission } from './_lib/store.js';
 import { makeFilm, filmInputFor, hookLine, type FilmInput } from './_lib/film.js';
 import { endLineFor, isTestSender } from './_lib/artist.js';
 import { ORIGIN } from './_lib/origin.js';
@@ -57,13 +57,39 @@ import sharp from 'sharp';
 
 export const config = { maxDuration: 300 };
 
+/** The sweep leaves queued work this young alone: the desk kicked a painter for it the moment it was accepted
+ *  (kick.ts) and that painter is at work on its own function. If the kick never fired or died, the sweep takes the
+ *  commission after this. Also the widest window two painters could ever see the same commission. */
+export const KICK_GRACE_MS = 3 * 60_000;
+/** A record in 'painting' this long with no painting is a function that died (a timeout, a deploy mid-render): it
+ *  goes back to the queue once; a second death fails it, so nothing loops on a commission that kills the painter. */
+export const STALE_PAINTING_MS = 12 * 60_000;
+export function stalePaintings<T extends { status: string; paintingAt?: string; created: string; revived?: number }>(docs: T[], now = Date.now()): T[] {
+  return docs.filter(d => d.status === 'painting' && Date.parse(d.paintingAt ?? d.created) < now - STALE_PAINTING_MS);
+}
+/** What the sweep paints: the oldest queued commission that is neither held nor freshly kicked. */
+export function sweepQueue<T extends { status: string; holdUntil?: string; awaitingYes?: boolean; created: string }>(docs: T[], now = Date.now()): T[] {
+  return docs.filter(c => c.status === 'queued' && !isHeld(c, now) && Date.parse(c.created) < now - KICK_GRACE_MS).sort((a, b) => a.created.localeCompare(b.created));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const started = Date.now();
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.authorization !== `Bearer ${secret}`) return res.status(401).end();
   const dry = req.query.dry === '1';
 
+  if (typeof req.query.id === 'string') { // one commission, kicked by the desk the moment it was accepted (kick.ts): paints only this one, alongside anything else painting
+    const fresh = await load(req.query.id);
+    if (!fresh) return res.status(404).json({ error: 'no such commission' });
+    if (fresh.status !== 'queued' || isHeld(fresh) || dry) return res.json({ painted: null, skipped: fresh.id, status: fresh.status });
+    return paintOne(fresh, res, started, dry);
+  }
+
   const docs = await all();
+  for (const d of stalePaintings(docs)) { // a painter that died mid-work: once more, then no more
+    if ((d.revived ?? 0) >= 1) { d.status = 'failed'; d.error = 'the painter stopped twice on this one'; } else { d.status = 'queued'; d.revived = (d.revived ?? 0) + 1; delete d.paintingAt; }
+    if (!dry) await save(d);
+  }
   const fixed = await reconcile(docs, { dry }).catch(e => ({ error: String(e.message).slice(0, 120) })); // finish what an earlier publish() started
   if (!dry) for (const d of docs.filter(d => d.status === 'posted' && d.source && !d.sourceReplied)) { await tellSource(d); if (d.sourceReplied) await save(d); } // the one reply, once the link is real
   if (!dry) for (const h of expiredHolds(docs)) { await cancel(h.id, 'silence').catch(() => null); h.status = 'declined'; } // a private ask never answered: declined without a word (issue #18)
@@ -73,8 +99,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const ok = await filmIt(f); if (!dry) await save(f);
     return res.json({ filmed: ok ? f.id : null, film: f.film, ms: f.filmMs, error: f.filmError });
   }
-  const queue = docs.filter(c => c.status === 'queued' && !isHeld(c)).sort((a, b) => a.created.localeCompare(b.created)); // held work waits for its stop window
-  let c = queue[0];
+  const queue = sweepQueue(docs); // held work waits for its stop window; freshly kicked work is already painting on its own function
+  const c = queue[0];
   if (!c) {
     const job = filmJob(docs); // a painting without its film comes before posting the backlog: the post should be the Reel
     if (job && !dry) { const ok = await filmIt(job); await save(job); return res.json({ painted: null, filmed: ok ? job.id : null, ms: job.filmMs, error: job.filmError, reconciled: fixed }); }
@@ -94,7 +120,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.json({ painted: null, posted: b.id, status: b.status, instagram: b.instagram, error: b.error, backlog: backlog.length - 1 });
   }
 
-  c.status = 'painting'; await save(c);
+  const claimed = await load(c.id); // the record as it is now, not as the sweep read it: a kick may have taken it since
+  if (!claimed || claimed.status !== 'queued') return res.json({ painted: null, skipped: c.id, status: claimed?.status, queued: queue.length - 1 });
+  return paintOne(claimed, res, started, dry, docs);
+}
+
+/** Paint one commission on this function: render, inspect, sign, store, film inside the budget, post if it may. */
+async function paintOne(c: Commission, res: VercelResponse, started: number, dry: boolean, docs?: Commission[]) {
+  c.status = 'painting'; c.paintingAt = new Date().toISOString(); await save(c);
   try {
     const refs = (process.env.STYLE_REFS ?? '').split(',').filter(Boolean).map(p => p.startsWith('http') ? p : `${ORIGIN}${p}`);
     if (c.photo) refs.push(c.photo);
@@ -146,6 +179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (again) c = again;
     }
   }
+  delete c.paintingAt;
   await save(c);
-  return res.json({ painted: c.id, status: c.status, image: c.image, film: c.film, filmMs: c.filmMs, filmError: c.filmError, instagram: c.instagram, error: c.error, queued: queue.length - 1 });
+  return res.json({ painted: c.id, status: c.status, image: c.image, film: c.film, filmMs: c.filmMs, filmError: c.filmError, instagram: c.instagram, error: c.error });
 }

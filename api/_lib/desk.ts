@@ -5,6 +5,7 @@ import { all, load, newId, save, saveFeedback, storeReference, allFeedback, dele
 import { createHash, randomBytes } from 'node:crypto';
 import { normalizePhoto } from './compose.js';
 import { isExcerpt, SCORE } from './score.js';
+import { kickPainter } from './kick.js';
 import { validateRoomCode, loadRoom, roomCount, roomRefusal } from './room.js';
 
 const MAX_PER_SENDER_PER_DAY = 3;
@@ -290,6 +291,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
     status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}), ...(holdUntil ? { holdUntil } : {}), ...(exception ? { exception } : {}), ...(roomCode ? { room: roomCode } : {}),
   };
   await save(c);
+  if (c.status === 'queued' && !holdUntil) await kickPainter(c.id).catch(() => null); // the painter starts now, not at the next cron (kick.ts); a held commission waits for its window
   const receipt: Receipt = { id: c.id, status: c.status, note: take.note, ...(take.departures ? { departures: take.departures } : {}), statusUrl: `${origin}/api/commission/${c.id}`, key };
   if (take.accepted) receipt.share = { ...SHARE, wall: origin };
   return receipt;

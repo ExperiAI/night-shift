@@ -18,6 +18,8 @@ export type Commission = {
   filmMs?: number;      // how long the film took on the server: the Vercel-or-Actions measurement (docs/reveal.md §4)
   filmStages?: Record<string, number>; // where that time went: inputs, stills, text, signature, ffmpeg, upload (ms)
   filmAttempt?: string; // last failed try; retried after a cool-off
+  paintingAt?: string; // when a painter claimed it; a claim this old with no painting is a dead function (paint.ts, stalePaintings)
+  revived?: number; // how many times a dead painter's claim was put back in the queue (once, then it fails)
   filmError?: string;
   room?: string;        // the room this was sent from (rooms/<code>.json); room work has its own cap and never counts against the studio's day
   instagram?: string;   // permalink

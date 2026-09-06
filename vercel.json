@@ -1,6 +1,7 @@
 {
   "functions": {
-    "api/paint.ts": { "memory": 3008, "maxDuration": 300 }
+    "api/paint.ts": { "memory": 3008, "maxDuration": 300 },
+    "api/commission.ts": { "maxDuration": 60 }
   },
   "rewrites": [
     { "source": "/send", "destination": "/send.html" },
