@@ -16,8 +16,12 @@
   html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hidden;cursor:none}
   body{font:16px/1.5 var(--serif)}
   #wall{display:flex;height:100%;width:100%}
-  #door{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:5vh 5vw;gap:4vh;transition:opacity 1.2s ease}
-  #wall.revealing #door{opacity:.28}
+  #door{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:5vh 5vw;gap:4vh}
+  /* The reveal quiets the door, but NOT the QR — it is the one control in the room and someone walking
+     in mid-reveal has to be able to scan it. Opacity composites, so a child cannot undo a dimmed
+     parent: the siblings dim, the code does not (Diego, 2026-09-09: "a bit darker than the rest"). */
+  #wall.revealing #ask,#wall.revealing #room,#wall.revealing #queue{opacity:.28}
+  #ask,#room,#queue{transition:opacity 1.2s ease}
   #ask{font-size:clamp(28px,4.2vw,64px);line-height:1.08;margin:0;max-width:14ch;font-weight:400}
   #qr{width:min(34vh,26vw);aspect-ratio:1;background:#fff;padding:3%;border-radius:4px}
   #qr img,#qr canvas{width:100%!important;height:100%!important;display:block}
@@ -27,6 +31,8 @@
   #queue li::before{content:'';position:absolute;left:0;top:.55em;width:.5em;height:.5em;border-radius:50%;background:var(--amber)}
   #queue li small{display:block;color:var(--dim);font-size:.82em;margin-top:.15em}
   #queue li.next::before{box-shadow:0 0 0 .3em rgba(233,162,59,.18)}
+  #queue li.done::before{background:var(--dim)}
+  #queue li.done small{color:var(--amber)}
   @keyframes arrive{to{transform:none;opacity:1}}
 
   #frame{flex:none;height:100%;aspect-ratio:9/16;position:relative;overflow:hidden;background:#000}
@@ -84,7 +90,8 @@ let SCORE = null;                 // from the list endpoint: the one timeline (a
 const seen = new Set();           // commission ids the wall has shown arriving
 const revealed = new Set();       // ids whose reveal has played tonight
 const toReveal = [];              // painted work waiting for its reveal
-let loop = [];                    // what plays while nothing new arrives
+let loop = [];                    // what plays while nothing new arrives, newest first
+let lastPlayed = null;            // so a second painting is never skipped in favour of repeating one
 let playing = null;               // the reveal on stage
 let loopIndex = 0;
 const $ = id => document.getElementById(id);
@@ -112,14 +119,33 @@ function drawQr(url) { $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, 
 if (ROOM) drawQr(`${origin}/send?room=${encodeURIComponent(ROOM)}`); else drawQr(`${origin}/`);
 if (DEMO) { $('ask').textContent = 'Send one sentence about tonight.'; $('room').textContent = 'demo: tonight’s paintings, arriving again'; }
 
+/** What the sender sees happen to their own sentence. It stays on the list after it is painted — the
+ *  list used to drop an entry the moment its reveal played, so a room of people watched their sentences
+ *  vanish one by one (Diego, 2026-09-09: "it'd be nice if we could see here the submission list/queue,
+ *  so people submitting can see the result of their submission reflected"). */
+function stateLine(c) {
+  if (c.status === 'painted' || c.status === 'posted') return c.title ? `${c.title} — on the wall` : 'On the wall.';
+  if (c.status === 'painting') return 'Painting it now.';
+  return c.note || 'Painting it.';
+}
 function arrive(c) {
   const li = document.createElement('li');
   const words = c.commission ? (c.line || cut(c.commission, (SCORE && SCORE.sentence.maxChars) || 90)) : 'a sentence, sent privately';
-  li.innerHTML = `${esc(words)}<small>${esc(c.note || 'Painting it.')}</small>`;
+  li.innerHTML = `${esc(words)}<small></small>`;
   li.dataset.id = c.id;
   $('queue').prepend(li);
-  while ($('queue').children.length > 5) $('queue').lastElementChild.remove();
+  update(c);
+  while ($('queue').children.length > 6) $('queue').lastElementChild.remove();
   audio.arrive();
+}
+/** Keep an entry's second line true as the painting moves through the studio. */
+function update(c) {
+  const li = [...$('queue').children].find(l => l.dataset.id === c.id);
+  if (!li) return;
+  const small = li.querySelector('small');
+  const line = stateLine(c);
+  if (small.textContent !== line) small.textContent = line;
+  li.classList.toggle('done', c.status === 'painted' || c.status === 'posted');
 }
 function markNext() { for (const li of $('queue').children) li.classList.toggle('next', toReveal[0] && li.dataset.id === toReveal[0].id); }
 
@@ -134,7 +160,7 @@ async function poll() {
     const list = (j.commissions || []).slice().sort((a, b) => a.created.localeCompare(b.created));
     if (DEMO) return demoFeed(list.filter(c => c.image).slice(-12));
     for (const c of list) {
-      if (!seen.has(c.id) && (c.status === 'queued' || c.status === 'painting')) { seen.add(c.id); arrive(c); }
+      if (!seen.has(c.id) && c.status !== 'withdrawn' && c.status !== 'declined') { seen.add(c.id); arrive(c); } else { update(c); }
       if (c.image && (c.status === 'painted' || c.status === 'posted') && !revealed.has(c.id) && !toReveal.some(x => x.id === c.id) && playing?.id !== c.id) { seen.add(c.id); toReveal.push(c); audio.prime(c.film); }
       if (c.status === 'withdrawn' || c.status === 'declined') { // burned or stopped: off the wall, now
         revealed.delete(c.id); loop = loop.filter(x => x.id !== c.id); const i = toReveal.findIndex(x => x.id === c.id); if (i >= 0) toReveal.splice(i, 1);
@@ -304,7 +330,7 @@ function render(t, cursor) {
 }
 function endReveal() {
   audio.stop();
-  if (playing && !revealed.has(playing.id)) { revealed.add(playing.id); loop.push(playing); const li = [...$('queue').children].find(l => l.dataset.id === playing.id); if (li) li.remove(); }
+  if (playing && !revealed.has(playing.id)) { revealed.add(playing.id); loop.unshift(playing); update(playing); } // newest first, and the entry STAYS on the list
   playing = null; document.getElementById('wall').classList.remove('revealing');
   setTimeout(tick, 1800);
 }
@@ -314,7 +340,13 @@ function stopReveal() { cancelAnimationFrame(raf); audio.stop(); playing = null;
 function tick() {
   if (playing) return;
   if (toReveal.length) { markNext(); return startReveal(toReveal.shift()); }
-  if (loop.length) { const c = loop[loopIndex++ % loop.length]; audio.prime(loop[loopIndex % loop.length]?.film); return startReveal(c); }
+  if (loop.length) { // newest first (loop.unshift), and never the same painting twice running while another exists
+    let c = loop[loopIndex++ % loop.length];
+    if (loop.length > 1 && c.id === lastPlayed) c = loop[loopIndex++ % loop.length];
+    lastPlayed = c.id;
+    audio.prime(loop[loopIndex % loop.length]?.film);
+    return startReveal(c);
+  }
   $('black').style.opacity = 1; $('idle').style.display = 'flex';
   setTimeout(tick, 4000);
 }
