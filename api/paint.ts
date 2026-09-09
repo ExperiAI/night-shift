@@ -85,8 +85,9 @@ export function postBacklog<T extends { status: string; image?: string; instagra
   return docs.filter(d => d.status === 'painted' && d.image && !d.instagram && mayPublish(d) && burnWindowPassed(d, now) && !(d.postAttempt && Date.parse(d.postAttempt) > coolOff)).sort((a, b) => a.created.localeCompare(b.created));
 }
 
-/** What a painting posts as: a photo commission's carousel, else the Reel when the film exists, else the still. */
-export const mediaFor = (c: { image?: string; slides?: string[]; film?: string }) => c.slides ?? (c.film && c.image ? { video: c.film, cover: c.image } : c.image!);
+/** What a painting posts as: a photo commission's carousel (it already carries the painting to look at,
+ *  beside the photograph), else the film followed by the painting still, else the still alone. */
+export const mediaFor = (c: { image?: string; slides?: string[]; film?: string }) => c.slides ?? (c.film && c.image ? { video: c.film, cover: c.image, then: [c.image] } : c.image!);
 import { isHeld, expiredHolds, cancel, retake } from './_lib/desk.js';
 import { photoSlide, pairSlide, signatureLayer, avoidLine } from './_lib/compose.js';
 import sharp from 'sharp';
@@ -147,7 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     b.postAttempt = new Date().toISOString();
     try {
       const post = await publish(mediaFor(b), b.take.caption ?? b.take.title ?? 'Night Shift', postOptions(b, await accountNow()));
-      b.instagram = post.permalink; b.mediaId = post.mediaId; b.zernioPostId = post.postId; b.distribution = post.distribution; b.status = 'posted'; delete b.error;
+      b.instagram = post.permalink; b.mediaId = post.mediaId; b.zernioPostId = post.postId; b.distribution = post.distribution; b.postedAs = post.postedAs; b.status = 'posted'; delete b.error;
       await tellSource(b);
       await alsoStory(b);
     } catch (e: any) { b.error = String(e.message).slice(0, 500); }
@@ -201,7 +202,7 @@ async function paintOne(c: Commission, res: VercelResponse, started: number, dry
       c.instagram = post.permalink;
       c.mediaId = post.mediaId;
       c.zernioPostId = post.postId;
-      c.distribution = post.distribution; // feed or trial (zernio.ts DISTRIBUTIONS): what Instagram actually accepted
+      c.distribution = post.distribution; c.postedAs = post.postedAs; // feed or trial (zernio.ts DISTRIBUTIONS): what Instagram actually accepted
       c.status = 'posted';
       await tellSource(c);
       await alsoStory(c);

@@ -97,14 +97,27 @@ export async function instagramAccount(): Promise<{ id: string; username?: strin
   return a ? { id: a._id ?? a.id, username: a.username } : null;
 }
 
-/** What a post carries: one image (a single), several (a carousel, first = the grid tile), or the film with the
- *  still as its cover (a Reel — Zernio posts a single 9:16 video as a Reel; docs/reveal.md §4). */
-export type Media = string | string[] | { video: string; cover: string };
+/** What a post carries: one image (a single), several (a carousel, first = the grid tile), the film with
+ *  the still as its cover (a Reel — Zernio posts a single 9:16 video as a Reel; docs/reveal.md §4), or
+ *  the film followed by stills (`then`), which is a carousel you can swipe.
+ *
+ *  The film ends holding the painting, but a viewer cannot stop it there, so the work was watchable and
+ *  never lookable-at (Diego, 2026-09-09: "there is no easy way currently to check out the painting as a
+ *  static image so you can appreciate the details"). Slide two is the painting, still. */
+export type Film = { video: string; cover: string; then?: string[] };
+export type Media = string | string[] | Film;
+export const isFilmCarousel = (m: Media): m is Film & { then: string[] } =>
+  typeof m === 'object' && !Array.isArray(m) && Boolean(m.then?.length);
 export function postBody(media: Media, caption: string, o: PostOptions, accountId: string) {
-  const reel = typeof media === 'object' && !Array.isArray(media);
-  const mediaItems = reel ? [{ type: 'video', url: media.video }] : (Array.isArray(media) ? media : [media]).map(url => ({ type: 'image', url }));
+  const film = typeof media === 'object' && !Array.isArray(media);
+  const swipe = isFilmCarousel(media);
+  const reel = film && !swipe; // a carousel that happens to open on a video is not a Reel to Instagram
+  const mediaItems = film
+    ? [{ type: 'video', url: media.video }, ...(swipe ? media.then.map(url => ({ type: 'image', url })) : [])]
+    : (Array.isArray(media) ? media : [media]).map(url => ({ type: 'image', url }));
   const platformSpecificData = {
-    ...(reel ? { instagramThumbnail: media.cover, isAiGenerated: true, shareToFeed: true } : {}), // the cover is the signed still; the flag is the honest one and costs nothing
+    ...(film ? { isAiGenerated: true } : {}), // the honest flag, on the Reel and on the carousel alike
+    ...(reel ? { instagramThumbnail: media.cover, shareToFeed: true } : {}), // the cover and the feed share are Reel settings; a carousel has neither
     ...(reel && o.trial ? { trialParams: { graduationStrategy: 'SS_PERFORMANCE' } } : {}),
     ...(o.firstComment ? { firstComment: o.firstComment } : {}),
     ...(o.collaborators?.length ? { collaborators: o.collaborators } : {}),
@@ -159,20 +172,31 @@ async function attemptPost(media: Media, caption: string, o: PostOptions, accoun
  *  that create being non-OK, so it could not fire — every trial-assigned Reel was lost, two of them
  *  finished paintings, one of them commissioned by Diego in a DM. The retry now hangs off the outcome,
  *  which is where the refusal actually arrives. */
-export async function publish(media: Media, caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string; distribution: Distribution }> {
+/** The shape Instagram actually took, which is not always the shape we asked for. Recorded because a
+ *  refused carousel falls back to the Reel silently and correctly — and a silent fallback that nobody
+ *  can see is indistinguishable from the feature never having shipped. */
+export type PostedAs = 'film+still' | 'film' | 'stills';
+const shapeOf = (m: Media): PostedAs => (isFilmCarousel(m) ? 'film+still' : typeof m === 'object' && !Array.isArray(m) ? 'film' : 'stills');
+export async function publish(media: Media, caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string; distribution: Distribution; postedAs: PostedAs }> {
   const acct = await instagramAccount();
   if (!acct) throw new Error('no Instagram account connected in Zernio');
   let sent = opts;
-  let a = await attemptPost(media, caption, sent, acct.id);
+  let sentMedia = media;
+  let a = await attemptPost(sentMedia, caption, sent, acct.id);
   if (a.kind === 'refused' && (sent.collaborators?.length || sent.trial)) { // a handle Instagram will not tag, or trial params it refuses, must never cost the painting
     sent = { ...opts, collaborators: [], trial: false };
-    a = await attemptPost(media, caption, sent, acct.id);
+    a = await attemptPost(sentMedia, caption, sent, acct.id);
+  }
+  if (a.kind === 'refused' && isFilmCarousel(sentMedia)) { // the still is worth having and is not worth the painting: post the film alone rather than nothing
+    sentMedia = { video: sentMedia.video, cover: sentMedia.cover };
+    a = await attemptPost(sentMedia, caption, sent, acct.id);
   }
   if (a.kind === 'refused') throw new Error(a.error);
   const distribution: Distribution = sent.trial ? 'trial' : 'feed'; // what Instagram took, not what was asked
+  const postedAs = shapeOf(sentMedia);
   const fallback = acct.username ? `https://www.instagram.com/${acct.username}/` : 'https://www.instagram.com/experiai/';
-  if (a.kind === 'pending') return { postId: a.postId, permalink: fallback, mediaId: undefined, distribution };
-  return { postId: a.postId, permalink: a.permalink, mediaId: a.mediaId, distribution };
+  if (a.kind === 'pending') return { postId: a.postId, permalink: fallback, mediaId: undefined, distribution, postedAs };
+  return { postId: a.postId, permalink: a.permalink, mediaId: a.mediaId, distribution, postedAs };
 }
 
 /** A permalink to a post, as opposed to the profile fallback publish() returns when Instagram was slow. */
