@@ -54,6 +54,12 @@ export function filmJob<T extends { image?: string; raw?: string; film?: string;
   const coolOff = now - 6 * 3_600_000;
   return docs.filter(d => d.image && d.raw && !d.film && (d.status === 'painted' || d.status === 'posted') && !d.seed && !isTestSender(d.from) && !(d.filmAttempt && Date.parse(d.filmAttempt) > coolOff)).sort((a, b) => b.created.localeCompare(a.created))[0];
 }
+/** Studio plumbing never reaches Instagram, exactly as it never reaches the wall (commission.ts), the
+ *  critic or the film queue. Until 2026-09-09 those three filtered it and the publisher did not, so an
+ *  `e2e` run against production put a Reel AND a 24 h Story on the real account, captioned
+ *  "commissioned by e2e". A test sender is the studio talking to itself; the account is not the place. */
+export const mayPublish = (c: { from: string | null; seed?: string }) => !isTestSender(c.from) && !c.seed;
+
 /** What a commission becomes when paintOne throws. A canvas that exists and is signed is `painted` — on
  *  the wall, and in the queue the backlog posts from — however badly the posting went; only work with no
  *  finished canvas is `failed`, which nothing retries. (2026-09-08: two paintings sat in `failed`, with
@@ -62,9 +68,9 @@ export const statusAfterFailure = (c: { image?: string; painted?: string }): 'pa
 
 /** Paintings waiting for Instagram, oldest first: on the wall, not up, and not tried in the last 6 h — so
  *  one refusal delays a painting rather than losing it, and never blocks the rest. */
-export function postBacklog<T extends { status: string; image?: string; instagram?: string; postAttempt?: string; created: string }>(docs: T[], now = Date.now()): T[] {
+export function postBacklog<T extends { status: string; image?: string; instagram?: string; postAttempt?: string; created: string; from: string | null; seed?: string }>(docs: T[], now = Date.now()): T[] {
   const coolOff = now - 6 * 3_600_000;
-  return docs.filter(d => d.status === 'painted' && d.image && !d.instagram && !(d.postAttempt && Date.parse(d.postAttempt) > coolOff)).sort((a, b) => a.created.localeCompare(b.created));
+  return docs.filter(d => d.status === 'painted' && d.image && !d.instagram && mayPublish(d) && !(d.postAttempt && Date.parse(d.postAttempt) > coolOff)).sort((a, b) => a.created.localeCompare(b.created));
 }
 
 /** What a painting posts as: a photo commission's carousel, else the Reel when the film exists, else the still. */
@@ -178,7 +184,7 @@ async function paintOne(c: Commission, res: VercelResponse, started: number, dry
     await save(c); // the painting is safe before the film is attempted
     if (Date.now() - started < FILM_INLINE_BUDGET_MS) await filmIt(c, { id: c.id, image: img.bytes, raw, signature: { ink: sig.ink, x: sig.left, y: sig.top, w: sig.w, h: sig.h }, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), silence: silenceFor(c.take) });
     else c.filmError = `deferred: the painting took ${Math.round((Date.now() - started) / 1000)} s; the next cron films it, then posts`;
-    if (!dry && canPost() && readyToPost(c)) { // a new-pipeline painting waits for its film (next cron: film first, then the backlog posts the Reel; a failed film posts the still)
+    if (!dry && canPost() && readyToPost(c) && mayPublish(c)) { // a new-pipeline painting waits for its film (next cron: film first, then the backlog posts the Reel; a failed film posts the still)
       const post = await publish(mediaFor(c), c.take.caption ?? c.take.title ?? 'Night Shift', postOptions(c, await accountNow()));
       c.instagram = post.permalink;
       c.mediaId = post.mediaId;

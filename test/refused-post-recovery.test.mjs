@@ -3,6 +3,7 @@
 // nothing retries — and the artist had no idea it was carrying the work when the commissioner asked.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { statusAfterFailure, postBacklog } from '../api/paint.ts';
 import { standingWork, standingLine, reactionSystemPrompt } from '../api/_lib/react.ts';
 
@@ -60,4 +61,23 @@ test('a commission still waiting for a yes says so, and a posted one carries its
   assert.match(standingLine({ ...base, status: 'queued', awaitingYes: true, take: { title: 'T' } }, Date.parse('2026-09-08T12:30:00Z')), /waiting for them to say yes/);
   assert.match(standingLine({ ...base, status: 'posted', take: { title: 'T' }, instagram: 'https://www.instagram.com/reel/ABC/' }, Date.parse('2026-09-08T12:30:00Z')), /It is up at https:\/\/www\.instagram\.com\/reel\/ABC\//);
   assert.match(standingLine({ ...base, status: 'queued', take: {} }, Date.parse('2026-09-08T12:30:00Z')), /their commission — accepted, waiting its turn/);
+});
+
+test('studio plumbing never reaches Instagram, exactly as it never reaches the wall', async () => {
+  const { mayPublish, postBacklog } = await import('../api/paint.ts');
+  for (const from of ['e2e', 'E2E', 'studio test', 'test', 'smoke']) assert.equal(mayPublish({ from }), false, `${from} is the studio talking to itself`);
+  assert.equal(mayPublish({ from: 'seed-run', seed: 'yes' }), false, 'a seeded document was made outside the pipeline');
+  assert.equal(mayPublish({ from: 'Valentina' }), true);
+  assert.equal(mayPublish({ from: null }), true, 'anonymous is a real commissioner');
+  assert.equal(mayPublish({ from: 'ExperiAI Lab' }), true, 'the studio as a NAMED sender still posts (standing-decisions)');
+
+  const now = Date.parse('2026-09-09T12:00:00Z');
+  const docs = [
+    { id: 'plumbing', status: 'painted', image: 'i', from: 'e2e', created: '2026-09-09T09:33:00Z' },
+    { id: 'real', status: 'painted', image: 'i', from: 'Anton', created: '2026-09-09T10:00:00Z' },
+  ];
+  assert.deepEqual(postBacklog(docs, now).map(d => d.id), ['real'], 'the backlog does not publish plumbing either');
+
+  const paint = readFileSync(new URL('../api/paint.ts', import.meta.url), 'utf8');
+  assert.match(paint, /canPost\(\) && readyToPost\(c\) && mayPublish\(c\)/, 'and neither does the painter on the tap');
 });
