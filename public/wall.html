@@ -16,7 +16,7 @@
   html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hidden;cursor:none}
   body{font:16px/1.5 var(--serif)}
   #wall{display:flex;height:100%;width:100%}
-  #door{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:5vh 5vw;gap:4vh}
+  #door{flex:0 0 auto;width:min(46vw,760px);display:flex;flex-direction:column;justify-content:center;padding:5vh 4vw;gap:4vh}
   /* The reveal quiets the door, but NOT the QR — it is the one control in the room and someone walking
      in mid-reveal has to be able to scan it. Opacity composites, so a child cannot undo a dimmed
      parent: the siblings dim, the code does not (Diego, 2026-09-09: "a bit darker than the rest"). */
@@ -50,13 +50,15 @@
      BAND of the score that carries the work — the canvas and the caption under it — and crops the empty
      head and tail room the Reel needs. Same coordinates, same timing, ~40% more painting.
      (VIEW_TOP/VIEW_H are mirrored in fit() below; change both or neither.) */
-  #frame{flex:none;height:100%;aspect-ratio:1080/1360;position:relative;overflow:hidden;background:#000}
+  #frame{flex:1;min-width:0;height:100%;position:relative;overflow:hidden;background:#000}
   #stage{position:absolute;left:0;top:0;width:1080px;height:1920px;transform-origin:0 0;background:#000}
-  #fill{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(40px) brightness(.35);transform:scale(1.08)}
+  #fill{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(60px) brightness(.3);transform:scale(1.15)} /* spans the whole frame now, so it is blurred further and dimmer */
   #canvas{position:absolute;left:124px;top:250px;width:832px;height:1040px;overflow:hidden;transform-origin:50% 50%} /* the score's canvas; set again from SC.canvas when the feed arrives */
   #canvas img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   #canvas #sig{position:absolute;display:none;inset:auto;width:auto;height:auto;object-fit:fill} /* placed by the score, not the canvas rule above */
-  #black{position:absolute;inset:0;background:#000}
+  /* Wider than the stage on purpose: the frame is now wider than the score, and the opening is a fade
+     FROM black — a black that stopped at the stage's edge would leave the blurred fill glowing beside it. */
+  #black{position:absolute;left:-2400px;right:-2400px;top:0;bottom:0;background:#000}
   #sentence{position:absolute;left:72px;right:72px;top:170px;height:1360px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--mono);font-size:44px;line-height:1.5;color:var(--ink);will-change:transform,opacity}
   #sentence .w{white-space:nowrap}
   #sentence .g{opacity:0}
@@ -85,8 +87,8 @@
     <ul id="queue"></ul>
   </section>
   <div id="frame">
+    <div id="fill"></div>
     <div id="stage">
-      <div id="fill"></div>
       <div id="canvas"><img id="painting" alt=""><img id="sig" alt=""></div>
       <div id="black"></div>
       <div id="caption"><div id="title"></div><div id="endline"></div></div>
@@ -117,7 +119,12 @@ const easeOut = x => 1 - Math.pow(1 - clip(x), 3); // the painting's settle (sco
 
 // ---- layout: the stage is 1080×1920 CSS px scaled to the frame, so the score's pixels apply as written ----
 const VIEW_TOP = 170, VIEW_H = 1360; // the visible band of the 1080x1920 score (mirrors #frame's aspect-ratio)
-function fit() { const f = $('frame'); const s = f.clientHeight / VIEW_H; $('stage').style.transform = `scale(${s}) translateY(${-VIEW_TOP}px)`; }
+function fit() {
+  const f = $('frame'), st = $('stage');
+  const s = f.clientHeight / VIEW_H;
+  st.style.transform = `scale(${s}) translateY(${-VIEW_TOP}px)`;
+  st.style.left = Math.max(0, (f.clientWidth - 1080 * s) / 2) + 'px'; // centred: the frame is wider than the score
+}
 addEventListener('resize', fit); fit();
 
 // ---- start: one tap unlocks audio and fullscreen, and says which room this is ----
@@ -140,7 +147,7 @@ if (DEMO) { $('ask').textContent = 'Send one sentence about tonight.'; $('room')
  *  vanish one by one (Diego, 2026-09-09: "it'd be nice if we could see here the submission list/queue,
  *  so people submitting can see the result of their submission reflected"). */
 function stateLine(c) {
-  if (c.status === 'painted' || c.status === 'posted') return c.title ? `${c.title} — on the wall` : 'On the wall.';
+  if (c.status === 'painted' || c.status === 'posted') return c.title || 'Painted.';
   if (c.status === 'painting') return 'Painting it now.';
   return c.note || 'Painting it.';
 }
