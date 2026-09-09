@@ -19,12 +19,17 @@ Open work is the repo's issues: #2 sketches, #3 style code,
 the feedback record, #13 live paths not yet fired. Decided 2026-09-05 night (issue #18, see "Credit"
 and "Never refuse" below): a DM's core-conflict canvas paints only on a **yes**; the studio never asks
 for a handle; its own commissions are marked **studio** on the wall; the letter exam sits itself under
-the one **lettering exception** (#17). Tests: `npm test` (158). Deploy:
+the one **lettering exception** (#17). Tests: `npm test` (162). Deploy:
 `./scripts/deploy-prod.sh` — tests, deploys with a build id, then proves `/api/status` on the domain
 reports that build (an optional marker checks a page).
 
 ## Traps that cost a live post
 
+- **When nothing paints, it is the credits — and it looks like a healthy queue.** OpenRouter answers
+  `402 Insufficient credits`, the desk catches it, `retake` gives room work a fresh take and requeues it,
+  and every surface stays green: `/api/status` shows an empty queue, the wall shows a sentence waiting.
+  `scripts/preflight.mjs` leads with the balance for exactly this reason (2026-09-09, an hour before a
+  demo, on $0.71). `retake` now keeps the reason as `lastError` instead of deleting it.
 - **Instagram's refusal arrives AFTER the create returns 200.** Zernio accepts `POST /posts`, then marks
   the post `failed` ~30 s later with Instagram's reason. A fallback gated on the create being non-OK can
   never fire: between 2026-09-06 and 2026-09-08 every trial-assigned Reel was lost that way — two finished
@@ -63,6 +68,12 @@ contract (digits, a signature, a second light, a frame, a face → reject); `dep
 studio lays its own mark on every canvas (`signPainting`) and rejects any painted one; refused canvases
 are kept and shown behind the `i`; the critic is a different vendor and may propose changes to this
 painter; `e2e`/`studio test` never reach the wall. `scripts/exams.mjs` files the exams.
+
+## Showing it to a room
+
+`docs/demo.md` — the runbook: `scripts/preflight.mjs` (GO/NO-GO, credits first), the replay wall that
+costs nothing (`?demo=1`), opening a room, what it feels like in seconds, `room.mjs release` when a
+commission is held, and what a night costs. Written for a demo, measured on 2026-09-09.
 
 ## The artist
 
