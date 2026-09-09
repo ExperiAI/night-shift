@@ -53,13 +53,15 @@ const lit = await page.evaluate(() => {
 console.log('mid-reveal', JSON.stringify(lit));
 const rows = await page.$$eval('#queue li', ls => ls.map(l => ({
   cls: l.className, thumb: Boolean(l.querySelector('.art img')?.getAttribute('src')),
-  line: l.querySelector('.line')?.textContent.slice(0, 34), foot: l.querySelector('.foot')?.textContent.slice(0, 40),
+  line: l.querySelector('.line')?.textContent.slice(0, 30), foot: l.querySelector('.foot')?.textContent.slice(0, 30), fill: l.querySelector('.fill')?.style.height || '-',
   h: Math.round(l.getBoundingClientRect().height),
 })));
 const qr = await page.$eval('#qr', e => { const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom) }; });
 console.log('qr box', JSON.stringify(qr), 'viewport 1080');
 const box = await page.$eval('#queue', q => { const r = q.getBoundingClientRect(); return { top: Math.round(r.top), h: Math.round(r.height), w: Math.round(r.width) }; });
 console.log('rows', rows.length, 'queue box', JSON.stringify(box), 'fade:', await page.$eval('#queue', q => q.classList.contains('more')));
-for (const r of rows) console.log(' ', r.thumb ? '[img]' : '[   ]', (r.cls || '-').padEnd(14), r.h + 'px', '|', r.line, '|', r.foot);
+const vis = await page.$eval('#queue', q => { const b = q.getBoundingClientRect(); return [...q.children].filter(li => li.getBoundingClientRect().bottom <= b.bottom + 1).length; });
+console.log('fully visible rows:', vis, 'of', rows.length, '| dense:', await page.$eval('#queue', q => q.classList.contains('dense')));
+for (const r of rows) console.log(' ', r.thumb ? '[img]' : '[   ]', (r.cls || '-').padEnd(14), r.h + 'px', 'fill', r.fill.padEnd(6), '|', r.line, '|', r.foot);
 console.log('errors', errs.length ? errs : 'none');
 await browser.close(); server.close();

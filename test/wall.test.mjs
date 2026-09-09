@@ -58,3 +58,18 @@ test('every row of the queue carries its painting, and the mark on the playing r
   assert.doesNotMatch(w, /animation:arrive[^;}]*forwards/, 'a filled arrival animation outranks the reveal’s dim');
   assert.match(w, /@keyframes arrive\{from\{/, 'the row animates FROM its entrance and holds nothing after');
 });
+
+// Diego, 2026-09-09: "show an estimation of how long it will still take to be finished (loading type
+// thing) — visual indication and not text please", and "maybe say 'commissioned by' behind the person's
+// name when a name is given". The row had been saying "Painting it now." in words instead.
+test('a waiting row shows how far off it is as a level, and says only who asked', () => {
+  const w = page('wall.html');
+  assert.match(w, /class="fill"/, 'the waiting tile has a level to raise');
+  assert.match(w, /function tickTiles\(\)/, 'and something that raises it');
+  assert.match(w, /const level = since =>[^\n]*Math\.exp/, 'asymptotic: it never promises a moment the studio does not know');
+  assert.match(w, /commissioned by \$\{who\}/);
+  assert.doesNotMatch(w, /'Painting it now\.'|'Painting it\.'/, 'the state is the tile, not a sentence');
+  // Five to ten at once is the case it is for: every one of them has to fit and be findable.
+  assert.match(w, /#queue\.dense/, 'the rows tighten rather than pushing the newest off the wall');
+  assert.match(w, /children\.length > 6/);
+});

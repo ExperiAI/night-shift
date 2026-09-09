@@ -15,10 +15,16 @@
   :root{--bg:#0b1517;--ink:#e8e1d3;--dim:#8fa3a3;--amber:#e9a23b;--line:#1c3134;--well:#0f1d20;--serif:'Instrument Serif',Georgia,serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 var(--serif);min-height:100vh}
-  main{max-width:560px;margin:0 auto;padding:max(24px,env(safe-area-inset-top)) 20px 64px}
+  main{max-width:560px;margin:0 auto;padding:max(24px,env(safe-area-inset-top)) 20px calc(64px + env(safe-area-inset-bottom))}
   h1{font-size:40px;line-height:1.05;margin:0 0 10px;font-weight:400}
   .lede{font-size:19px;line-height:1.45;color:var(--dim);margin:0 0 4px}
   .room{font:14px var(--mono);color:var(--dim);margin:0 0 20px}
+  /* Once you have sent something the page has a different job. The pitch and the example are for
+     someone deciding whether to send; you have decided. They fold down to a line that still says where
+     you are, and YOUR painting takes the place a stranger's was holding. */
+  body.sent h1{font-size:21px;line-height:1.2;margin:0 0 2px}
+  body.sent .lede,body.sent .eg{display:none}
+  body.sent .room{margin-bottom:22px}
   /* Compact on purpose: the whole point of this page is the button, and a full-width 4:5 example pushed
      it 170px below the fold on a phone. A thumbnail says the same thing in a fifth of the height. */
   .eg{margin:0 0 20px;display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:center}
@@ -37,37 +43,46 @@
   button:disabled{opacity:.5;cursor:wait}
   button.quiet{background:none;color:var(--dim);border:1px solid var(--line);padding:10px 14px;font-size:14px}
   button.quiet.arm{border-color:#c0392b;color:#e8b4ad}
-  .contract{color:var(--dim);font-size:15px;margin:18px 0 0;line-height:1.55}
+  .contract{color:var(--dim);font-size:15px;margin:28px 0 0;padding-top:20px;border-top:1px solid var(--line);line-height:1.55}
   .contract b{color:var(--ink);font-weight:400}
   #reply{border-left:3px solid var(--amber);padding:10px 14px;background:var(--well);white-space:pre-wrap;font-family:var(--mono);font-size:15px;line-height:1.5}
   #reply:empty{display:none}
-  .tickets{margin-top:36px;display:grid;gap:28px}
-  .ticket{border-top:1px solid var(--line);padding-top:18px;display:grid;gap:12px}
-  .ticket .words{font-family:var(--mono);font-size:15px;color:var(--ink)}
+  .tickets{display:grid;gap:28px}
+  .tickets:empty{display:none}
+  .ticket{display:grid;gap:14px}
+  .ticket+.ticket{border-top:1px solid var(--line);padding-top:24px}
+  /* Your own words are the head of your ticket, not a caption on it. */
+  .ticket .words{font-family:var(--mono);font-size:17px;line-height:1.45;color:var(--ink)}
   .ticket .state{color:var(--dim);font-size:15px}
   .ticket .state b{color:var(--amber);font-weight:400}
   .ticket video,.ticket img{width:100%;border-radius:4px;background:#000;display:block}
   .ticket video{aspect-ratio:9/16}
   .ticket img{aspect-ratio:4/5;object-fit:cover}
-  .ticket h2{font-size:28px;margin:0;font-weight:400}
+  .ticket h2{font-size:30px;line-height:1.15;margin:0;font-weight:400}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  .gone{color:var(--dim);font-style:italic}
+  .gone{color:var(--dim);font-style:italic;margin:0}
   .steps{display:flex;gap:0;align-items:center;font:14px var(--mono);color:var(--dim);margin:2px 0 0}
   .steps span{position:relative;padding:6px 0;flex:1;text-align:center;border-bottom:2px solid var(--line)}
   .steps span.done{color:var(--ink);border-color:var(--dim)}
   .steps span.now{color:var(--amber);border-color:var(--amber)}
   .steps span.now::after{content:'';position:absolute;left:50%;bottom:-6px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--amber);animation:pulse 1.6s ease-in-out infinite}
   @keyframes pulse{50%{transform:scale(.55);opacity:.6}}
-  .expect{color:var(--dim);font-size:15px;display:grid;gap:8px}
-  .expect .clock{display:flex;justify-content:space-between;font:14px var(--mono);color:var(--dim)}
+  /* The wait said once, in three parts that each do one job: the steps say WHERE you are, the bar and
+     the two times say HOW LONG, and one quiet line says where it will turn up. It used to say the same
+     thing three times over in a sentence, a bar and a pair of clocks. */
+  .wait{display:grid;gap:7px}
   .bar{height:2px;background:var(--line);border-radius:1px;overflow:hidden}
   .bar i{display:block;height:100%;width:0;background:var(--amber);transition:width 1s linear}
+  .clock{display:flex;justify-content:space-between;gap:12px;font:13px var(--mono);color:var(--dim)}
+  .hint{margin:0;font-size:15px;line-height:1.45;color:var(--dim)}
   .contract .rest{display:none}
   .contract.folded .rest{display:none} .contract.open .rest{display:inline}
   .contract button{background:none;border:0;padding:0;color:var(--amber);font:inherit;cursor:pointer}
   .note{border-left:3px solid var(--amber);padding:8px 14px;background:var(--well);font:15px/1.5 var(--mono);color:var(--ink);white-space:pre-wrap}
   .note.reading{color:var(--dim);border-color:var(--line)}
   #again{background:none;color:var(--amber);border:1px solid var(--line);font-size:15px}
+  #againwrap{margin:28px 0 0}
+  #againwrap[hidden]{display:none}
   form[hidden]{display:none}
   @media (prefers-reduced-motion:reduce){.steps span.now::after{animation:none}}
   footer{margin-top:48px;color:var(--dim);font:13px var(--mono)}
@@ -82,6 +97,7 @@
 
   <!-- One real painting and the sentence that made it. Nothing explains this page as fast as showing it,
        and it is live rather than a fixture, so the example is always work the studio actually made. -->
+  <section class="tickets" id="tickets"></section>
   <figure class="eg" id="eg" hidden>
     <img id="egimg" alt="">
     <figcaption><span id="egwords"></span><b id="egtitle"></b></figcaption>
@@ -94,9 +110,8 @@
     <button type="submit">Paint it</button>
     <div id="reply"></div>
   </form>
-  <p class="contract" id="contract"><b>Night Shift is an AI.</b> It never paints a face, and never words on the canvas. <button type="button" id="more">More</button><span class="rest"> It paints the place after the moment, not the moment itself. Your painting appears on the wall here and on Instagram, and you can burn it from this page at any time.</span></p>
-  <section class="tickets" id="tickets"></section>
-  <p><button type="button" id="again" hidden>Send another sentence</button></p>
+  <p id="againwrap" hidden><button type="button" id="again">Send another sentence</button></p>
+  <p class="contract" id="contract"><b>Night Shift is an AI.</b> It never paints a face, and never words on the canvas. <button type="button" id="more">More</button><span class="rest"> It paints the place after the moment, not the moment itself. Your painting appears on the wall here, and goes to Instagram half an hour later unless you burn it first — which you can do from this page at any time.</span></p>
   <footer>Made in the <a href="https://experiai.com/lab">ExperiAI Lab</a> · <a href="/">the studio</a></footer>
 </main>
 <script>
@@ -173,7 +188,7 @@ $('form').addEventListener('submit', async e => {
     }
   } catch { back = 'The studio did not answer. Try again in a minute.'; }
   pending = null; btn.disabled = false;
-  if (back !== null) { $('form').hidden = false; $('again').hidden = true; document.querySelector('main').insertBefore($('form'), $('tickets')); out.textContent = back; }
+  if (back !== null) { $('form').hidden = false; $('againwrap').hidden = true; out.textContent = back; }
   showTickets(true); renderTickets(); refresh();
 });
 
@@ -182,10 +197,30 @@ $('form').addEventListener('submit', async e => {
 // without ever claiming to be done, and the seconds elapsed. Usual times measured on 2026-09-06: the desk answers in
 // ~5-10 s; a kicked painting is on the record in ~40-60 s; its film takes ~100 s on Vercel.
 const WAIT = { reading: 10_000, painting: 60_000, filming: 120_000 };
+// Mirrors BURN_WINDOW_MS in api/paint.ts: the painting goes to Instagram by default, and this is how long
+// the person who asked for it has to stop that. Saying it here is the point — a window nobody is told
+// about is not a choice.
+const BURN_WINDOW = 30 * 60_000;
 const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const fill = (since, expect) => Math.round(95 * (1 - Math.exp(-(Date.now() - since) / expect))); // asymptotic: never 100 until the real state arrives
-function clock(text, since, expect) { return `<div class="clock" data-since="${since}" data-expect="${expect}"><span>${esc(text)}</span></div><div class="bar"><i style="width:${fill(since, expect)}%"></i></div><div class="clock"><span class="elapsed">${mmss(Date.now() - since)}</span><span class="usual">usually ${mmss(expect)}</span></div>`; }
-function tickClocks() { for (const el of document.querySelectorAll('.clock[data-since]')) { const since = Number(el.dataset.since), expect = Number(el.dataset.expect); const bar = el.nextElementSibling?.querySelector('i'); if (bar) bar.style.width = fill(since, expect) + '%'; const e = el.nextElementSibling?.nextElementSibling?.querySelector('.elapsed'); if (e) e.textContent = mmss(Date.now() - since); } }
+/** The bar, the two times, and at most one short line. The sentence that used to sit above the bar said
+ *  exactly what the bar and the times already say — three renderings of one fact. */
+function clock(since, expect, hint) {
+  return `<div class="wait"><div class="bar" data-since="${since}" data-expect="${expect}"><i style="width:${fill(since, expect)}%"></i></div>`
+    + `<div class="clock"><span class="elapsed">${mmss(Date.now() - since)}</span><span>usually ${mmss(expect)}</span></div>`
+    + `${hint ? `<p class="hint">${esc(hint)}</p>` : ''}</div>`;
+}
+/** The one bar that is a deadline rather than an estimate, so it fills straight and does arrive. */
+function windowBar(since) {
+  const until = since + BURN_WINDOW;
+  return `<div class="wait"><div class="bar" data-until="${until}"><i style="width:${Math.min(100, Math.round(100 * (Date.now() - since) / BURN_WINDOW))}%"></i></div>`
+    + `<p class="hint"><span class="left" data-until="${until}">${mmss(until - Date.now())}</span> until it goes to Instagram. Burn it before then and it never does.</p></div>`;
+}
+function tickClocks() {
+  for (const bar of document.querySelectorAll('.bar[data-since]')) { const since = Number(bar.dataset.since), expect = Number(bar.dataset.expect); bar.firstElementChild.style.width = fill(since, expect) + '%'; const e = bar.nextElementSibling?.querySelector('.elapsed'); if (e) e.textContent = mmss(Date.now() - since); }
+  for (const bar of document.querySelectorAll('.bar[data-until]')) { const until = Number(bar.dataset.until); bar.firstElementChild.style.width = Math.min(100, Math.round(100 * (1 - (until - Date.now()) / BURN_WINDOW))) + '%'; }
+  for (const el of document.querySelectorAll('.left[data-until]')) el.textContent = mmss(Number(el.dataset.until) - Date.now());
+}
 setInterval(tickClocks, 1000);
 $('more').addEventListener('click', () => { $('contract').classList.add('open'); $('more').hidden = true; });
 
@@ -194,7 +229,7 @@ const live = new Map(); // id → last public view
 function renderTickets() {
   const tickets = load().filter(t => !ROOM || t.room === ROOM);
   const el = $('tickets');
-  const reading = pending ? `<article class="ticket pending"><div class="words">${esc(pending.words)}</div><div class="note reading">The painter is reading it…</div><div class="steps"><span class="now">Sent</span><span>Painting</span><span>On the wall</span></div>${clock('Reading usually takes about ten seconds.', pending.at, WAIT.reading)}</article>` : '';
+  const reading = pending ? `<article class="ticket pending"><div class="words">${esc(pending.words)}</div><div class="note reading">The painter is reading it…</div><div class="steps"><span class="now">Sent</span><span>Painting</span><span>On the wall</span></div>${clock(pending.at, WAIT.reading)}</article>` : '';
   el.innerHTML = reading + tickets.map(t => {
     const c = live.get(t.id) || {};
     const done = c.image && (c.status === 'painted' || c.status === 'posted');
@@ -202,11 +237,13 @@ function renderTickets() {
     // three steps a person can read at a glance; what the studio does between them stays in the studio
     const step = done ? 2 : c.status === 'painting' || c.status === 'queued' ? 1 : 0;
     const steps = over ? '' : `<div class="steps"><span class="${step > 0 ? 'done' : 'now'}">Sent</span><span class="${step > 1 ? 'done' : step === 1 ? 'now' : ''}">Painting</span><span class="${step === 2 ? 'now' : ''}">On the wall</span></div>`;
-    const expect = c.status === 'withdrawn' ? '<span class="gone">Burned. Nothing is kept.</span>'
-      : c.status === 'declined' ? `<span class="gone">${esc(c.note || 'Not painted.')}</span>`
-      : c.status === 'failed' ? '<span class="gone">The painter could not finish this one tonight. The sentence is not kept.</span>'
-      : done ? (c.film ? 'Here it is. The wall has it too.' : clock('Painted. Its film takes about two minutes more.', Date.parse(c.painted || '') || t.created, WAIT.filming))
-      : clock('Painting usually takes about a minute, then the film two more. This page shows it when it is done, and so does the wall.', t.created, WAIT.painting);
+    const expect = c.status === 'withdrawn' ? '<p class="gone">Burned. Nothing is kept.</p>'
+      : c.status === 'declined' ? `<p class="gone">${esc(c.note || 'Not painted.')}</p>`
+      : c.status === 'failed' ? '<p class="gone">The painter could not finish this one tonight. The sentence is not kept.</p>'
+      : done && !c.film ? clock(Date.parse(c.painted || '') || t.created, WAIT.filming, 'The film takes about two minutes more. It turns up here on its own.')
+      : done && !c.instagram ? windowBar(Date.parse(c.painted || '') || t.created)
+      : done ? ''
+      : clock(t.created, WAIT.painting, 'It turns up here on its own, and on the wall.');
     const note = t.note ? `<div class="note">${esc(t.note)}${t.departures ? '\n\n' + esc(t.departures) : ''}</div>` : '';
     return `<article class="ticket" data-id="${esc(t.id)}">
       <div class="words">${esc(t.words)}</div>
@@ -214,7 +251,7 @@ function renderTickets() {
       ${steps}
       ${done ? `<h2>${esc(c.title || '')}</h2>` : ''}
       ${done && c.film ? `<video src="${esc(c.film)}" poster="${esc(c.image)}" controls playsinline preload="metadata"></video>` : done ? `<img src="${esc(c.image)}" alt="${esc(c.title || '')}">` : ''}
-      <div class="expect">${expect}</div>
+      ${expect}
       ${c.status !== 'withdrawn' ? `<div class="row">${done ? '<button type="button" data-share>Share</button>' : ''}${c.instagram ? `<a href="${esc(c.instagram)}" style="color:var(--dim);font:14px var(--mono)">On Instagram</a>` : ''}<button type="button" class="quiet" data-burn>Burn it</button></div>` : ''}
     </article>`;
   }).join('');
@@ -248,10 +285,11 @@ $('tickets').addEventListener('click', async e => {
 });
 function showTickets(ticketsFirst) {
   const has = !!pending || load().filter(t => !ROOM || t.room === ROOM).length > 0;
-  $('form').hidden = ticketsFirst && has; $('again').hidden = !(ticketsFirst && has);
-  if (ticketsFirst && has) document.querySelector('main').insertBefore($('tickets'), $('form'));
+  const sent = Boolean(ticketsFirst && has);
+  $('form').hidden = sent; $('againwrap').hidden = !sent;
+  document.body.classList.toggle('sent', sent); // folds the pitch and the stranger's example away
 }
-$('again').addEventListener('click', () => { $('form').hidden = false; $('again').hidden = true; document.querySelector('main').insertBefore($('form'), $('tickets')); $('form').text.focus(); });
+$('again').addEventListener('click', () => { $('form').hidden = false; $('againwrap').hidden = true; $('form').text.focus(); });
 showTickets(true); renderTickets(); refresh(); setInterval(refresh, 5000);
 </script>
 </body>

@@ -45,20 +45,32 @@
      fills it, so the one mark the room is meant to read was invisible on exactly the rows that have a
      painting. This sits above the image. */
   #queue .ring{position:absolute;inset:0;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(232,225,211,.1);transition:box-shadow .4s ease}
-  #queue li:not(.done) .art::after{content:'';position:absolute;inset:0;background:var(--amber);opacity:.08;animation:breathe 2.4s ease-in-out infinite}
+  #queue li:not(.done) .art::after{content:'';position:absolute;inset:0;background:var(--amber);opacity:.06;animation:breathe 2.4s ease-in-out infinite}
+  /* How far off a painting is, said as a level rising in its own empty frame rather than as a sentence
+     (Diego, 2026-09-09: "show an estimation of how long it will still take — visual indication and not
+     text please"). It approaches the usual time asymptotically and never fills: only the painting
+     arriving finishes it, so the wall cannot promise a moment it does not know. */
+  #queue .fill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,rgba(233,162,59,.5),rgba(233,162,59,.14));border-top:1px solid rgba(233,162,59,.95);transition:height 1s linear}
+  #queue li.done .fill{opacity:0;transition:opacity .8s ease}
   #queue .text{min-width:0;font-family:var(--mono);line-height:1.35}
-  /* The sentence someone sent, at a size a room reads standing up, clamped to two lines. */
+  /* Two lines, each with one job: what someone asked for, and who asked for it. The painting's title
+     used to sit here too, jammed against the name behind a dot — but the tile already shows what the
+     sentence became, and the title gets its whole moment on the stage. */
   #queue .line{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:clamp(12px,1.02vw,17px);color:var(--ink)}
-  /* Wraps rather than ellipsises: the title is the painting's NAME and the payoff of the whole row, and
-     one line of nowrap was cutting most of them mid-word ("Sunday Night She…"). */
-  #queue .foot{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:clamp(10px,.82vw,14px);color:var(--dim);margin-top:.2em}
+  #queue .foot{display:block;font-size:clamp(10px,.82vw,14px);color:var(--dim);margin-top:.25em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #queue .foot:empty{display:none}
   #queue .who{font-style:normal;color:var(--ink)}
-  #queue .who:not(:empty)::after{content:' · '}
-  #queue li.done .what{color:var(--amber)}
   /* Which painting is on the wall RIGHT NOW, said with light and nothing else (Diego, 2026-09-09:
      "I just want a visual indication, no additional text"): the tile lights up, and it is the one row
      the reveal does not dim. The row queued to play next wears the same ring, far weaker — one mark at
      two strengths rather than two marks to decode. */
+  /* Five to ten people sending at once is the case this is for (Diego, 2026-09-09), and every one of
+     them has to find their own sentence on the wall. Past six the rows tighten — smaller tile, one line
+     of sentence — so ten fit where eight did, instead of the oldest sliding out of view. */
+  #queue.dense{gap:.85vh 1.4vw}
+  #queue.dense .art{width:clamp(30px,4.1vh,46px)}
+  #queue.dense .line{-webkit-line-clamp:1;font-size:clamp(11px,.92vw,15px)}
+  #queue.dense li{gap:.65em}
   #queue li.next .ring{box-shadow:inset 0 0 0 1px rgba(233,162,59,.4)}
   #queue li.playing .ring{box-shadow:inset 0 0 0 2px var(--amber)}
   #queue li.playing .art{box-shadow:0 0 1.6em rgba(233,162,59,.5)}
@@ -169,22 +181,34 @@ if (DEMO) { $('ask').textContent = 'Send one sentence about tonight.'; $('room')
  *  list used to drop an entry the moment its reveal played, so a room of people watched their sentences
  *  vanish one by one (Diego, 2026-09-09: "it'd be nice if we could see here the submission list/queue,
  *  so people submitting can see the result of their submission reflected"). */
-function stateLine(c) {
-  if (c.status === 'painted' || c.status === 'posted') return c.title || 'Painted.';
-  if (c.status === 'painting') return 'Painting it now.';
-  return c.note || 'Painting it.';
+/** What a row says under the sentence: who asked for it, in words rather than as a bare name beside a
+ *  title (Diego, 2026-09-09: "maybe say 'commissioned by' behind the person's name when a name is
+ *  given"). Nothing at all when the sentence came in anonymously. The state is never said here — the
+ *  tile's rising level is the state, and it is the only place it is said. */
+function creditLine(c) { const who = senderOf(c); return who ? `commissioned by ${who}` : ''; }
+/** How full a waiting tile looks. Asymptotic on the time a painting usually takes, so it slows as it
+ *  climbs and stops short: the last of it is the painting turning up, not the clock running out. */
+const PAINT_MS = 75_000;
+const level = since => 6 + 82 * (1 - Math.exp(-(Date.now() - since) / PAINT_MS));
+function tickTiles() {
+  for (const li of $('queue').children) {
+    if (li.classList.contains('done') || !li.dataset.since) continue;
+    li.querySelector('.fill').style.height = level(Number(li.dataset.since)) + '%';
+  }
 }
+setInterval(tickTiles, 1000);
 /** Who sent it, when they chose to give a name. A blank name on the send page means `anonymous`, and the
  *  desk withholds `from` entirely for those — so this shows a name only where someone shared one. */
 const senderOf = c => (c.from && !c.studio ? String(c.from).trim().slice(0, 28) : '');
 function arrive(c) {
   const li = document.createElement('li');
   const words = c.commission ? (c.line || cut(c.commission, (SCORE && SCORE.sentence.maxChars) || 90)) : 'a sentence, sent privately';
-  li.innerHTML = `<span class="art"><img alt=""><i class="ring"></i></span><span class="text"><span class="line">${esc(words)}</span><small class="foot"><i class="who"></i><span class="what"></span></small></span>`;
+  li.innerHTML = `<span class="art"><img alt=""><i class="fill"></i><i class="ring"></i></span><span class="text"><span class="line">${esc(words)}</span><small class="foot"></small></span>`;
   li.dataset.id = c.id;
   $('queue').prepend(li);
   update(c);
-  while ($('queue').children.length > 12) $('queue').lastElementChild.remove();
+  while ($('queue').children.length > 14) $('queue').lastElementChild.remove();
+  $('queue').classList.toggle('dense', $('queue').children.length > 6);
   markMore();
   audio.arrive();
 }
@@ -193,12 +217,13 @@ function arrive(c) {
 function update(c) {
   const li = [...$('queue').children].find(l => l.dataset.id === c.id);
   if (!li) return;
-  const who = senderOf(c), line = stateLine(c);
-  const w = li.querySelector('.who'), t = li.querySelector('.what'), img = li.querySelector('.art img');
-  if (w.textContent !== who) w.textContent = who;
-  if (t.textContent !== line) t.textContent = line;
+  const credit = creditLine(c);
+  const foot = li.querySelector('.foot'), img = li.querySelector('.art img');
+  if (foot.textContent !== credit) foot.textContent = credit;
   if (c.image && img.getAttribute('src') !== c.image) img.setAttribute('src', c.image);
+  li.dataset.since = Date.parse(c.created) || Date.now();
   li.classList.toggle('done', Boolean(c.image) && (c.status === 'painted' || c.status === 'posted'));
+  tickTiles();
   markMore(); // a row can grow a line when its title arrives
 }
 /** Say "there is more below" only when there is: the list shrinks to the door's spare height, so its own

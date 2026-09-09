@@ -66,11 +66,23 @@ export const mayPublish = (c: { from?: string | null; seed?: string }) => !isStu
  *  their images and films in Blob, because Instagram refused a trial reel.) */
 export const statusAfterFailure = (c: { image?: string; painted?: string }): 'painted' | 'failed' => (c.image && c.painted ? 'painted' : 'failed');
 
-/** Paintings waiting for Instagram, oldest first: on the wall, not up, and not tried in the last 6 h — so
- *  one refusal delays a painting rather than losing it, and never blocks the rest. */
-export function postBacklog<T extends { status: string; image?: string; instagram?: string; postAttempt?: string; created: string; from: string | null; seed?: string }>(docs: T[], now = Date.now()): T[] {
+/** Work commissioned from the web or a room goes to Instagram by default — but not the instant it is
+ *  ready. The person who asked for it gets half an hour with the painting in front of them on their own
+ *  ticket, and burning it in that window keeps it off the account (Diego, 2026-09-09: "shared on
+ *  instagram by default in case the creator doesn't burn it within let's say 30min").
+ *
+ *  The clock starts at the canvas, not at the send: that is the first moment there is anything to judge.
+ *  An Instagram commission is exempt because that thread already asks the sender before it posts
+ *  (issue #18) — a second gate there would hold a painting its sender has explicitly said yes to. */
+export const BURN_WINDOW_MS = 30 * 60_000;
+export const burnWindowPassed = (c: { painted?: string; created: string; source?: unknown }, now = Date.now()): boolean =>
+  Boolean(c.source) || Date.parse(c.painted ?? c.created) + BURN_WINDOW_MS <= now;
+
+/** Paintings waiting for Instagram, oldest first: on the wall, not up, past their burn window, and not
+ *  tried in the last 6 h — so one refusal delays a painting rather than losing it, and never blocks the rest. */
+export function postBacklog<T extends { status: string; image?: string; instagram?: string; postAttempt?: string; created: string; painted?: string; source?: unknown; from: string | null; seed?: string }>(docs: T[], now = Date.now()): T[] {
   const coolOff = now - 6 * 3_600_000;
-  return docs.filter(d => d.status === 'painted' && d.image && !d.instagram && mayPublish(d) && !(d.postAttempt && Date.parse(d.postAttempt) > coolOff)).sort((a, b) => a.created.localeCompare(b.created));
+  return docs.filter(d => d.status === 'painted' && d.image && !d.instagram && mayPublish(d) && burnWindowPassed(d, now) && !(d.postAttempt && Date.parse(d.postAttempt) > coolOff)).sort((a, b) => a.created.localeCompare(b.created));
 }
 
 /** What a painting posts as: a photo commission's carousel, else the Reel when the film exists, else the still. */
@@ -184,7 +196,7 @@ async function paintOne(c: Commission, res: VercelResponse, started: number, dry
     await save(c); // the painting is safe before the film is attempted
     if (Date.now() - started < FILM_INLINE_BUDGET_MS) await filmIt(c, { id: c.id, image: img.bytes, raw, signature: { ink: sig.ink, x: sig.left, y: sig.top, w: sig.w, h: sig.h }, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), silence: silenceFor(c.take) });
     else c.filmError = `deferred: the painting took ${Math.round((Date.now() - started) / 1000)} s; the next cron films it, then posts`;
-    if (!dry && canPost() && readyToPost(c) && mayPublish(c)) { // a new-pipeline painting waits for its film (next cron: film first, then the backlog posts the Reel; a failed film posts the still)
+    if (!dry && canPost() && readyToPost(c) && mayPublish(c) && burnWindowPassed(c)) { // a new-pipeline painting waits for its film (next cron: film first, then the backlog posts the Reel; a failed film posts the still), and every one waits out the sender's burn window
       const post = await publish(mediaFor(c), c.take.caption ?? c.take.title ?? 'Night Shift', postOptions(c, await accountNow()));
       c.instagram = post.permalink;
       c.mediaId = post.mediaId;

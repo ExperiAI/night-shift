@@ -60,30 +60,49 @@ live, trigger it by hand:
 
 **The wall** is the projector's. The painting takes the right of the screen (the frame crops the film's
 empty head and tail room, so the canvas is as large as a 16:9 wall allows); the QR keeps its size and
-stays lit even while a reveal plays. The list runs two columns and every row carries the painting
-itself — a tile that breathes amber while the work is being made and fills with the canvas when it is
-done, then the sentence, then the sender's name and the painting's title. The row on the stage right now
-is marked with light alone: an amber ring on its tile and full brightness while the rest dim. A name
-appears only when the sender typed one. What does not fit the door's height fades out at the bottom, and
-that is always the oldest — the list is newest-first.
+stays lit even while a reveal plays.
+
+The list runs two columns, newest first, and every row is a tile of the painting plus two lines: the
+sentence someone sent, and *commissioned by* their name when they gave one. **The tile is the only place
+a row says how it is doing** — an amber level rises in the empty frame as the painting is made, slowing
+as it climbs and never filling, because only the painting arriving finishes it. Nothing about the state
+is written in words. The row on the stage right now is marked the same way, with light: an amber ring on
+its tile, and full brightness while the rest dim.
+
+Past six rows the list tightens itself — smaller tiles, one line of sentence — so **ten to twelve people
+sending at once all still see their own sentence on the wall** rather than pushing each other off it.
+Measured: 3, 9 and 12 rows all fit whole at 1920×1080.
 
 **The wall and Instagram show the same paintings.** They are two surfaces for one body of work: anything
-a real person commissions goes to both. The gap is timing, not content — a painting is on the wall about
-a minute after it is sent, and on Instagram once the next cron has filmed it and posted the Reel, so
-within roughly 15–30 minutes. The studio's own plumbing (`test`, `smoke`, `e2e`, seeds) reaches neither.
-Until 2026-09-09 the room wall was the one surface that did not filter it, which read exactly like the
-two being out of sync.
+a real person commissions goes to both. The studio's own plumbing (`test`, `smoke`, `e2e`, seeds)
+reaches neither — until 2026-09-09 the room wall was the one surface that did not filter it, which read
+exactly like the two being out of sync.
 
-To judge the wall's list with real work in it, without commissioning or posting anything:
+**The gap is timing, and there is a reason for it.** A painting is on the wall about a minute after it
+is sent. It goes to Instagram **half an hour after the canvas exists** (`BURN_WINDOW_MS` in
+`api/paint.ts`), and the person who commissioned it can stop that from their own page in the meantime —
+their ticket counts the window down and the Burn it button is beside it. Posting is the default; the
+window is the chance to say no. So during a demo the paintings appear on the wall live and reach the
+account after people have had a look at them. A commission that came in through an Instagram DM is
+exempt: that thread already asks its sender before posting (issue #18).
 
-    node scripts/checks/wall-look.mjs [--full]
+To judge either page with real work in it, without commissioning or posting anything:
 
-It serves `public/` locally and stubs the feed with the studio's newest paintings.
+    node scripts/checks/wall-look.mjs [--few|--full]   # the wall at 3, 9 and 12 rows
+    node scripts/checks/send-look.mjs                  # the send page in all five of its states
+
+Both serve `public/` locally and stub the studio with its own newest paintings.
 
 **The send page** leads with what you get — *Name a place. Get a painting of it.* — over one real
 painting and the sentence that made it, pulled live from the studio's newest work (never the studio's
 own pieces). The placeholder is an example to copy, not an instruction. The button says **Paint it** and
 sits above the fold on a phone.
+
+**Once you have sent something the page changes job.** The pitch folds to a line and the stranger's
+example disappears; your own ticket is the page. It shows your sentence, the painter's reply, three
+steps (Sent · Painting · On the wall), and one bar with the time so far and the time it usually takes —
+said once, not three times over. When the painting arrives it takes the top, and the bar becomes the
+half-hour countdown to Instagram with Burn it next to it.
 
 ## Two things about the send page
 
