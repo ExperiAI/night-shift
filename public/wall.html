@@ -20,29 +20,44 @@
   /* The reveal quiets the door, but NOT the QR — it is the one control in the room and someone walking
      in mid-reveal has to be able to scan it. Opacity composites, so a child cannot undo a dimmed
      parent: the siblings dim, the code does not (Diego, 2026-09-09: "a bit darker than the rest"). */
-  #wall.revealing #ask,#wall.revealing #room,#wall.revealing #queue{opacity:.28}
+  #wall.revealing #ask,#wall.revealing #room,#wall.revealing #queue li:not(.playing){opacity:.28}
+  #queue li{transition:opacity 1.2s ease}
   #ask,#room,#queue{transition:opacity 1.2s ease}
   #ask{font-size:clamp(28px,4.2vw,64px);line-height:1.08;margin:0;max-width:14ch;font-weight:400}
   #qr{width:min(34vh,26vw);aspect-ratio:1;background:#fff;padding:3%;border-radius:4px}
   #qr img,#qr canvas{width:100%!important;height:100%!important;display:block}
   #room{color:var(--dim);font-family:var(--mono);font-size:clamp(12px,1.1vw,18px);margin:0}
-  #queue{list-style:none;margin:0;padding:0;display:grid;gap:1.4vh;max-height:34vh;overflow:hidden}
+  /* Two columns across the door's own width — the space left of the frame was empty, and a room wants to
+     see more than five sentences (Diego, 2026-09-09: "reshape/reposition the list, in a way we can
+     display a bigger list"). */
+  #queue{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.2vh 2vw;max-height:40vh;overflow:hidden;align-content:start}
   #queue li{font-family:var(--mono);font-size:clamp(13px,1.15vw,20px);line-height:1.4;color:var(--ink);padding-left:1.2em;position:relative;transform:translateX(-40px);opacity:0;animation:arrive 1.1s cubic-bezier(.2,.7,.2,1) forwards}
   #queue li::before{content:'';position:absolute;left:0;top:.55em;width:.5em;height:.5em;border-radius:50%;background:var(--amber)}
   #queue li small{display:block;color:var(--dim);font-size:.82em;margin-top:.15em}
   #queue li.next::before{box-shadow:0 0 0 .3em rgba(233,162,59,.18)}
   #queue li.done::before{background:var(--dim)}
   #queue li.done small{color:var(--amber)}
+  /* Which sentence is on the wall RIGHT NOW: the one thing a sender scans the list for. */
+  #queue li.playing{color:var(--ink);border-left:2px solid var(--amber);padding-left:1.4em;margin-left:-.2em}
+  #queue li.playing::before{background:var(--amber);box-shadow:0 0 0 .4em rgba(233,162,59,.25)}
+  #queue li.playing small{color:var(--amber)}
+  #queue li.playing small::after{content:' — on the wall now'}
+  #wall.revealing #queue li.playing{opacity:1}
   @keyframes arrive{to{transform:none;opacity:1}}
 
-  #frame{flex:none;height:100%;aspect-ratio:9/16;position:relative;overflow:hidden;background:#000}
+  /* The film is 9:16 because Instagram is. A 16:9 wall is the opposite shape, so a full 9:16 frame can
+     never be more than ~31% of the screen however the rest is arranged. The wall therefore shows the
+     BAND of the score that carries the work — the canvas and the caption under it — and crops the empty
+     head and tail room the Reel needs. Same coordinates, same timing, ~40% more painting.
+     (VIEW_TOP/VIEW_H are mirrored in fit() below; change both or neither.) */
+  #frame{flex:none;height:100%;aspect-ratio:1080/1360;position:relative;overflow:hidden;background:#000}
   #stage{position:absolute;left:0;top:0;width:1080px;height:1920px;transform-origin:0 0;background:#000}
   #fill{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(40px) brightness(.35);transform:scale(1.08)}
   #canvas{position:absolute;left:124px;top:250px;width:832px;height:1040px;overflow:hidden;transform-origin:50% 50%} /* the score's canvas; set again from SC.canvas when the feed arrives */
   #canvas img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   #canvas #sig{position:absolute;display:none;inset:auto;width:auto;height:auto;object-fit:fill} /* placed by the score, not the canvas rule above */
   #black{position:absolute;inset:0;background:#000}
-  #sentence{position:absolute;left:72px;right:72px;top:0;height:1920px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--mono);font-size:44px;line-height:1.5;color:var(--ink);will-change:transform,opacity}
+  #sentence{position:absolute;left:72px;right:72px;top:170px;height:1360px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--mono);font-size:44px;line-height:1.5;color:var(--ink);will-change:transform,opacity}
   #sentence .w{white-space:nowrap}
   #sentence .g{opacity:0}
   #sentence>div{position:relative;max-width:100%}
@@ -101,7 +116,8 @@ const ease = x => (1 - Math.cos(Math.PI * clip(x))) / 2;
 const easeOut = x => 1 - Math.pow(1 - clip(x), 3); // the painting's settle (score.ts easeOut): one move, slowing to rest before the pen
 
 // ---- layout: the stage is 1080×1920 CSS px scaled to the frame, so the score's pixels apply as written ----
-function fit() { const f = $('frame'); const s = f.clientHeight / 1920; $('stage').style.transform = `scale(${s})`; }
+const VIEW_TOP = 170, VIEW_H = 1360; // the visible band of the 1080x1920 score (mirrors #frame's aspect-ratio)
+function fit() { const f = $('frame'); const s = f.clientHeight / VIEW_H; $('stage').style.transform = `scale(${s}) translateY(${-VIEW_TOP}px)`; }
 addEventListener('resize', fit); fit();
 
 // ---- start: one tap unlocks audio and fullscreen, and says which room this is ----
@@ -135,7 +151,7 @@ function arrive(c) {
   li.dataset.id = c.id;
   $('queue').prepend(li);
   update(c);
-  while ($('queue').children.length > 6) $('queue').lastElementChild.remove();
+  while ($('queue').children.length > 12) $('queue').lastElementChild.remove();
   audio.arrive();
 }
 /** Keep an entry's second line true as the painting moves through the studio. */
@@ -148,6 +164,8 @@ function update(c) {
   li.classList.toggle('done', c.status === 'painted' || c.status === 'posted');
 }
 function markNext() { for (const li of $('queue').children) li.classList.toggle('next', toReveal[0] && li.dataset.id === toReveal[0].id); }
+/** The row whose painting is on the stage this second. */
+function markPlaying() { for (const li of $('queue').children) li.classList.toggle('playing', Boolean(playing) && li.dataset.id === playing.id); }
 
 // ---- polling: the room's feed, every 4 s; or the studio's last twelve in demo ----
 async function poll() {
@@ -260,7 +278,7 @@ const mix = (a, b, k) => { const c = h => [1, 3, 5].map(i => parseInt(h.slice(i,
 const cut = (text, max) => text.length <= max ? text : (text.slice(0, max + 1).match(/^[\s\S]*[,;:.!?](?=\s)/) || [text.slice(0, max).replace(/\s\S*$/, '')])[0].replace(/[\s,;:]+$/, '') + '…';
 
 async function startReveal(c) {
-  playing = c; document.getElementById('wall').classList.add('revealing');
+  playing = c; document.getElementById('wall').classList.add('revealing'); markPlaying();
   $('idle').style.display = 'none';
   const words = c.commission ? (c.line || cut(c.commission, SCORE.sentence.maxChars)) : 'a commission';
   const cursor = layoutSentence(words, c.id, c.opening || 'dark'); // the A/B of the opening (score.ts OPENINGS): the wall plays the film's own
@@ -331,10 +349,10 @@ function render(t, cursor) {
 function endReveal() {
   audio.stop();
   if (playing && !revealed.has(playing.id)) { revealed.add(playing.id); loop.unshift(playing); update(playing); } // newest first, and the entry STAYS on the list
-  playing = null; document.getElementById('wall').classList.remove('revealing');
+  playing = null; document.getElementById('wall').classList.remove('revealing'); markPlaying();
   setTimeout(tick, 1800);
 }
-function stopReveal() { cancelAnimationFrame(raf); audio.stop(); playing = null; document.getElementById('wall').classList.remove('revealing'); $('black').style.opacity = 1; setTimeout(tick, 600); }
+function stopReveal() { cancelAnimationFrame(raf); audio.stop(); playing = null; document.getElementById('wall').classList.remove('revealing'); markPlaying(); $('black').style.opacity = 1; setTimeout(tick, 600); }
 
 // ---- what plays next: a new painting first, else the loop of tonight's, else the window ----
 function tick() {
