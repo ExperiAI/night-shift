@@ -13,7 +13,7 @@ test('the wall plays the reveal to the score it is served, signs from the ink la
   assert.doesNotMatch(w, /inset: 'auto'/);
   assert.match(w, /c\.status === 'withdrawn' \|\| c\.status === 'declined'/);
   assert.match(w, /\?room=\$\{encodeURIComponent\(ROOM\)\}/); assert.match(w, /demo/);
-  assert.doesNotMatch(w, /inspector|reject|critic|exam/i, 'the moderation stays backstage (§2)');
+  assert.doesNotMatch(w, /inspector|\breject|critic|\bexams?\b/i, 'the moderation stays backstage (§2)');
   assert.match(w, /cdnjs\.cloudflare\.com\/ajax\/libs\/qrcodejs\/1\.0\.0/);
 });
 
@@ -24,7 +24,7 @@ test('the ticket keeps the receipt key in this browser only, polls until the fil
   assert.match(s, /burn=1/); assert.match(s, /Tap again to burn it/);
   assert.match(s, /navigator\.canShare\(\{ files: \[file\] \}\)/);
   assert.match(s, /Night Shift is an AI\./, 'the disclosure line');
-  assert.doesNotMatch(s, /inspector|reject|critic|exam/i);
+  assert.doesNotMatch(s, /inspector|\breject|critic|\bexams?\b/i); // \b: "example" is not "exam"
   assert.doesNotMatch(s, /c\.reason/, 'a failure never carries the inspector\'s argument onto a person\'s phone (Diego, 2026-09-06: "denied for something I did not ask for")');
   assert.match(s, /Sent<\/span>.*Painting<\/span>.*On the wall<\/span>/, 'three steps a person can read');
   assert.match(s, /showTickets\(true\)/, 'after sending, the ticket is the page; the form waits behind “Send another sentence”');

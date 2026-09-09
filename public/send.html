@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Night Shift — send one sentence</title>
+<title>Night Shift — name a place, get a painting</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 fill=%27%230b1517%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%277%27 fill=%27%23e9a23b%27/%3E%3C/svg%3E">
-<meta name="description" content="Send one sentence about tonight. An AI paints where it happened, minutes after everyone left.">
+<meta name="description" content="Name a place and an AI paints it as it looks at night, once everyone has gone.">
 <style>
   /* The send page (docs/reveal.md §5): a phone in a room. One field, a photo button, a name if you want, the
      disclosure. After sending it is the ticket: the painter's note, then the painting and its film when they exist,
@@ -16,11 +16,17 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 var(--serif);min-height:100vh}
   main{max-width:560px;margin:0 auto;padding:max(24px,env(safe-area-inset-top)) 20px 64px}
-  h1{font-size:44px;line-height:1.05;margin:0 0 6px;font-weight:400}
-  .room{font:14px var(--mono);color:var(--dim);margin:0 0 28px}
+  h1{font-size:40px;line-height:1.05;margin:0 0 10px;font-weight:400}
+  .lede{font-size:19px;line-height:1.45;color:var(--dim);margin:0 0 4px}
+  .room{font:14px var(--mono);color:var(--dim);margin:0 0 20px}
+  .eg{margin:0 0 22px;display:grid;gap:8px}
+  .eg img{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:4px;background:var(--well);display:block}
+  .eg figcaption{font:14px/1.5 var(--mono);color:var(--dim)}
+  .eg figcaption b{display:block;color:var(--ink);font-weight:400;font-family:var(--serif);font-size:19px;margin-top:2px}
+  .eg[hidden]{display:none}
   form{display:grid;gap:12px}
   textarea,input{width:100%;background:var(--well);border:1px solid var(--line);color:var(--ink);padding:14px;font:18px/1.5 var(--mono);border-radius:4px}
-  textarea{min-height:130px;resize:vertical}
+  textarea{min-height:96px;resize:vertical}
   textarea:focus,input:focus,.file:focus-within{outline:none;border-color:var(--amber)}
   .file{display:block;background:var(--well);border:1px dashed var(--line);color:var(--dim);padding:12px 14px;border-radius:4px;cursor:pointer;font-size:15px}
   .file input{position:absolute;width:1px;height:1px;opacity:0}
@@ -68,16 +74,25 @@
 </head>
 <body>
 <main>
-  <h1>Send one sentence about tonight.</h1>
+  <h1>Name a place.<br>Get a painting of it.</h1>
+  <p class="lede">An AI paints it as it looks at night, once everyone has gone.</p>
   <p class="room" id="room"></p>
+
+  <!-- One real painting and the sentence that made it. Nothing explains this page as fast as showing it,
+       and it is live rather than a fixture, so the example is always work the studio actually made. -->
+  <figure class="eg" id="eg" hidden>
+    <img id="egimg" alt="">
+    <figcaption><span id="egwords"></span><b id="egtitle"></b></figcaption>
+  </figure>
+
   <form id="form">
-    <textarea name="text" maxlength="600" placeholder="What happened. A few words are enough." required></textarea>
-    <label class="file"><input name="photo" type="file" accept="image/*"><span>Or a photo of where you are sitting</span></label>
+    <textarea name="text" maxlength="600" placeholder="the bar downstairs after last orders" required></textarea>
+    <label class="file"><input name="photo" type="file" accept="image/*"><span>Or add a photo of where you are</span></label>
     <input name="from" maxlength="80" placeholder="Your name (optional)">
-    <button type="submit">Send it to the painter</button>
+    <button type="submit">Paint it</button>
     <div id="reply"></div>
   </form>
-  <p class="contract" id="contract"><b>Night Shift is an AI.</b> Never a face, never a name. <button type="button" id="more">More</button><span class="rest"> It paints the place where it happened, minutes after everyone left, never words on the canvas. The painting goes up on the wall here and on Instagram; you can burn it from this page at any time.</span></p>
+  <p class="contract" id="contract"><b>Night Shift is an AI.</b> It never paints a face, and never words on the canvas. <button type="button" id="more">More</button><span class="rest"> It paints the place after the moment, not the moment itself. Your painting appears on the wall here and on Instagram, and you can burn it from this page at any time.</span></p>
   <section class="tickets" id="tickets"></section>
   <p><button type="button" id="again" hidden>Send another sentence</button></p>
   <footer>Made in the <a href="https://experiai.com/lab">ExperiAI Lab</a> · <a href="/">the studio</a></footer>
@@ -91,6 +106,23 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
 const store = t => { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch {} };
+
+// One real painting, so the page shows what it does instead of describing it. Newest work that kept its
+// sentence (an anonymous one has none to show). Silent on failure: a broken example is worse than none.
+(async () => {
+  try {
+    const r = await fetch(`${origin}/api/commission`);
+    if (!r.ok) return;
+    const list = (await r.json()).commissions || [];
+    const c = list.filter(x => x.image && x.commission && x.title).sort((a, b) => b.created.localeCompare(a.created))[0];
+    if (!c) return;
+    const img = $('egimg');
+    img.addEventListener('load', () => $('eg').hidden = false, { once: true });
+    img.src = c.image;
+    $('egwords').textContent = `“${c.commission.slice(0, 90)}”`;
+    $('egtitle').textContent = c.title;
+  } catch {}
+})();
 
 // the room's name, and whether it is still open
 if (ROOM) fetch(`${origin}/api/room?code=${encodeURIComponent(ROOM)}`).then(r => r.json()).then(j => { $('room').textContent = j.error ? 'This room is not open. The studio still paints at nightshift.experiai.com.' : j.open ? `${j.name}` : `${j.name} — closed for the night`; }).catch(() => {});
