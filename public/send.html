@@ -116,12 +116,17 @@ const store = t => { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch
     const r = await fetch(`${origin}/api/commission`);
     if (!r.ok) return;
     const list = (await r.json()).commissions || [];
-    const c = list.filter(x => x.image && x.commission && x.title).sort((a, b) => b.created.localeCompare(a.created))[0];
+    // Never the studio's own work. Those are the pieces it sets itself to test the painter, they are
+    // written in backstage language, and publicView already flags them with `studio`. The newest
+    // painting was one, and its wording went straight onto the page strangers use.
+    const c = list.filter(x => x.image && x.commission && x.title && !x.studio)
+      .sort((a, b) => b.created.localeCompare(a.created))[0];
     if (!c) return;
     const img = $('egimg');
     img.addEventListener('load', () => $('eg').hidden = false, { once: true });
     img.src = c.image;
-    $('egwords').textContent = `“${c.commission.slice(0, 58)}”`;
+    const w = c.commission.length > 58 ? c.commission.slice(0, 58).replace(/\s+\S*$/, '') + '…' : c.commission;
+    $('egwords').textContent = `“${w}”`;
     $('egtitle').textContent = c.title;
   } catch {}
 })();
