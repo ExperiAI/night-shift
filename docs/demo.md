@@ -56,6 +56,19 @@ live, trigger it by hand:
 
     curl -H "Authorization: Bearer $CRON_SECRET" https://nightshift.experiai.com/api/inbox
 
+## What each screen does
+
+**The wall** is the projector's. The painting takes the right of the screen (the frame crops the film's
+empty head and tail room, so the canvas is as large as a 16:9 wall allows); the QR keeps its size and
+stays lit even while a reveal plays; the list runs two columns and holds twelve. The row whose painting
+is on the stage right now is marked with light alone — an amber bar, a lit dot, full brightness while
+the rest dim. A name appears on a row only when the sender typed one.
+
+**The send page** leads with what you get — *Name a place. Get a painting of it.* — over one real
+painting and the sentence that made it, pulled live from the studio's newest work (never the studio's
+own pieces). The placeholder is an example to copy, not an instruction. The button says **Paint it** and
+sits above the fold on a phone.
+
 ## Two things about the send page
 
 **The photo field opens the phone's own picker** — take a photo, or choose one already on the roll.
