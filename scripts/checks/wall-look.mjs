@@ -15,11 +15,12 @@ const exe = `${cache}/${dir}/chrome-mac-arm64/Google Chrome for Testing.app/Cont
 const live = await (await fetch('https://nightshift.experiai.com/api/commission')).json();
 const real = (live.commissions || []).filter(c => c.image && c.commission && !c.studio).slice(0, 9);
 const many = process.argv.includes('--full');
+const few = process.argv.includes('--few');
 const names = ['Marta', '', 'Ale', '', 'Nikita', 'Tom', '', 'Sofia', 'Remi'];
 const feed = {
   artist: 'Night Shift', score: live.score,
   room: { code: 'pl-demo', name: 'PL — AI demo night', open: true },
-  commissions: (many ? [...real, ...real.slice(0, 3).map((c, i) => ({ ...c, id: c.id + '-x' + i }))] : real).map((c, i) => ({ ...c, room: 'pl-demo', from: names[i % names.length] || null, status: i < 7 ? c.status : 'queued', image: i < 7 ? c.image : undefined, film: i < 7 ? c.film : undefined })),
+  commissions: (few ? real.slice(0, 3) : many ? [...real, ...real.slice(0, 3).map((c, i) => ({ ...c, id: c.id + '-x' + i }))] : real).map((c, i) => ({ ...c, room: 'pl-demo', from: names[i % names.length] || null, status: i < 7 ? c.status : 'queued', image: i < 7 ? c.image : undefined, film: i < 7 ? c.film : undefined })),
 };
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ttf': 'font/ttf', '.mp4': 'video/mp4' };
@@ -58,7 +59,7 @@ const rows = await page.$$eval('#queue li', ls => ls.map(l => ({
 const qr = await page.$eval('#qr', e => { const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom) }; });
 console.log('qr box', JSON.stringify(qr), 'viewport 1080');
 const box = await page.$eval('#queue', q => { const r = q.getBoundingClientRect(); return { top: Math.round(r.top), h: Math.round(r.height), w: Math.round(r.width) }; });
-console.log('rows', rows.length, 'queue box', JSON.stringify(box));
+console.log('rows', rows.length, 'queue box', JSON.stringify(box), 'fade:', await page.$eval('#queue', q => q.classList.contains('more')));
 for (const r of rows) console.log(' ', r.thumb ? '[img]' : '[   ]', (r.cls || '-').padEnd(14), r.h + 'px', '|', r.line, '|', r.foot);
 console.log('errors', errs.length ? errs : 'none');
 await browser.close(); server.close();

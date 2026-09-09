@@ -60,9 +60,25 @@ live, trigger it by hand:
 
 **The wall** is the projector's. The painting takes the right of the screen (the frame crops the film's
 empty head and tail room, so the canvas is as large as a 16:9 wall allows); the QR keeps its size and
-stays lit even while a reveal plays; the list runs two columns and holds twelve. The row whose painting
-is on the stage right now is marked with light alone — an amber bar, a lit dot, full brightness while
-the rest dim. A name appears on a row only when the sender typed one.
+stays lit even while a reveal plays. The list runs two columns and every row carries the painting
+itself — a tile that breathes amber while the work is being made and fills with the canvas when it is
+done, then the sentence, then the sender's name and the painting's title. The row on the stage right now
+is marked with light alone: an amber ring on its tile and full brightness while the rest dim. A name
+appears only when the sender typed one. What does not fit the door's height fades out at the bottom, and
+that is always the oldest — the list is newest-first.
+
+**The wall and Instagram show the same paintings.** They are two surfaces for one body of work: anything
+a real person commissions goes to both. The gap is timing, not content — a painting is on the wall about
+a minute after it is sent, and on Instagram once the next cron has filmed it and posted the Reel, so
+within roughly 15–30 minutes. The studio's own plumbing (`test`, `smoke`, `e2e`, seeds) reaches neither.
+Until 2026-09-09 the room wall was the one surface that did not filter it, which read exactly like the
+two being out of sync.
+
+To judge the wall's list with real work in it, without commissioning or posting anything:
+
+    node scripts/checks/wall-look.mjs [--full]
+
+It serves `public/` locally and stubs the feed with the studio's newest paintings.
 
 **The send page** leads with what you get — *Name a place. Get a painting of it.* — over one real
 painting and the sentence that made it, pulled live from the studio's newest work (never the studio's

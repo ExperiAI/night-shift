@@ -32,7 +32,10 @@
      of pictures; nobody scanning it could tell which sentence had become what. Each row is now a tile of
      the work itself, and the sentence sits beside it in one glance-sized line.
      Two columns across the door's own width, twelve rows, and the state said in light alone. */
-  #queue{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.1vh 1.6vw;min-height:0;flex:0 1 auto;overflow:hidden;align-content:start;-webkit-mask-image:linear-gradient(180deg,#000 84%,transparent);mask-image:linear-gradient(180deg,#000 84%,transparent)}
+  #queue{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.1vh 1.6vw;min-height:0;flex:0 1 auto;overflow:hidden;align-content:start}
+  /* Only fades when there is genuinely more than the door can hold — a mask on the element itself is a
+     share of its own height, so a three-row list was fading its own last row for no reason. */
+  #queue.more{-webkit-mask-image:linear-gradient(180deg,#000 82%,transparent);mask-image:linear-gradient(180deg,#000 82%,transparent)}
   #queue li{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:.8em;animation:arrive 1.1s cubic-bezier(.2,.7,.2,1)}
   /* The tile: the painting once there is one, a slow amber breath while it is being made. */
   #queue .art{position:relative;flex:0 0 auto;width:clamp(38px,5.4vh,62px);aspect-ratio:1;border-radius:3px;overflow:hidden;background:var(--line)}
@@ -182,6 +185,7 @@ function arrive(c) {
   $('queue').prepend(li);
   update(c);
   while ($('queue').children.length > 12) $('queue').lastElementChild.remove();
+  markMore();
   audio.arrive();
 }
 /** Keep an entry true as the painting moves through the studio: the tile fills with the work itself the
@@ -195,7 +199,11 @@ function update(c) {
   if (t.textContent !== line) t.textContent = line;
   if (c.image && img.getAttribute('src') !== c.image) img.setAttribute('src', c.image);
   li.classList.toggle('done', Boolean(c.image) && (c.status === 'painted' || c.status === 'posted'));
+  markMore(); // a row can grow a line when its title arrives
 }
+/** Say "there is more below" only when there is: the list shrinks to the door's spare height, so its own
+ *  content overflowing is the honest test. */
+function markMore() { const q = $('queue'); q.classList.toggle('more', q.scrollHeight > q.clientHeight + 2); }
 function markNext() { for (const li of $('queue').children) li.classList.toggle('next', Boolean(toReveal[0]) && li.dataset.id === toReveal[0].id && li.dataset.id !== playing?.id); }
 /** The row whose painting is on the stage this second. */
 function markPlaying() { for (const li of $('queue').children) li.classList.toggle('playing', Boolean(playing) && li.dataset.id === playing.id); }
