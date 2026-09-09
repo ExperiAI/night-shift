@@ -37,6 +37,7 @@ export type Commission = {
   exception?: import('./artist.js').Exception; // the contract broken once on purpose (issue #17); set only by the studio
   awaitingYes?: boolean; // a DM core-conflict commission: nothing paints until the sender says yes (issue #18); expires with holdUntil
   confirmed?: string;   // when the sender said yes
+  released?: string;    // when the studio let a held commission go early (a room is watching the wall; never for one awaiting a yes)
   cancelled?: string;   // when the commissioner stopped it before painting
   requeued?: string;    // put back in the queue after a gatekeeper fix (scripts/requeue.mjs)
   source?: { channel: 'instagram-comment' | 'instagram-dm'; handle: string; postId?: string; commentId?: string; conversationId?: string };

@@ -2,6 +2,7 @@
 // Open, close and list rooms (docs/reveal.md §5). Talks to the deployed studio with the internal header.
 //   node scripts/room.mjs open bar-21 --name "Bar 21, Saturday" --hours 6 --cap 40
 //   node scripts/room.mjs close bar-21
+//   node scripts/room.mjs release bar-21     (a held commission paints now — the room is watching)
 //   node scripts/room.mjs list
 //   node scripts/room.mjs show bar-21           (the public view, what the wall sees)
 // Prints the wall and send links for an opened room.
@@ -23,10 +24,22 @@ if (cmd === 'open' && code) {
   console.log(await j(await fetch(`${origin}/api/room`, { method: 'POST', headers, body: JSON.stringify({ code, action: 'close' }) })));
 } else if (cmd === 'show' && code) {
   console.log(await j(await fetch(`${origin}/api/room?code=${encodeURIComponent(code)}`)));
+} else if (cmd === 'release' && code) {
+  // Mid-room escape hatch. The gatekeeper sometimes flags a sentence as a core conflict and holds it 30
+  // minutes so the sender can say stop (desk.ts HOLD_MINUTES) — in a room, where people are watching the
+  // wall, that is the whole evening. This lets every plain hold in the room paint now. A commission
+  // awaiting a yes is left alone: that one is the sender's consent, not the studio's to give.
+  const list = await j(await fetch(`${origin}/api/commission?room=${encodeURIComponent(code)}`));
+  const held = (list.commissions ?? []).filter(c => c.status === 'queued');
+  if (!held.length) { console.log('nothing waiting in', code); }
+  for (const c of held) {
+    const r = await j(await fetch(`${origin}/api/commission/${c.id}?paint=now`, { method: 'POST', headers }));
+    console.log(`${c.id}  ${r.released ? 'painting now' : (r.error ?? 'unchanged')}`);
+  }
 } else if (cmd === 'list') {
   const { rooms = [] } = await j(await fetch(`${origin}/api/room`, { headers }));
   for (const r of rooms) console.log(`${r.closed || Date.parse(r.until) < Date.now() ? 'closed' : 'OPEN  '}  ${r.code.padEnd(16)} ${r.name}  cap ${r.cap}  until ${r.until}`);
   if (!rooms.length) console.log('no rooms');
 } else {
-  console.error('usage: room.mjs open <code> [--name N] [--hours H] [--cap C] | close <code> | show <code> | list'); process.exit(2);
+  console.error('usage: room.mjs open <code> [--name N] [--hours H] [--cap C] | close <code> | release <code> | show <code> | list'); process.exit(2);
 }

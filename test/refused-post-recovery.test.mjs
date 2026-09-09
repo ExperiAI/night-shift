@@ -81,3 +81,14 @@ test('studio plumbing never reaches Instagram, exactly as it never reaches the w
   const paint = readFileSync(new URL('../api/paint.ts', import.meta.url), 'utf8');
   assert.match(paint, /canPost\(\) && readyToPost\(c\) && mayPublish\(c\)/, 'and neither does the painter on the tap');
 });
+
+test('the studio can release a plain hold, but never one that is waiting for the sender to say yes', () => {
+  const ep = readFileSync(new URL('../api/commission/[id].ts', import.meta.url), 'utf8');
+  assert.match(ep, /req\.query\.paint === 'now'/);
+  assert.match(ep, /if \(!internal\) return res\.status\(401\)\.end\(\)/, 'the studio only');
+  assert.match(ep, /if \(c\.awaitingYes\) return res\.status\(409\)/, 'consent (issue #18) is not the studio\'s to give');
+  assert.ok(ep.indexOf('c.awaitingYes') < ep.indexOf('delete c.holdUntil'), 'checked before the hold is lifted');
+  assert.match(ep, /await kickPainter\(c\.id\)/, 'and it paints at once, not at the next cron');
+  const room = readFileSync(new URL('../scripts/room.mjs', import.meta.url), 'utf8');
+  assert.match(room, /cmd === 'release'/, 'one command for the whole room, no ids to copy mid-demo');
+});

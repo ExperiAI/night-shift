@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { load, save } from '../_lib/store.js';
 import { publicView, cancel, burn, keyMatches } from '../_lib/desk.js';
+import { kickPainter } from '../_lib/kick.js';
 
 /** One commission. GET: its public view. DELETE: cancel while queued, or with `burn=1` burn it at any time — the
  *  painting, the words and every record go (docs/stance.md, the therapist's bar). Both take the receipt's `key`
@@ -20,6 +21,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!proven && (wantBurn || c.keyHash)) return res.status(403).json({ error: 'the key from your receipt is needed for that' });
     try { const out = wantBurn ? await burn(id, 'api') : await cancel(id, 'api'); return out ? res.json(publicView(out)) : res.status(404).json({ error: 'no such commission' }); }
     catch (e: any) { return res.status(e.status ?? 500).json({ error: e.message }); }
+  }
+  if (req.method === 'POST' && req.query.paint === 'now') { // the studio releases a plain hold: it paints at once
+    // A core-conflict take is held for HOLD_MINUTES so the commissioner can say stop. In a room the
+    // commissioner is standing there watching the wall, and 30 minutes is the whole evening — so the
+    // studio can let one go early. NOT a commission awaiting a yes: that hold is the sender's consent
+    // (issue #18), and the studio does not answer for them.
+    if (!internal) return res.status(401).end();
+    const c = await load(id);
+    if (!c) return res.status(404).json({ error: 'no such commission' });
+    if (c.status !== 'queued') return res.status(409).json({ error: `it is ${c.status}, not waiting` });
+    if (c.awaitingYes) return res.status(409).json({ error: 'this one waits for the sender to say yes; the studio does not answer for them' });
+    delete c.holdUntil;
+    c.released = new Date().toISOString();
+    await save(c);
+    await kickPainter(c.id).catch(() => null);
+    return res.json({ id: c.id, status: c.status, released: c.released });
   }
   if (req.method === 'POST' && req.query.takedown === 'done') { // a person deleted the Instagram post; the studio records it
     if (!internal) return res.status(401).end();
