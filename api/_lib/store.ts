@@ -27,6 +27,7 @@ export type Commission = {
   error?: string;
   painted?: string;
   postAttempt?: string;
+  unstuck?: string;      // a finished canvas freed from 'failed' back to 'painted' by scripts/unstick.mjs, after a refused post stranded it
   ip?: string;          // caller address at the API, 'internal' for the inbox; never public
   anonymous?: boolean;  // credited as “…” — a commission; `from` is kept only for the per-sender limit
   photo?: string;       // our copy of the photograph the commission came with (references/<id>)

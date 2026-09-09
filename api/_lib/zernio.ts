@@ -26,12 +26,20 @@ export function collaboratorHandle(from?: string | null): string | null {
   return h;
 }
 
+/** Instagram's own floor for a trial reel, in the words it refuses with: "Trial Reels require an
+ *  Instagram account with 1,000+ followers." Below it the API says no every time, so the A/B does not
+ *  start until the account can hold it — at 3 followers (2026-09-08) asking cost two finished paintings. */
+export const TRIAL_MIN_FOLLOWERS = 1000;
+
 /** How a painting is posted beyond caption and image (issue #11): the hashtags as the first comment,
  *  and — when the commission came in as a public comment under a handle — that person invited as a
- *  collaborator, so the painting can sit on their profile too if they accept. DMs stay anonymous. */
-export function postOptions(c: { id?: string; film?: string; source?: { channel: string; handle?: string } }): PostOptions {
+ *  collaborator, so the painting can sit on their profile too if they accept. DMs stay anonymous.
+ *  `followers` is what the account has now: the trial A/B is asked for only when Instagram would allow
+ *  it, and an unknown count is treated as too few — a painting is not the way to discover the rule. */
+export function postOptions(c: { id?: string; film?: string; source?: { channel: string; handle?: string } }, account?: { followers?: number }): PostOptions {
   const collab = c.source?.channel === 'instagram-comment' ? collaboratorHandle(c.source.handle) : null;
-  const trial = Boolean(c.film && c.id && distributionFor(c.id) === 'trial'); // only a Reel can be a trial
+  const mayTrial = (account?.followers ?? 0) >= TRIAL_MIN_FOLLOWERS;
+  const trial = Boolean(c.film && c.id && mayTrial && distributionFor(c.id) === 'trial'); // only a Reel can be a trial
   return { firstComment: FIRST_COMMENT, ...(collab ? { collaborators: [collab] } : {}), ...(trial ? { trial } : {}) };
 }
 
@@ -103,32 +111,68 @@ export function postBody(media: Media, caption: string, o: PostOptions, accountI
   };
   return { content: caption, mediaItems, platforms: [{ platform: 'instagram', accountId, platformSpecificData }], publishNow: true };
 }
+/** Why Instagram refused, in the words Zernio was given. The platform record leads with a 1.2 kB
+ *  `accountId` (name, id, a signed profile-picture URL), so `JSON.stringify(pl).slice(0, 200)` — what
+ *  this replaced — never reached the reason: for three days the stored error read only
+ *  `{"platform":"instagram","accountId":{...`, and the sentence that would have ended it in a minute
+ *  ("Trial Reels require an Instagram account with 1,000+ followers") sat unread on the record. */
+export function publishError(pl: any): string {
+  const reason = pl?.errorMessage ?? pl?.error ?? pl?.failureReason ?? pl?.statusMessage;
+  const said = typeof reason === 'string' ? reason : reason ? JSON.stringify(reason) : 'no reason given';
+  const sent = pl?.platformSpecificData ? Object.keys(pl.platformSpecificData).join(',') : '';
+  return [said, pl?.errorCategory && `(${pl.errorCategory})`, sent && `sent: ${sent}`].filter(Boolean).join(' ').slice(0, 400);
+}
+
+/** How one create-and-wait attempt ended.
+ *  - `ok`: Instagram published it and the permalink is real.
+ *  - `pending`: Instagram is merely slow. reconcile() finishes the record on a later run. It is NOT a
+ *    refusal and must never be retried — a second create would put the painting up twice.
+ *  - `refused`: Instagram said no. Nothing was published, so dropping what it refused and trying again
+ *    is safe — and is the only thing standing between a refusal and a lost painting. */
+type Attempt =
+  | { kind: 'ok'; postId: string; permalink: string; mediaId?: string }
+  | { kind: 'pending'; postId: string }
+  | { kind: 'refused'; error: string };
+
+const pollMs = () => Number(process.env.ZERNIO_POLL_MS ?? 5000);
+const POLL_TRIES = 12; // ~60 s: publishing is asynchronous and the permalink appears ~30 s in
+
+async function attemptPost(media: Media, caption: string, o: PostOptions, accountId: string): Promise<Attempt> {
+  const r = await fetch(`${BASE}/posts`, { method: 'POST', headers: headers(), body: JSON.stringify(postBody(media, caption, o, accountId)) });
+  const j: any = await r.json();
+  if (!r.ok) return { kind: 'refused', error: `zernio post ${r.status}: ${JSON.stringify(j).slice(0, 300)}` };
+  const postId = j.post?._id ?? j.post?.id ?? j._id ?? j.id ?? '';
+  if (!postId) return { kind: 'pending', postId: '' };
+  for (let i = 0; i < POLL_TRIES; i++) {
+    await new Promise(res => setTimeout(res, pollMs()));
+    const p = await get(`/posts/${postId}`).catch(() => null);
+    const pl = (p?.post ?? p)?.platforms?.[0];
+    if (pl?.platformPostUrl) return { kind: 'ok', postId, permalink: pl.platformPostUrl, mediaId: pl.platformPostId ?? undefined };
+    if (pl?.status === 'failed') return { kind: 'refused', error: `zernio publish failed: ${publishError(pl)}` };
+  }
+  return { kind: 'pending', postId };
+}
+
+/** Put the painting on Instagram, and do not let an extra ask cost it.
+ *  Instagram refuses trial params and unknown collaborator handles ASYNCHRONOUSLY: Zernio answers 200 to
+ *  the create and marks the post `failed` ~30 s later. Until 2026-09-08 the fallback here was gated on
+ *  that create being non-OK, so it could not fire — every trial-assigned Reel was lost, two of them
+ *  finished paintings, one of them commissioned by Diego in a DM. The retry now hangs off the outcome,
+ *  which is where the refusal actually arrives. */
 export async function publish(media: Media, caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string; distribution: Distribution }> {
   const acct = await instagramAccount();
   if (!acct) throw new Error('no Instagram account connected in Zernio');
-  const body = (o: PostOptions) => JSON.stringify(postBody(media, caption, o, acct.id));
   let sent = opts;
-  let r = await fetch(`${BASE}/posts`, { method: 'POST', headers: headers(), body: body(sent) });
-  let j: any = await r.json();
-  if (!r.ok && (opts.collaborators?.length || opts.trial)) { // a handle Instagram will not tag, or trial params it refuses, must never cost the painting
+  let a = await attemptPost(media, caption, sent, acct.id);
+  if (a.kind === 'refused' && (sent.collaborators?.length || sent.trial)) { // a handle Instagram will not tag, or trial params it refuses, must never cost the painting
     sent = { ...opts, collaborators: [], trial: false };
-    r = await fetch(`${BASE}/posts`, { method: 'POST', headers: headers(), body: body(sent) });
-    j = await r.json();
+    a = await attemptPost(media, caption, sent, acct.id);
   }
-  const distribution: Distribution = sent.trial ? 'trial' : 'feed';
-  if (!r.ok) throw new Error(`zernio post ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
-  const postId = j.post?._id ?? j.post?.id ?? j._id ?? j.id ?? '';
-  // Publishing is asynchronous: the Instagram permalink and media id appear on the post record
-  // ~30s later. Wait for them (bounded) so the link we send points at the painting, not the profile.
+  if (a.kind === 'refused') throw new Error(a.error);
+  const distribution: Distribution = sent.trial ? 'trial' : 'feed'; // what Instagram took, not what was asked
   const fallback = acct.username ? `https://www.instagram.com/${acct.username}/` : 'https://www.instagram.com/experiai/';
-  for (let i = 0; i < 12 && postId; i++) {
-    await new Promise(r => setTimeout(r, 5000));
-    const p = await get(`/posts/${postId}`).catch(() => null);
-    const pl = (p?.post ?? p)?.platforms?.[0];
-    if (pl?.platformPostUrl) return { postId, permalink: pl.platformPostUrl, mediaId: pl.platformPostId ?? undefined, distribution };
-    if (pl?.status === 'failed') throw new Error(`zernio publish failed: ${JSON.stringify(pl).slice(0, 200)}`);
-  }
-  return { postId, permalink: fallback, mediaId: undefined, distribution };
+  if (a.kind === 'pending') return { postId: a.postId, permalink: fallback, mediaId: undefined, distribution };
+  return { postId: a.postId, permalink: a.permalink, mediaId: a.mediaId, distribution };
 }
 
 /** A permalink to a post, as opposed to the profile fallback publish() returns when Instagram was slow. */

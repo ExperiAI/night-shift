@@ -58,7 +58,7 @@ test('the paint cron films after signing and before posting, inside a time budge
   assert.equal(readyToPost({ raw: 'r', film: 'f' }), true);
   assert.equal(readyToPost({ raw: 'r', photo: 'p' }), true, 'a photo commission posts its carousel at once');
   assert.equal(readyToPost({}), true, 'work from before the reveal posts as before');
-  assert.ok(src.indexOf('const job = filmJob(docs)') < src.indexOf('const backlog = docs.filter'), 'idle cron: the film before the backlog post');
+  assert.ok(src.indexOf('const job = filmJob(docs)') < src.indexOf('const backlog = postBacklog(docs)'), 'idle cron: the film before the backlog post');
 });
 
 test('the public view carries the film and what the wall needs to sign in real time', () => {

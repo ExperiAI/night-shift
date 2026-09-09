@@ -42,7 +42,10 @@ test('room work never counts against the studio day or the address limit; the re
 
 test('a room commission that fails gets one fresh take from the cron, never a "could not finish" on the first miss', () => {
   const paint = read('../api/paint.ts');
-  assert.match(paint, /if \(c\.room && !c\.requeued && !dry\) \{[\s\S]*retake\(c, docs\)/);
+  assert.match(paint, /if \(!onlyPostingFailed && c\.room && !c\.requeued && !dry\) \{[\s\S]*retake\(c, docs\)/);
+  // A room painting whose canvas exists and only failed to reach Instagram is NOT repainted: it is on
+  // the wall the room is watching, and a retake would render a second one (2026-09-08).
+  assert.match(paint, /const onlyPostingFailed = statusAfterFailure\(c\) === 'painted'/);
   const desk = read('../api/_lib/desk.ts');
   assert.match(desk, /export async function retake\(/); assert.match(desk, /c\.status = 'queued'; c\.requeued = /);
   assert.match(desk, /choose a different anchor object and a scene with nothing that could read as characters, keys or a second light/, 'the retake is told what went wrong');

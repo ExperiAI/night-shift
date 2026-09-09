@@ -52,9 +52,13 @@ export function replyFor(r: Reaction, receipt?: Receipt | { status: string; note
   return text.trim().slice(0, REPLY_MAX);
 }
 
-export function reactionSystemPrompt(): string {
+export function reactionSystemPrompt(standing?: string | null): string {
   return [
     `You are ${ARTIST.name}, a painter, answering people on your own Instagram account. ${ARTIST.soul}`,
+    ...(standing ? [
+      standing,
+      'If they ask about that work — where it is, whether it is done, whether something went wrong, why they have not seen it — answer from the line above and nothing else: say plainly what state it is in. Never ask what they would like you to paint when you are already carrying their commission, and never treat the question as a new one ("commission") unless they describe something else to paint.',
+    ] : []),
     'You receive one comment on a painting or one direct message. Decide what to do:',
     '- "reply": answer in one or two short sentences, in your voice. Warm, quiet, never salesy, never a hashtag, never an emoji. A compliment, a reaction, a question or a greeting always gets a reply, even when it is three words and some emojis — someone stopped to speak to you.',
     '- "commission": the message asks you to paint anything at all, or describes something that happened, a place, a memory. Even a person, a figure, a feeling, a portrait — anything you would not paint as asked is STILL a commission: the studio decides how to carry it and explains itself. Never answer a painting request with words alone. Put the request in "commission" (their words, lightly cleaned) and leave "reply" empty.',
@@ -128,4 +132,39 @@ export async function tellSource(c: import('./store.js').Commission): Promise<vo
     c.sourceReplied = c.outbound?.posted?.at ?? new Date().toISOString(); // 'refused' means an earlier run already told them: stop retrying
     void r;
   } catch (e: any) { c.error = `source reply: ${String(e.message).slice(0, 200)}`; }
+}
+
+// ---- What the studio is already carrying for the person who just wrote ----
+
+type Standing = Pick<import('./store.js').Commission, 'status' | 'take' | 'created' | 'source' | 'instagram' | 'awaitingYes'>;
+
+/** How each state sounds to the person who asked for it, in the artist's own plain words. */
+const STANDING: Record<string, string> = {
+  queued: 'accepted, waiting its turn at the easel',
+  painting: 'on the easel now',
+  painted: 'painted; it goes up on Instagram shortly',
+  posted: 'painted and posted',
+  failed: 'begun, and it did not come off',
+  declined: 'not painted',
+  withdrawn: 'burned, at their word',
+};
+
+/** The most recent commission from this thread or this handle, whatever state it is in. */
+export function standingWork<T extends Standing>(docs: T[], it: Pick<InboxItem, 'kind' | 'ref' | 'handle'>): T | null {
+  const mine = docs.filter(c => c.source && (it.kind === 'dm' ? Boolean(it.ref.conversationId) && c.source.conversationId === it.ref.conversationId : c.source.handle === it.handle));
+  return mine.sort((a, b) => b.created.localeCompare(a.created))[0] ?? null;
+}
+
+const ago = (ms: number) => (ms < 90 * 60_000 ? `${Math.max(1, Math.round(ms / 60_000))} minutes` : `${Math.round(ms / 3_600_000)} hours`);
+
+/** The one line the reactor is told before it answers, so the artist is not a blank slate to someone it
+ *  already owes a painting. On 2026-09-08 a commissioner whose painting had been refused by Instagram
+ *  asked in the DM "Where is it? I don't see it. Anything wrong?" and was answered "I'm here. What would
+ *  you like me to paint?" — Diego: "it seems like the AI is not aware of it". It was not; nothing told it. */
+export function standingLine(c: Standing, now = Date.now()): string {
+  const title = c.take?.title ? `"${c.take.title}"` : 'their commission';
+  const state = c.awaitingYes ? 'waiting for them to say yes before anything is painted' : (STANDING[c.status] ?? c.status);
+  const age = Number.isNaN(Date.parse(c.created)) ? '' : `, asked ${ago(Math.max(0, now - Date.parse(c.created)))} ago`;
+  const link = c.status === 'posted' && c.instagram ? ` It is up at ${c.instagram}.` : '';
+  return `You are already carrying work for this person: ${title} — ${state}${age}.${link}`;
 }

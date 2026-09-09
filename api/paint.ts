@@ -6,7 +6,7 @@ import { endLineFor, isTestSender } from './_lib/artist.js';
 import { ORIGIN } from './_lib/origin.js';
 import { openingFor } from './_lib/score.js';
 import { renderImage, inspectImage } from './_lib/openrouter.js';
-import { publish, publishStory, canPost, postOptions } from './_lib/zernio.js';
+import { publish, publishStory, canPost, postOptions, audience } from './_lib/zernio.js';
 import { reconcile } from './_lib/reconcile.js';
 
 /** New work also goes up as a 24h Story. Best effort: a Story that fails never touches the post. */
@@ -45,12 +45,28 @@ export const FILM_INLINE_BUDGET_MS = 110_000;
  *  films it first (filmJob) and the one after posts the Reel; a film in its 6 h cool-off after a failure lets the
  *  backlog post the still instead — the still never waits more than one cron on a broken film. */
 export const readyToPost = (c: { film?: string; photo?: string; raw?: string }) => Boolean(c.film || c.photo || !c.raw);
+/** The account as postOptions needs it: the trial A/B only runs above Instagram's follower floor, and a
+ *  count we could not read is not a reason to spend a painting finding out. Never fatal. */
+const accountNow = async () => (await audience().catch(() => null)) ?? undefined;
 /** The one painting to film in a run with nothing to paint: has its unsigned canvas (made since the reveal shipped),
  *  no film yet, and no failed try in the last 6h. Newest first: the next Reel matters more than the backlog. */
 export function filmJob<T extends { image?: string; raw?: string; film?: string; filmAttempt?: string; status: string; from: string | null; seed?: string; created: string }>(docs: T[], now = Date.now()): T | undefined {
   const coolOff = now - 6 * 3_600_000;
   return docs.filter(d => d.image && d.raw && !d.film && (d.status === 'painted' || d.status === 'posted') && !d.seed && !isTestSender(d.from) && !(d.filmAttempt && Date.parse(d.filmAttempt) > coolOff)).sort((a, b) => b.created.localeCompare(a.created))[0];
 }
+/** What a commission becomes when paintOne throws. A canvas that exists and is signed is `painted` — on
+ *  the wall, and in the queue the backlog posts from — however badly the posting went; only work with no
+ *  finished canvas is `failed`, which nothing retries. (2026-09-08: two paintings sat in `failed`, with
+ *  their images and films in Blob, because Instagram refused a trial reel.) */
+export const statusAfterFailure = (c: { image?: string; painted?: string }): 'painted' | 'failed' => (c.image && c.painted ? 'painted' : 'failed');
+
+/** Paintings waiting for Instagram, oldest first: on the wall, not up, and not tried in the last 6 h — so
+ *  one refusal delays a painting rather than losing it, and never blocks the rest. */
+export function postBacklog<T extends { status: string; image?: string; instagram?: string; postAttempt?: string; created: string }>(docs: T[], now = Date.now()): T[] {
+  const coolOff = now - 6 * 3_600_000;
+  return docs.filter(d => d.status === 'painted' && d.image && !d.instagram && !(d.postAttempt && Date.parse(d.postAttempt) > coolOff)).sort((a, b) => a.created.localeCompare(b.created));
+}
+
 /** What a painting posts as: a photo commission's carousel, else the Reel when the film exists, else the still. */
 export const mediaFor = (c: { image?: string; slides?: string[]; film?: string }) => c.slides ?? (c.film && c.image ? { video: c.film, cover: c.image } : c.image!);
 import { isHeld, expiredHolds, cancel, retake } from './_lib/desk.js';
@@ -107,13 +123,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const job = filmJob(docs); // a painting without its film comes before posting the backlog: the post should be the Reel
     if (job && !dry) { const ok = await filmIt(job); await save(job); return res.json({ painted: null, filmed: ok ? job.id : null, ms: job.filmMs, error: job.filmError, reconciled: fixed }); }
     // Nothing to paint: put one already-painted work on Instagram, oldest first.
-    const coolOff = Date.now() - 6 * 3_600_000; // a failed post is retried after 6h, never blocks the rest
-    const backlog = docs.filter(d => d.status === 'painted' && d.image && !d.instagram && !(d.postAttempt && Date.parse(d.postAttempt) > coolOff)).sort((a, b) => a.created.localeCompare(b.created));
+    const backlog = postBacklog(docs);
     const b = backlog[0];
     if (!b || dry || !canPost()) return res.json({ painted: null, queued: 0, backlog: backlog.length, reconciled: fixed });
     b.postAttempt = new Date().toISOString();
     try {
-      const post = await publish(mediaFor(b), b.take.caption ?? b.take.title ?? 'Night Shift', postOptions(b));
+      const post = await publish(mediaFor(b), b.take.caption ?? b.take.title ?? 'Night Shift', postOptions(b, await accountNow()));
       b.instagram = post.permalink; b.mediaId = post.mediaId; b.zernioPostId = post.postId; b.distribution = post.distribution; b.status = 'posted'; delete b.error;
       await tellSource(b);
       await alsoStory(b);
@@ -164,7 +179,7 @@ async function paintOne(c: Commission, res: VercelResponse, started: number, dry
     if (Date.now() - started < FILM_INLINE_BUDGET_MS) await filmIt(c, { id: c.id, image: img.bytes, raw, signature: { ink: sig.ink, x: sig.left, y: sig.top, w: sig.w, h: sig.h }, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), silence: silenceFor(c.take) });
     else c.filmError = `deferred: the painting took ${Math.round((Date.now() - started) / 1000)} s; the next cron films it, then posts`;
     if (!dry && canPost() && readyToPost(c)) { // a new-pipeline painting waits for its film (next cron: film first, then the backlog posts the Reel; a failed film posts the still)
-      const post = await publish(mediaFor(c), c.take.caption ?? c.take.title ?? 'Night Shift', postOptions(c));
+      const post = await publish(mediaFor(c), c.take.caption ?? c.take.title ?? 'Night Shift', postOptions(c, await accountNow()));
       c.instagram = post.permalink;
       c.mediaId = post.mediaId;
       c.zernioPostId = post.postId;
@@ -176,8 +191,15 @@ async function paintOne(c: Commission, res: VercelResponse, started: number, dry
       c.status = 'painted'; // on the wall; Instagram comes when the token exists, or once the film does
     }
   } catch (e: any) {
-    c.status = 'failed'; c.error = String(e.message).slice(0, 500);
-    if (c.room && !c.requeued && !dry) { // a person in a room is watching a ticket: one fresh take, back in the queue, never 'could not finish' on the first miss
+    // A finished canvas is never failed by a refused post. Until 2026-09-08 it was: Instagram said no,
+    // publish() threw, and the painting — rendered, inspected, signed, filmed and paid for — went to
+    // 'failed', a state nothing retries, while the person who asked for it was told nothing. `painted`
+    // is the truth (it exists, it is on the wall) and the backlog puts it up after the cool-off.
+    const onlyPostingFailed = statusAfterFailure(c) === 'painted';
+    c.status = onlyPostingFailed ? 'painted' : 'failed';
+    c.error = String(e.message).slice(0, 500);
+    if (onlyPostingFailed) c.postAttempt = new Date().toISOString(); // the 6 h cool-off the backlog reads
+    if (!onlyPostingFailed && c.room && !c.requeued && !dry) { // a person in a room is watching a ticket: one fresh take, back in the queue, never 'could not finish' on the first miss
       const again = await retake(c, docs).catch(() => null);
       if (again) c = again;
     }

@@ -19,12 +19,25 @@ Open work is the repo's issues: #2 sketches, #3 style code,
 the feedback record, #13 live paths not yet fired. Decided 2026-09-05 night (issue #18, see "Credit"
 and "Never refuse" below): a DM's core-conflict canvas paints only on a **yes**; the studio never asks
 for a handle; its own commissions are marked **studio** on the wall; the letter exam sits itself under
-the one **lettering exception** (#17). Tests: `npm test` (88). Deploy:
+the one **lettering exception** (#17). Tests: `npm test` (153). Deploy:
 `./scripts/deploy-prod.sh` — tests, deploys with a build id, then proves `/api/status` on the domain
 reports that build (an optional marker checks a page).
 
 ## Traps that cost a live post
 
+- **Instagram's refusal arrives AFTER the create returns 200.** Zernio accepts `POST /posts`, then marks
+  the post `failed` ~30 s later with Instagram's reason. A fallback gated on the create being non-OK can
+  never fire: between 2026-09-06 and 2026-09-08 every trial-assigned Reel was lost that way — two finished
+  paintings, one of them Diego's own DM commission, still rendered, signed, filmed and paid for. The retry
+  now hangs off the *outcome* (`attemptPost`), and only a refusal is retried: a post Instagram has merely
+  not published yet must never be re-created, or the painting goes up twice.
+- **`JSON.stringify(platform).slice(0, 200)` is not an error message.** The platform record leads with a
+  1.2 kB `accountId`, so the stored error read `{"platform":"instagram","accountId":{...` and the sentence
+  that would have ended it in a minute — *"Trial Reels require an Instagram account with 1,000+
+  followers"* — sat unread for three days. `publishError()` pulls the reason out first.
+- **A finished canvas is never `failed`.** That status is terminal; nothing retries it. Work whose canvas
+  exists goes to `painted`, which the backlog posts (`statusAfterFailure`, `postBacklog`).
+  `scripts/unstick.mjs` frees anything already stranded.
 - **Judge any mark at the phone's width, not the file's.** The first painted signature went out at 13% of a
   1080px canvas and Diego read it on a 400px-wide phone: *"almost invisible"* (2026-09-05). Render the
   check at ~400px wide before it ships; the test in `test/critics.test.mjs` holds the size floor.

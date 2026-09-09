@@ -10,7 +10,7 @@ import { loadInboxState, saveInboxState, all, load, save } from './_lib/store.js
 import { ORIGIN } from './_lib/origin.js';
 import { cancel, burn, isHeld, awaitYes } from './_lib/desk.js';
 import type { Receipt } from './_lib/desk.js';
-import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, isStop, isYes, isBurn, consentNote, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
+import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, isStop, isYes, isBurn, consentNote, standingWork, standingLine, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
 import { sendOnce } from './_lib/outbound.js';
 
 export const config = { maxDuration: 300 };
@@ -134,9 +134,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       continue;
     }
     // A photograph is a commission by itself: no reactor call, straight to the desk.
+    // What the studio already owes this person, so "where is it?" is answerable and the artist never
+    // greets a commissioner as a stranger (issue: Diego, 2026-09-08).
+    const standing = standingWork(docs, it);
     const r: Reaction = it.photo
       ? { kind: 'commission', reply: '', commission: it.text.trim() || 'this place, after everyone left' }
-      : await chatJSON<Reaction>(reactionSystemPrompt(), `${it.kind === 'dm' ? 'Direct message' : 'Comment'} from @${it.handle}: ${it.text.slice(0, 600)}`, REACT_MODEL);
+      : await chatJSON<Reaction>(reactionSystemPrompt(standing && standingLine(standing)), `${it.kind === 'dm' ? 'Direct message' : 'Comment'} from @${it.handle}: ${it.text.slice(0, 600)}`, REACT_MODEL);
     let text = '';
     let commissionId: string | undefined;
     let about: import('./_lib/store.js').Commission | null = null; // the commission this reply is the receipt of, when there is one
