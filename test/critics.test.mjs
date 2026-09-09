@@ -137,3 +137,17 @@ test('an anonymous commission is never quoted in the caption or on the wall', as
   assert.match(read('../api/_lib/desk.ts'), /privateCaption\(take\.caption, text\)/);
   assert.match(read('../public/index.html'), /sent privately/);
 });
+
+test('the caption asks the question rather than picking a fight for it (Diego, 2026-09-09)', async () => {
+  const { SIGNOFF, END_LINES } = await import('../api/_lib/artist.ts');
+  // "Argue with the painting." read as taking a side against anyone questioning whether this is art:
+  // "i want to provoque reflection and not take sides". The disclosure stays; the order goes.
+  assert.match(SIGNOFF, /\bAI\b|machine/, 'it still says plainly what made it');
+  assert.ok(SIGNOFF.trim().endsWith('?'), 'and it ends on a question, not an instruction');
+  assert.ok(!/\b(argue|fight|prove|convince|defend|challenge me)\b/i.test(SIGNOFF), 'no combative verb');
+  // The film already got this right; the caption now shares its register. What they have in common is
+  // not a pronoun ("Art, or not." has none) — it is that none of them tells the viewer what to do.
+  const COMBATIVE = /\b(argue|fight|prove|convince|defend|challenge|dare|admit)\b/i;
+  for (const l of [...END_LINES, SIGNOFF]) assert.ok(!COMBATIVE.test(l), `takes a side: ${l}`);
+  // (Not every line names "art" — "What you feel looking at it is not." does the same work without it.)
+});

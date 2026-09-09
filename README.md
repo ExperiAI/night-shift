@@ -63,7 +63,7 @@ Ten hostile critics reviewed the first twelve canvases (`docs/critics/2026-09-05
 *After the Toast*, passed by an inspector whose prompt said incidental numbers were fine. The answer is
 `docs/stance.md`: **Night Shift says what it is, states its limits as limits, shows its rejects, and sits
 the sceptics' exams in public.** In code: every caption ends with `SIGNOFF` ("I am an AI. No hand held
-this brush. Argue with the painting.") before the invite; the inspector enforces the artist's own
+this brush. Does that change what you see?") before the invite; the inspector enforces the artist's own
 contract (digits, a signature, a second light, a frame, a face → reject); `departures` fail closed; the
 studio lays its own mark on every canvas (`signPainting`) and rejects any painted one; refused canvases
 are kept and shown behind the `i`; the critic is a different vendor and may propose changes to this

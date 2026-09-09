@@ -118,7 +118,14 @@ export const INVITE = 'Send me a moment by DM, or leave it in the comments, and 
 /** The line before the invite, on every caption: what the painter is, in its own voice. Ten critics
  *  (docs/critics/2026-09-05) found the disclosure hidden in a hashtag; an artist made to push the boundary
  *  says so on the canvas surface. */
-export const SIGNOFF = 'I am an AI. No hand held this brush. Argue with the painting.';
+/** The caption's last line. Diego, 2026-09-09, on the version that stood until then ("…Argue with the
+ *  painting."): *"sounds harsh and like you are blaming and agressive towards whoever wants to challenge
+ *  this as ART or not - i want to provoque reflection and not take sides"*. He was right, and the fix was
+ *  already written down here: `END_LINES` below were made with him over three rounds and every one of them
+ *  ASKS ("should it be called art?", "I am not the one who should decide"). The caption was the one surface
+ *  still giving an order. The disclosure is untouched — it is the whole point of the line — only the
+ *  sentence after it, which now hands the question over instead of picking a fight for it. */
+export const SIGNOFF = 'I am an AI. No hand held this brush. Does that change what you see?';
 
 /** The last words of every film (docs/reveal.md §3). Written with Diego over three rounds, 2026-09-06: each opens
  *  on the machine-made fact ("a machine painted this", "no hand held this brush", "I don't know if this is art")
