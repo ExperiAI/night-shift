@@ -19,10 +19,12 @@
   h1{font-size:40px;line-height:1.05;margin:0 0 10px;font-weight:400}
   .lede{font-size:19px;line-height:1.45;color:var(--dim);margin:0 0 4px}
   .room{font:14px var(--mono);color:var(--dim);margin:0 0 20px}
-  .eg{margin:0 0 22px;display:grid;gap:8px}
-  .eg img{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:4px;background:var(--well);display:block}
-  .eg figcaption{font:14px/1.5 var(--mono);color:var(--dim)}
-  .eg figcaption b{display:block;color:var(--ink);font-weight:400;font-family:var(--serif);font-size:19px;margin-top:2px}
+  /* Compact on purpose: the whole point of this page is the button, and a full-width 4:5 example pushed
+     it 170px below the fold on a phone. A thumbnail says the same thing in a fifth of the height. */
+  .eg{margin:0 0 20px;display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:center}
+  .eg img{width:96px;height:120px;object-fit:cover;border-radius:4px;background:var(--well);display:block}
+  .eg figcaption{font:13px/1.45 var(--mono);color:var(--dim);min-width:0}
+  .eg figcaption b{display:block;color:var(--ink);font-weight:400;font-family:var(--serif);font-size:18px;margin-top:3px}
   .eg[hidden]{display:none}
   form{display:grid;gap:12px}
   textarea,input{width:100%;background:var(--well);border:1px solid var(--line);color:var(--ink);padding:14px;font:18px/1.5 var(--mono);border-radius:4px}
@@ -119,7 +121,7 @@ const store = t => { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch
     const img = $('egimg');
     img.addEventListener('load', () => $('eg').hidden = false, { once: true });
     img.src = c.image;
-    $('egwords').textContent = `“${c.commission.slice(0, 90)}”`;
+    $('egwords').textContent = `“${c.commission.slice(0, 58)}”`;
     $('egtitle').textContent = c.title;
   } catch {}
 })();
