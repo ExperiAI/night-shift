@@ -57,7 +57,11 @@
      used to sit here too, jammed against the name behind a dot — but the tile already shows what the
      sentence became, and the title gets its whole moment on the stage. */
   #queue .line{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:clamp(12px,1.02vw,17px);color:var(--ink)}
-  #queue .foot{display:block;font-size:clamp(10px,.82vw,14px);color:var(--dim);margin-top:.25em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Wraps rather than ellipsises: "commissioned by" costs sixteen characters before the name starts, so
+     a single nowrap line cut most names in half ("commissioned by Proudly …"). Only the dense list,
+     where the rows are already tight, holds it to one. */
+  #queue .foot{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:clamp(10px,.82vw,14px);color:var(--dim);margin-top:.25em}
+  #queue.dense .foot{-webkit-line-clamp:1}
   #queue .foot:empty{display:none}
   #queue .who{font-style:normal;color:var(--ink)}
   /* Which painting is on the wall RIGHT NOW, said with light and nothing else (Diego, 2026-09-09:

@@ -53,7 +53,7 @@ const lit = await page.evaluate(() => {
 console.log('mid-reveal', JSON.stringify(lit));
 const rows = await page.$$eval('#queue li', ls => ls.map(l => ({
   cls: l.className, thumb: Boolean(l.querySelector('.art img')?.getAttribute('src')),
-  line: l.querySelector('.line')?.textContent.slice(0, 30), foot: l.querySelector('.foot')?.textContent.slice(0, 30), fill: l.querySelector('.fill')?.style.height || '-',
+  line: l.querySelector('.line')?.textContent.slice(0, 30), foot: l.querySelector('.foot')?.textContent.slice(0, 40), footFits: l.querySelector('.foot') ? l.querySelector('.foot').scrollHeight <= l.querySelector('.foot').clientHeight + 1 : true, fill: l.querySelector('.fill')?.style.height || '-',
   h: Math.round(l.getBoundingClientRect().height),
 })));
 const qr = await page.$eval('#qr', e => { const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom) }; });
@@ -62,6 +62,6 @@ const box = await page.$eval('#queue', q => { const r = q.getBoundingClientRect(
 console.log('rows', rows.length, 'queue box', JSON.stringify(box), 'fade:', await page.$eval('#queue', q => q.classList.contains('more')));
 const vis = await page.$eval('#queue', q => { const b = q.getBoundingClientRect(); return [...q.children].filter(li => li.getBoundingClientRect().bottom <= b.bottom + 1).length; });
 console.log('fully visible rows:', vis, 'of', rows.length, '| dense:', await page.$eval('#queue', q => q.classList.contains('dense')));
-for (const r of rows) console.log(' ', r.thumb ? '[img]' : '[   ]', (r.cls || '-').padEnd(14), r.h + 'px', 'fill', r.fill.padEnd(6), '|', r.line, '|', r.foot);
+for (const r of rows) console.log(' ', r.thumb ? '[img]' : '[   ]', (r.cls || '-').padEnd(14), r.h + 'px', 'fill', r.fill.padEnd(6), '|', r.line, '|', r.foot, r.footFits ? '' : '<<CUT>>');
 console.log('errors', errs.length ? errs : 'none');
 await browser.close(); server.close();
