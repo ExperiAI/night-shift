@@ -25,6 +25,7 @@ export type Commission = {
   room?: string;        // the room this was sent from (rooms/<code>.json); room work has its own cap and never counts against the studio's day
   instagram?: string;   // permalink
   error?: string;
+  lastError?: string;   // why the previous attempt failed, kept across a retake (desk.ts) so a requeue is never silent
   painted?: string;
   postAttempt?: string;
   unstuck?: string;      // a finished canvas freed from 'failed' back to 'painted' by scripts/unstick.mjs, after a refused post stranded it

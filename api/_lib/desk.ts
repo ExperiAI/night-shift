@@ -333,6 +333,11 @@ export async function retake(c: Commission, docs?: Commission[]): Promise<Commis
   if (take.line && !(take.line.trim().length <= SCORE.sentence.maxChars && isExcerpt(c.text, take.line))) delete take.line;
   if (c.anonymous && take.caption) take.caption = privateCaption(take.caption, c.text);
   if (take.caption) take.caption = withDepartures(take.caption, take.departures, Boolean(c.anonymous));
+  // Why the first attempt failed is the only record of it: the retake clears `error` so the fresh try is
+  // not judged by the old one, but it is kept. 2026-09-09, chasing a room commission that had silently
+  // requeued: the reason was gone, and it was "openrouter images 402: Insufficient credits" — the one
+  // thing worth knowing that day.
+  if (c.error) c.lastError = c.error;
   delete c.error;
   c.take = take; c.status = 'queued'; c.requeued = new Date().toISOString();
   return c;

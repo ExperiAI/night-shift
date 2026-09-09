@@ -92,3 +92,11 @@ test('the studio can release a plain hold, but never one that is waiting for the
   const room = readFileSync(new URL('../scripts/room.mjs', import.meta.url), 'utf8');
   assert.match(room, /cmd === 'release'/, 'one command for the whole room, no ids to copy mid-demo');
 });
+
+test('a retake keeps why the last attempt failed, so a requeue is never silent', () => {
+  const desk = readFileSync(new URL('../api/_lib/desk.ts', import.meta.url), 'utf8');
+  assert.match(desk, /if \(c\.error\) c\.lastError = c\.error;\n\s*delete c\.error;/, 'kept before it is cleared');
+  const pre = readFileSync(new URL('../scripts/preflight.mjs', import.meta.url), 'utf8');
+  assert.match(pre, /openrouter\.ai\/api\/v1\/credits/, 'the pre-flight reads the one number that decides whether anything can be painted');
+  assert.match(pre, /NO-GO/);
+});
