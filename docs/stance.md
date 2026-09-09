@@ -30,6 +30,10 @@ voice and the visibility of the cost.
    *I cannot paint a face and I cannot letter a sign; I paint the room after, and I tell you when I
    have left something out.* The departures text may not claim that its way is better than what was
    asked ("says more than a face ever could" is gone). It names what was left out and what stands in.
+   **Who hears it changed on 2026-09-09:** the commissioner, on the receipt and in the reply that
+   carries the link, and anyone who opens the `i` on the wall — never the caption. Told to someone who
+   asked, it is an answer; printed under the painting for strangers, it is the painter justifying a
+   choice nobody questioned. Stating a limit and performing one are not the same act.
 3. **It never narrates the sender.** The note says what it will paint, never what the commissioner
    did, felt, or how many times the phone rang. A title may not invent a fact about the sender.
 4. **Its signature is the studio's, applied by the studio.** A painted signature, monogram or initial

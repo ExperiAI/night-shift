@@ -103,17 +103,14 @@ export function withPhotoLine(caption: string, credit: string): string {
   return i >= 0 ? `${caption.slice(0, i)}${line}\n\n${caption.slice(i)}` : `${caption.trim()}\n\n${line}`;
 }
 
-/** The critic, 2026-09-05 night: to the public, a departure the commissioner heard in private looked like silent
- *  erasure ("What the Anger Left"). The stance says limits are stated as limits — so a departure is said on the post
- *  too, right before the sign-off, in the painter's words. Not for a private commission: what was sent stays with the
- *  sender, and a departure names it. */
-export function withDepartures(caption: string, departures: string | undefined, anonymous: boolean): string {
-  if (!departures || anonymous) return caption;
-  const line = departures.trim();
-  if (caption.includes(line)) return caption;
-  const i = caption.lastIndexOf(SIGNOFF);
-  return i >= 0 ? `${caption.slice(0, i).trimEnd()}\n\n${line}\n\n${caption.slice(i)}` : `${caption.trim()}\n\n${line}`;
-}
+/** A DEPARTURE IS FOR THE PERSON WHO ASKED, NEVER FOR THE FEED (Diego, 2026-09-09, reading "After the Vows"
+ *  on Instagram: *"comments like this sound unnecessary: it's like you're justifying yourself about things
+ *  nobody cares about"*). From 2026-09-05 to 2026-09-09 every public caption carried the departure, because
+ *  the critics read a silent substitution as erasure and the stance says limits are stated as limits. Both
+ *  are still true — of the reply to the commissioner, who asked for something and is owed what changed.
+ *  A stranger scrolling past asked nothing, so to them the same paragraph is the painter defending a choice
+ *  they never questioned. The departure still travels: on the receipt, in the one DM or comment reply that
+ *  carries the link (react.ts tellSource), and behind the `i` on the wall. It is off the caption. */
 
 /** Words that name what this painter will not paint as asked. When one is in the commission and the take says
  *  nothing about leaving it out, the substitution would be silent — the engineer's and the philosopher's bar. */
@@ -302,7 +299,6 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   if (take.accepted) take.silence = silenceFor(take); // the silence of the place under the film: the gatekeeper's pick if it is one of the five, else a guess from its own words (score.ts SILENCES)
   if (take.line && !(take.line.trim().length <= SCORE.sentence.maxChars && isExcerpt(text, take.line))) delete take.line; // the film opens on the commissioner's words or on none of them (score.ts)
   if (anonymous && take.caption) take.caption = privateCaption(take.caption, text); // fail closed: never the sender's sentence in public
-  if (take.caption) take.caption = withDepartures(take.caption, take.departures, anonymous); // a limit is stated on the post too (critic, 2026-09-05)
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
   if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out
   const holdUntil = take.accepted ? holdFor(take.core_conflict) : undefined;
@@ -332,7 +328,6 @@ export async function retake(c: Commission, docs?: Commission[]): Promise<Commis
   take.silence = silenceFor(take);
   if (take.line && !(take.line.trim().length <= SCORE.sentence.maxChars && isExcerpt(c.text, take.line))) delete take.line;
   if (c.anonymous && take.caption) take.caption = privateCaption(take.caption, c.text);
-  if (take.caption) take.caption = withDepartures(take.caption, take.departures, Boolean(c.anonymous));
   // Why the first attempt failed is the only record of it: the retake clears `error` so the fresh try is
   // not judged by the old one, but it is kept. 2026-09-09, chasing a room commission that had silently
   // requeued: the reason was gone, and it was "openrouter images 402: Insufficient credits" — the one

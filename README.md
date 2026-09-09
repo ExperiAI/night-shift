@@ -293,8 +293,13 @@ the whole point of a brief erased instead of echoed. Two changes to this painter
 The second review (2026-09-05 night), three more, filtered against the standing decisions (never refuse;
 always night — the critic proposed both again and both stay):
 
-- **A departure is said on the post too** (`withDepartures`, before the sign-off): to the public, a
-  departure the commissioner heard in private read as silent erasure. Never on a private commission.
+- **A departure goes to the person who asked, never to the feed** (reversed 2026-09-09). The critics
+  read a silent substitution as erasure and won the caption for a while; Diego, reading one on
+  Instagram: *"comments like this sound unnecessary: it's like you're justifying yourself about things
+  nobody cares about."* A stranger scrolling past asked nothing, so the paragraph defends a choice they
+  never questioned. It still travels on the receipt, in the one reply carrying the link, and behind the
+  `i` on the wall — and the gatekeeper must still write one, because failing closed on a silent
+  substitution is unchanged.
 - **Traces rotate like light and anchor** (`repeatsTraces`, #20 extended): the take names its two or
   three traces; a trace painted today is named to the gatekeeper once, then painted and filed.
 - **A retry after a legible-text refusal says what a blank screen is** (`avoidLine`): the renderer

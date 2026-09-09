@@ -5,7 +5,7 @@
 // try-register.mjs is the render-side twin (~$0.15): this one stops before the canvas.
 const { gatekeeperSystemPrompt, REGISTERS, registerByKey } = await import('../api/_lib/artist.ts');
 const { chatJSON } = await import('../api/_lib/openrouter.ts');
-const { withDepartures, repeatsTraces, needsDepartures, privateCaption } = await import('../api/_lib/desk.ts');
+const { repeatsTraces, needsDepartures, privateCaption } = await import('../api/_lib/desk.ts');
 const args = process.argv.slice(2);
 const anonymous = args.includes('--anonymous');
 const [text, regKey] = args.filter(a => !a.startsWith('--'));
@@ -20,6 +20,6 @@ if (take.departures) console.log(`departures: ${take.departures}`);
 console.log(`needsDepartures → ${needsDepartures(text, take)}`);
 let caption = take.caption ?? '';
 if (anonymous) caption = privateCaption(caption, text);
-caption = withDepartures(caption, take.departures, anonymous);
 console.log(`--- caption as it would post ---\n${caption}`);
+console.log(`--- departures (to the commissioner only, never the caption) ---\n${take.departures ?? '(none)'}`);
 console.log(`--- repeat against itself → ${repeatsTraces([{ created: new Date().toISOString(), status: 'posted', take }], take)}`);

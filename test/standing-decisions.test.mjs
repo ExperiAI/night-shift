@@ -13,11 +13,16 @@ test('proposals that restate a standing decision are recognised; real craft note
     'When a brief specifies a time of day, shift the sky to match that hour instead of defaulting to deep night.',
     'Paint people when they are the point of the commission.',
     'Match the requested time of day literally (morning is morning).',
+    // Reversed 2026-09-09: a departure is for the person who asked, not the feed. From the outside a
+    // substitution the critic cannot see explained still looks silent, so expect this one back.
+    'State the departure in the caption so the public sees what was left out.',
+    'Every post should carry the departures text publicly, not only in the DM.',
   ]) assert.ok(restatesStandingDecision(p), p);
   for (const p of [
     'Rotate the vocabulary of left-behind objects so consecutive commissions do not repeat the same trick.',
     'Menu boards read as pure dark rectangles at thumbnail size; give them a lit edge.',
     "When a requested detail is a number that cannot be shown, name that loss in the departure note.",
+    'The departure note to the commissioner reads as an apology; make it plainer.', // about the note, not about publishing it
   ]) assert.ok(!restatesStandingDecision(p), p);
 });
 

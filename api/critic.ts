@@ -40,6 +40,10 @@ const STANDING = [
   /\b(decline|refuse|refusal|decline line|"I don't paint that")\b[\s\S]*\b(person|people|figure|portrait|subject)\b|\b(person|people|figure|portrait)\b[\s\S]*\b(decline|refuse|refusal|decline line)\b/i,
   /\bpaint (the )?(people|person|figure|literal subject)\b/i,
   /\b(time of day|hour|daylight|dawn|morning|afternoon|daytime)\b[\s\S]*\b(match|shift|honou?r|literal|instead of|rather than|default)/i,
+  // The critics won this one on 2026-09-05 and Diego reversed it on 2026-09-09: a departure belongs to
+  // the person who asked, not to the feed. Expect the critic to keep proposing it, because from the
+  // outside a substitution it cannot see explained still looks silent.
+  /\bdepartures?\b[\s\S]*\b(caption|post|publicly|in public|on the post)\b|\b(caption|post)\b[\s\S]*\bstate (the )?(limit|departure)/i,
 ];
 export function restatesStandingDecision(proposal: string): boolean { return STANDING.some(re => re.test(proposal)); }
 

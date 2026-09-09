@@ -6,19 +6,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { withDepartures, repeatsTraces } from '../api/_lib/desk.ts';
+import { repeatsTraces } from '../api/_lib/desk.ts';
 import { SIGNOFF, INVITE } from '../api/_lib/artist.ts';
 import { avoidLine } from '../api/_lib/compose.ts';
 
 const cap = `Title\n\nOne line.\n\n“a girl and her anger” — commissioned by V\n\n${SIGNOFF}\n\n${INVITE}`;
 
-test('a departure is said on the post, before the sign-off, once; a private commission never carries one', () => {
-  const out = withDepartures(cap, 'I do not paint people; the overturned chair is where her anger went.', false);
-  assert.ok(out.indexOf('overturned chair') < out.indexOf(SIGNOFF));
-  assert.ok(out.indexOf('commissioned by V') < out.indexOf('overturned chair'));
-  assert.equal(withDepartures(out, 'I do not paint people; the overturned chair is where her anger went.', false), out, 'idempotent');
-  assert.equal(withDepartures(cap, 'I left out your grandmother.', true), cap, 'anonymous: the departure stays in the DM');
-  assert.equal(withDepartures(cap, undefined, false), cap);
+test('a departure reaches the person who asked, and never the feed', () => {
+  // Reversed 2026-09-09. The critics were right that a silent substitution reads as erasure, and the
+  // stance still says limits are stated as limits — to the COMMISSIONER. Diego, reading "After the Vows"
+  // on Instagram: "comments like this sound unnecessary: it's like you're justifying yourself about
+  // things nobody cares about". A stranger scrolling past asked nothing, so the paragraph defends a
+  // choice they never questioned.
+  const desk = readFileSync(new URL('../api/_lib/desk.ts', import.meta.url), 'utf8');
+  assert.ok(!/withDepartures/.test(desk), 'nothing puts a departure in a caption');
+  assert.ok(!/take\.caption = .*departures/.test(desk), 'and no replacement does it either');
+
+  // It still travels on all three surfaces the commissioner actually reaches.
+  assert.match(desk, /\.\.\.\(take\.departures \? \{ departures: take\.departures \} : \{\}\)/, 'the receipt');
+  const react = readFileSync(new URL('../api/_lib/react.ts', import.meta.url), 'utf8');
+  assert.match(react, /c\.take\.departures\]\.filter\(Boolean\)/, 'the one reply carrying the link');
+  assert.match(desk, /departures: c\.take\.departures/, 'and the wall, behind the i');
+
+  // The gatekeeper still has to write one: a silent substitution is still the bar it fails closed on.
+  const artist = readFileSync(new URL('../api/_lib/artist.ts', import.meta.url), 'utf8');
+  assert.match(artist, /departures: REQUIRED/);
+  assert.match(artist, /to the commissioner/, 'and it is told who it is for');
 });
 
 test('a trace already painted today is a repeat, named; unrelated traces are not', () => {
@@ -39,7 +52,6 @@ test('after a legible-text refusal the retry says what a blank screen is; other 
 
 test('the desk wires all three: caption, traces retry, and the paint retry', () => {
   const desk = readFileSync(new URL('../api/_lib/desk.ts', import.meta.url), 'utf8');
-  assert.match(desk, /withDepartures\(take\.caption, take\.departures, anonymous\)/);
   assert.match(desk, /repeatsTraces\(docs, take\)/);
   assert.match(readFileSync(new URL('../api/paint.ts', import.meta.url), 'utf8'), /avoidLine\(check\.reason\)/);
   assert.match(readFileSync(new URL('../api/_lib/artist.ts', import.meta.url), 'utf8'), /"traces"\?: string\[\]/);
