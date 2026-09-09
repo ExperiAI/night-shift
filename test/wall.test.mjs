@@ -41,3 +41,20 @@ test('the table card prints four A6 on one A4 with the contract and the room QR'
   assert.match(t, /It is an AI\./); assert.match(t, /Never a face/);
   assert.match(t, /cdnjs\.cloudflare\.com\/ajax\/libs\/qrcodejs\/1\.0\.0/);
 });
+
+// Diego, 2026-09-09: "the way we're showing the list of painting requests on the showcase page is
+// terrible - rethink it and polish it much more." It was a column of mono text beside a wall of
+// pictures: a list OF paintings that showed none of them.
+test('every row of the queue carries its painting, and the mark on the playing row can be seen', () => {
+  const w = page('wall.html');
+  assert.match(w, /class="art"/, 'each row has a tile for the work itself');
+  assert.match(w, /img\.setAttribute\('src', c\.image\)/, 'the tile is filled from the commission’s own image');
+  // The ring is a child of .art on purpose: an inset shadow on .art paints UNDER the painting that
+  // fills it, so the one indicator the room reads was invisible on exactly the rows that had one.
+  assert.match(w, /#queue li\.playing \.ring\{box-shadow:inset[^}]*var\(--amber\)/, 'the playing mark sits above the painting');
+  assert.doesNotMatch(w, /#queue li\.playing \.art\{box-shadow:[^}]*inset/, 'an inset ring on .art is hidden by the image');
+  // `forwards` on the arrival animation pinned every row's opacity at 1 for good, and an animation
+  // beats a plain declaration in the cascade — so the reveal's dim of the door never reached a row.
+  assert.doesNotMatch(w, /animation:arrive[^;}]*forwards/, 'a filled arrival animation outranks the reveal’s dim');
+  assert.match(w, /@keyframes arrive\{from\{/, 'the row animates FROM its entrance and holds nothing after');
+});

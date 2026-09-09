@@ -16,7 +16,7 @@
   html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hidden;cursor:none}
   body{font:16px/1.5 var(--serif)}
   #wall{display:flex;height:100%;width:100%}
-  #door{flex:0 0 auto;width:min(46vw,760px);display:flex;flex-direction:column;justify-content:center;padding:5vh 4vw;gap:4vh}
+  #door{flex:0 0 auto;width:min(46vw,760px);display:flex;flex-direction:column;justify-content:center;padding:4vh 4vw;gap:3vh;overflow:hidden}
   /* The reveal quiets the door, but NOT the QR — it is the one control in the room and someone walking
      in mid-reveal has to be able to scan it. Opacity composites, so a child cannot undo a dimmed
      parent: the siblings dim, the code does not (Diego, 2026-09-09: "a bit darker than the rest"). */
@@ -27,26 +27,43 @@
   #qr{width:min(34vh,26vw);aspect-ratio:1;background:#fff;padding:3%;border-radius:4px}
   #qr img,#qr canvas{width:100%!important;height:100%!important;display:block}
   #room{color:var(--dim);font-family:var(--mono);font-size:clamp(12px,1.1vw,18px);margin:0}
-  /* Two columns across the door's own width — the space left of the frame was empty, and a room wants to
-     see more than five sentences (Diego, 2026-09-09: "reshape/reposition the list, in a way we can
-     display a bigger list"). */
-  #queue{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.2vh 2vw;max-height:40vh;overflow:hidden;align-content:start}
-  #queue li{font-family:var(--mono);font-size:clamp(13px,1.15vw,20px);line-height:1.4;color:var(--ink);padding-left:1.2em;position:relative;transform:translateX(-40px);opacity:0;animation:arrive 1.1s cubic-bezier(.2,.7,.2,1) forwards}
-  #queue li::before{content:'';position:absolute;left:0;top:.55em;width:.5em;height:.5em;border-radius:50%;background:var(--amber)}
-  #queue li small{display:block;color:var(--dim);font-size:.82em;margin-top:.15em}
-  #queue li .who{font-style:normal;color:var(--ink)}
-  #queue li .who:not(:empty)::after{content:' · '}
-  #queue li.next::before{box-shadow:0 0 0 .3em rgba(233,162,59,.18)}
-  #queue li.done::before{background:var(--dim)}
-  #queue li.done small{color:var(--amber)}
-  /* Which sentence is on the wall RIGHT NOW, said with light and nothing else (Diego, 2026-09-09:
-     "I just want a visual indication, no additional text"): the bar, the lit dot, and full brightness
-     while every other row is dimmed by the reveal. */
-  #queue li.playing{color:var(--ink);border-left:2px solid var(--amber);padding-left:1.4em;margin-left:-.2em}
-  #queue li.playing::before{background:var(--amber);box-shadow:0 0 0 .4em rgba(233,162,59,.25)}
-  #queue li.playing small{color:var(--amber)}
+  /* A list of PAINTINGS, so every row carries the painting (Diego, 2026-09-09: "the way we're showing
+     the list of painting requests is terrible - rethink it"). It was a wall of mono text next to a wall
+     of pictures; nobody scanning it could tell which sentence had become what. Each row is now a tile of
+     the work itself, and the sentence sits beside it in one glance-sized line.
+     Two columns across the door's own width, twelve rows, and the state said in light alone. */
+  #queue{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.1vh 1.6vw;min-height:0;flex:0 1 auto;overflow:hidden;align-content:start;-webkit-mask-image:linear-gradient(180deg,#000 84%,transparent);mask-image:linear-gradient(180deg,#000 84%,transparent)}
+  #queue li{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:.8em;animation:arrive 1.1s cubic-bezier(.2,.7,.2,1)}
+  /* The tile: the painting once there is one, a slow amber breath while it is being made. */
+  #queue .art{position:relative;flex:0 0 auto;width:clamp(38px,5.4vh,62px);aspect-ratio:1;border-radius:3px;overflow:hidden;background:var(--line)}
+  #queue .art img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .9s ease}
+  #queue li.done .art img{opacity:1}
+  /* The ring is its own element on purpose: an inset shadow on .art paints UNDER the painting that
+     fills it, so the one mark the room is meant to read was invisible on exactly the rows that have a
+     painting. This sits above the image. */
+  #queue .ring{position:absolute;inset:0;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(232,225,211,.1);transition:box-shadow .4s ease}
+  #queue li:not(.done) .art::after{content:'';position:absolute;inset:0;background:var(--amber);opacity:.08;animation:breathe 2.4s ease-in-out infinite}
+  #queue .text{min-width:0;font-family:var(--mono);line-height:1.35}
+  /* The sentence someone sent, at a size a room reads standing up, clamped to two lines. */
+  #queue .line{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:clamp(12px,1.02vw,17px);color:var(--ink)}
+  /* Wraps rather than ellipsises: the title is the painting's NAME and the payoff of the whole row, and
+     one line of nowrap was cutting most of them mid-word ("Sunday Night She…"). */
+  #queue .foot{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:clamp(10px,.82vw,14px);color:var(--dim);margin-top:.2em}
+  #queue .who{font-style:normal;color:var(--ink)}
+  #queue .who:not(:empty)::after{content:' · '}
+  #queue li.done .what{color:var(--amber)}
+  /* Which painting is on the wall RIGHT NOW, said with light and nothing else (Diego, 2026-09-09:
+     "I just want a visual indication, no additional text"): the tile lights up, and it is the one row
+     the reveal does not dim. The row queued to play next wears the same ring, far weaker — one mark at
+     two strengths rather than two marks to decode. */
+  #queue li.next .ring{box-shadow:inset 0 0 0 1px rgba(233,162,59,.4)}
+  #queue li.playing .ring{box-shadow:inset 0 0 0 2px var(--amber)}
+  #queue li.playing .art{box-shadow:0 0 1.6em rgba(233,162,59,.5)}
+  #queue li.playing .line{color:#fff}
+  #queue li.playing .what{color:var(--amber)}
   #wall.revealing #queue li.playing{opacity:1}
-  @keyframes arrive{to{transform:none;opacity:1}}
+  @keyframes arrive{from{transform:translateX(-40px);opacity:0}}
+  @keyframes breathe{0%,100%{opacity:.05}50%{opacity:.22}}
 
   /* The film is 9:16 because Instagram is. A 16:9 wall is the opposite shape, so a full 9:16 frame can
      never be more than ~31% of the screen however the rest is arranged. The wall therefore shows the
@@ -160,24 +177,26 @@ const senderOf = c => (c.from && !c.studio ? String(c.from).trim().slice(0, 28) 
 function arrive(c) {
   const li = document.createElement('li');
   const words = c.commission ? (c.line || cut(c.commission, (SCORE && SCORE.sentence.maxChars) || 90)) : 'a sentence, sent privately';
-  li.innerHTML = `${esc(words)}<small><i class="who"></i><span class="what"></span></small>`;
+  li.innerHTML = `<span class="art"><img alt=""><i class="ring"></i></span><span class="text"><span class="line">${esc(words)}</span><small class="foot"><i class="who"></i><span class="what"></span></small></span>`;
   li.dataset.id = c.id;
   $('queue').prepend(li);
   update(c);
   while ($('queue').children.length > 12) $('queue').lastElementChild.remove();
   audio.arrive();
 }
-/** Keep an entry's second line true as the painting moves through the studio. */
+/** Keep an entry true as the painting moves through the studio: the tile fills with the work itself the
+ *  moment there is one, and the foot says who sent it and what it became. */
 function update(c) {
   const li = [...$('queue').children].find(l => l.dataset.id === c.id);
   if (!li) return;
   const who = senderOf(c), line = stateLine(c);
-  const w = li.querySelector('.who'), t = li.querySelector('.what');
+  const w = li.querySelector('.who'), t = li.querySelector('.what'), img = li.querySelector('.art img');
   if (w.textContent !== who) w.textContent = who;
   if (t.textContent !== line) t.textContent = line;
-  li.classList.toggle('done', c.status === 'painted' || c.status === 'posted');
+  if (c.image && img.getAttribute('src') !== c.image) img.setAttribute('src', c.image);
+  li.classList.toggle('done', Boolean(c.image) && (c.status === 'painted' || c.status === 'posted'));
 }
-function markNext() { for (const li of $('queue').children) li.classList.toggle('next', toReveal[0] && li.dataset.id === toReveal[0].id); }
+function markNext() { for (const li of $('queue').children) li.classList.toggle('next', Boolean(toReveal[0]) && li.dataset.id === toReveal[0].id && li.dataset.id !== playing?.id); }
 /** The row whose painting is on the stage this second. */
 function markPlaying() { for (const li of $('queue').children) li.classList.toggle('playing', Boolean(playing) && li.dataset.id === playing.id); }
 

@@ -5,7 +5,7 @@
 // the system evolves. Night Shift's soul is not up for change here; the NEXT painter is.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, allFeedback, saveFeedback, saveCritique, latestCritiques, newId, type Critique, type ExamSitting } from './_lib/store.js';
-import { ARTIST, REGISTERS, registerByKey, isTestSender } from './_lib/artist.js';
+import { ARTIST, REGISTERS, registerByKey, isStudioPlumbing } from './_lib/artist.js';
 import { ORIGIN } from './_lib/origin.js';
 import { instagramAccount, audience, publishStory, canPost, postInsights, type PostInsight } from './_lib/zernio.js';
 import { openDoorStory } from './_lib/compose.js';
@@ -74,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const since = Date.now() - 86_400_000;
   const everything = await all();
-  const docs = everything.filter(c => !c.seed && !isTestSender(c.from) && Date.parse(c.created) > since);
+  const docs = everything.filter(c => !isStudioPlumbing(c) && Date.parse(c.created) > since);
   const exam = req.query.dry === '1' ? null : await sitExam(everything).catch(e => ({ key: 'error', status: 0, body: String(e.message).slice(0, 120) }));
   const posted = docs.filter(c => c.status === 'posted' && c.image).slice(0, 8);
   const failed = docs.filter(c => c.status === 'failed'), declined = docs.filter(c => c.status === 'declined');

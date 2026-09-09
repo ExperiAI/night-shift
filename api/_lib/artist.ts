@@ -155,6 +155,16 @@ export function isStudioSender(from: string | null | undefined): boolean { retur
 export const TEST_SENDERS = /^(e2e|studio test|test|smoke)$/i;
 export function isTestSender(from: string | null | undefined): boolean { return Boolean(from) && TEST_SENDERS.test(String(from).trim()); }
 
+/** The studio talking to itself: a check run, a seeded canvas. It reaches no surface a stranger can see —
+ *  not the wall, not a room's wall, not the critic, not the film queue, not Instagram.
+ *
+ *  This exists as ONE function because the rule kept being written out per surface and a copy kept being
+ *  missed. 2026-09-09 cost two of them in a day: the publisher was the copy that did not filter, so an
+ *  `e2e` run put a Reel on the real account; and the room feed was the copy that did not filter, so a
+ *  wall projected for an audience showed two `smoke`/`test` paintings that Instagram would never carry —
+ *  which reads, correctly, as the two surfaces being out of sync. A predicate cannot be half-applied. */
+export const isStudioPlumbing = (c: { from?: string | null; seed?: string }): boolean => isTestSender(c.from) || Boolean(c.seed);
+
 /** The first comment under every post — never in the caption, so the caption stays the painter's words.
  *  A small fixed set (Instagram's own guidance is 3–5 relevant tags). #aiart is there on purpose: the
  *  account says what it is. Issue #11. */

@@ -2,7 +2,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { all, load, save, storeImage, storeFilm, type Commission } from './_lib/store.js';
 import { makeFilm, filmInputFor, hookLine, type FilmInput } from './_lib/film.js';
-import { endLineFor, isTestSender } from './_lib/artist.js';
+import { endLineFor, isStudioPlumbing } from './_lib/artist.js';
 import { ORIGIN } from './_lib/origin.js';
 import { openingFor } from './_lib/score.js';
 import { renderImage, inspectImage } from './_lib/openrouter.js';
@@ -52,13 +52,13 @@ const accountNow = async () => (await audience().catch(() => null)) ?? undefined
  *  no film yet, and no failed try in the last 6h. Newest first: the next Reel matters more than the backlog. */
 export function filmJob<T extends { image?: string; raw?: string; film?: string; filmAttempt?: string; status: string; from: string | null; seed?: string; created: string }>(docs: T[], now = Date.now()): T | undefined {
   const coolOff = now - 6 * 3_600_000;
-  return docs.filter(d => d.image && d.raw && !d.film && (d.status === 'painted' || d.status === 'posted') && !d.seed && !isTestSender(d.from) && !(d.filmAttempt && Date.parse(d.filmAttempt) > coolOff)).sort((a, b) => b.created.localeCompare(a.created))[0];
+  return docs.filter(d => d.image && d.raw && !d.film && (d.status === 'painted' || d.status === 'posted') && !isStudioPlumbing(d) && !(d.filmAttempt && Date.parse(d.filmAttempt) > coolOff)).sort((a, b) => b.created.localeCompare(a.created))[0];
 }
 /** Studio plumbing never reaches Instagram, exactly as it never reaches the wall (commission.ts), the
  *  critic or the film queue. Until 2026-09-09 those three filtered it and the publisher did not, so an
  *  `e2e` run against production put a Reel AND a 24 h Story on the real account, captioned
  *  "commissioned by e2e". A test sender is the studio talking to itself; the account is not the place. */
-export const mayPublish = (c: { from: string | null; seed?: string }) => !isTestSender(c.from) && !c.seed;
+export const mayPublish = (c: { from?: string | null; seed?: string }) => !isStudioPlumbing(c);
 
 /** What a commission becomes when paintOne throws. A canvas that exists and is signed is `painted` — on
  *  the wall, and in the queue the backlog posts from — however badly the posting went; only work with no

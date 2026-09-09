@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { receive, publicView, INTERNAL } from './_lib/desk.js';
-import { isTestSender } from './_lib/artist.js';
+import { isStudioPlumbing } from './_lib/artist.js';
 import { all } from './_lib/store.js';
 import { ORIGIN } from './_lib/origin.js';
 import { validateRoomCode, loadRoom, publicRoom } from './_lib/room.js';
@@ -26,10 +26,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (room) { // the wall of one room (docs/reveal.md §5): everything sent from it tonight, arrivals included, fresh every poll, with the score the reveal plays to
         const r = await loadRoom(room);
         if (!r) return res.status(404).json({ error: 'no such room' });
-        const docs = (await all()).filter(c => c.room === room && c.status !== 'declined' && c.status !== 'withdrawn').slice(0, 60).map(publicView);
+        const docs = (await all()).filter(c => c.room === room && c.status !== 'declined' && c.status !== 'withdrawn' && !isStudioPlumbing(c)).slice(0, 60).map(publicView); // a room's wall is projected at an audience: studio plumbing is no more welcome here than on the studio feed or on Instagram
         return res.setHeader('Cache-Control', 'no-store').json({ artist: 'Night Shift', room: publicRoom(r), score: SCORE, commissions: docs });
       }
-      const docs = (await all()).filter(c => c.status !== 'declined' && c.status !== 'withdrawn' && !isTestSender(c.from)).slice(0, 60).map(publicView); // studio plumbing is not a body of work
+      const docs = (await all()).filter(c => c.status !== 'declined' && c.status !== 'withdrawn' && !isStudioPlumbing(c)).slice(0, 60).map(publicView); // studio plumbing is not a body of work
       return res.setHeader('Cache-Control', 's-maxage=30').json({ artist: 'Night Shift', score: SCORE, commissions: docs });
     }
     return res.status(405).end();

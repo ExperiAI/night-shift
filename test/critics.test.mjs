@@ -84,8 +84,8 @@ test('studio fixtures never reach the public wall or the critic', () => {
   assert.equal(isTestSender('studio test'), true);
   assert.equal(isTestSender('Diego'), false);
   assert.equal(isTestSender(null), false);
-  assert.match(read('../api/commission.ts'), /isTestSender/);
-  assert.match(read('../api/critic.ts'), /isTestSender/);
+  assert.match(read('../api/commission.ts'), /isStudioPlumbing/); // the feeds call the shared predicate now, room wall included
+  assert.match(read('../api/critic.ts'), /isStudioPlumbing/);
 });
 
 test('rejected canvases are kept with the reason and shown on the wall', () => {
