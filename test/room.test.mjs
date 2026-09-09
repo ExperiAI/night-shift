@@ -53,7 +53,7 @@ test('a room commission that fails gets one fresh take from the cron, never a "c
 });
 
 test('the room reaches every door: API body, MCP tool, the list endpoint with the score, the room endpoint behind the internal header', () => {
-  assert.match(read('../api/commission.ts'), /body\.room\)/);
+  assert.match(read('../api/commission.ts'), /body\.room[,)]/); // the room reaches the desk, wherever it sits in the argument list
   assert.match(read('../api/mcp.ts'), /room: z\.string\(\)\.max\(32\)\.optional\(\)/);
   const list = read('../api/commission.ts');
   assert.match(list, /validateRoomCode\(req\.query\.room\)/); assert.match(list, /score: SCORE/); assert.match(list, /c\.room === room && c\.status !== 'declined'/);

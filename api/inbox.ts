@@ -6,7 +6,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { chatJSON } from './_lib/openrouter.js';
 import { instagramAccount, listComments, listMessages, replyToComment, sendMessage, commentOnPost, notifyOwner } from './_lib/zernio.js';
-import { loadInboxState, saveInboxState, all, load, save } from './_lib/store.js';
+import { loadInboxState, saveInboxState, all, load, save, type Commission } from './_lib/store.js';
 import { ORIGIN } from './_lib/origin.js';
 import { cancel, burn, isHeld, awaitYes } from './_lib/desk.js';
 import type { Receipt } from './_lib/desk.js';
@@ -16,7 +16,7 @@ import { sendOnce } from './_lib/outbound.js';
 export const config = { maxDuration: 300 };
 
 /** Commission through the public API, as any agent does. Throws with the API's own words on 4xx. */
-async function commissionViaApi(body: { text: string; from: string; photo?: string; anonymous?: boolean }): Promise<Receipt> {
+async function commissionViaApi(body: { text: string; from: string; photo?: string; anonymous?: boolean; source?: Commission['source'] }): Promise<Receipt> {
   const r = await fetch(`${ORIGIN}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-night-shift-internal': process.env.CRON_SECRET ?? '' }, body: JSON.stringify(body) });
   const j: any = await r.json().catch(() => ({}));
   if (!r.ok) {
@@ -151,7 +151,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // Credit rule (2026-09-05): a comment was asked in public, so the caption credits and mentions
           // the handle; a DM is private, so it is credited anonymously (Zernio also gives DMs a display
           // name, not a handle). `from` still keys the per-sender limit either way.
-          const receipt = await commissionViaApi({ text: r.commission, from: it.kind === 'comment' ? `@${it.handle}` : it.handle, anonymous: it.kind === 'dm', ...(it.photo ? { photo: it.photo } : {}) });
+          // The source travels WITH the commission, so the desk writes it into the document it creates.
+          // It used to be added here afterwards, with a load/save — and the desk kicks a painter before it
+          // answers, so that painter saved over it every time (2026-09-06 to 2026-09-09: every Instagram
+          // commission lost its thread, and with it the reply carrying the link).
+          const source: Commission['source'] = { channel: it.kind === 'dm' ? 'instagram-dm' : 'instagram-comment', handle: it.handle, ...it.ref };
+          const receipt = await commissionViaApi({ text: r.commission, from: it.kind === 'comment' ? `@${it.handle}` : it.handle, anonymous: it.kind === 'dm', source, ...(it.photo ? { photo: it.photo } : {}) });
           about = await load(receipt.id);
           // A private disclosure is not painted on silence (issue #18): the DM hold waits for a yes, and the receipt says so.
           const waitForYes = it.kind === 'dm' && receipt.status === 'queued' && Boolean(about?.holdUntil);
@@ -159,7 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           text = replyFor(r, receipt);
           if (receipt.status === 'queued') {
             igCommissionsToday++; commissionId = receipt.id;
-            if (about) { about.source = { channel: it.kind === 'dm' ? 'instagram-dm' : 'instagram-comment', handle: it.handle, ...it.ref }; if (waitForYes) awaitYes(about); await save(about); }
+            if (about && waitForYes) { awaitYes(about); await save(about); } // safe to write: a held commission is never kicked, so no painter is racing this
           }
         } catch (e: any) { text = replyFor(r, null, e.internal ? DESK_CLOSED : String(e.message).slice(0, 300)); }
       }

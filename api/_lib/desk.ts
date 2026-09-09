@@ -124,6 +124,26 @@ export function needsDepartures(text: string, take: Pick<Take, 'accepted' | 'dep
   return Boolean(take.core_conflict) || ASKS_FOR_A_PERSON.test(text) || (exception !== 'lettering' && ASKS_FOR_WORDS.test(text));
 }
 /** The exception is the studio's alone: it is read only when the desk was called from inside (issue #17). */
+/** Where an Instagram commission came from, kept on the record from the moment it is created.
+ *  The studio's alone, like the exception: a public caller cannot claim to be a DM thread.
+ *
+ *  It is set HERE, and not by the inbox after the receipt, because the desk kicks a painter before it
+ *  answers (kickPainter, below). Between 2026-09-06 and 2026-09-09 the inbox did `load` → set source →
+ *  `save`, and the painter — already at work on its own copy — saved over it minutes later. Every
+ *  Instagram commission since the kick shipped lost its source, and with it the reply carrying the
+ *  link, the credit offer, and any way for "stop", "burn" or "where is it?" in that thread to find the
+ *  painting. Diego, whose own DM commission was one of them: "it seems like the AI is not aware of it". */
+export function validateSource(raw: unknown, ip: string | null): Commission['source'] | undefined {
+  if (ip !== INTERNAL || !raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  if (r.channel !== 'instagram-comment' && r.channel !== 'instagram-dm') return undefined;
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : undefined);
+  const handle = str(r.handle) ?? 'someone';
+  const ref = { postId: str(r.postId), commentId: str(r.commentId), conversationId: str(r.conversationId) };
+  if (r.channel === 'instagram-dm' ? !ref.conversationId : !(ref.postId && ref.commentId)) return undefined; // a source that cannot be answered is not one
+  return { channel: r.channel, handle, ...(ref.postId ? { postId: ref.postId } : {}), ...(ref.commentId ? { commentId: ref.commentId } : {}), ...(ref.conversationId ? { conversationId: ref.conversationId } : {}) };
+}
+
 export function validateException(raw: unknown, ip: string | null): Exception | undefined {
   if (raw == null || raw === '' || ip !== INTERNAL) return undefined;
   if (!EXCEPTIONS.includes(raw as Exception)) throw Object.assign(new Error(`exception must be one of: ${EXCEPTIONS.join(', ')}`), { status: 400 });
@@ -229,10 +249,11 @@ export function validateRegister(raw: unknown): Register | null {
   return r;
 }
 
-export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null, registerRaw?: unknown, exceptionRaw?: unknown, roomRaw?: unknown): Promise<Receipt> {
+export async function receive(textRaw: unknown, fromRaw: unknown, origin: string, photoRaw?: unknown, anonymousRaw?: unknown, ip: string | null = null, registerRaw?: unknown, exceptionRaw?: unknown, roomRaw?: unknown, sourceRaw?: unknown): Promise<Receipt> {
   const anonymous = anonymousRaw === true || anonymousRaw === 'true';
   const roomCode = validateRoomCode(roomRaw);
   const exception = validateException(exceptionRaw, ip);
+  const source = validateSource(sourceRaw, ip);
   const photoUrl = validatePhotoUrl(photoRaw);
   const text = String(textRaw ?? '').trim().slice(0, MAX_TEXT) || (photoUrl ? 'this place, after everyone left' : '');
   const from = fromRaw ? String(fromRaw).trim().slice(0, 80) : null;
@@ -289,7 +310,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const key = newKey();
   const c: Commission = {
     id, text, from, created: new Date().toISOString(), keyHash: hashKey(key),
-    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}), ...(holdUntil ? { holdUntil } : {}), ...(exception ? { exception } : {}), ...(roomCode ? { room: roomCode } : {}),
+    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}), ...(holdUntil ? { holdUntil } : {}), ...(exception ? { exception } : {}), ...(roomCode ? { room: roomCode } : {}), ...(source ? { source } : {}),
   };
   await save(c);
   if (c.status === 'queued' && !holdUntil) await kickPainter(c.id).catch(() => null); // the painter starts now, not at the next cron (kick.ts); a held commission waits for its window

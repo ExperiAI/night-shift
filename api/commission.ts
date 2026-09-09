@@ -13,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
       const internal = Boolean(process.env.CRON_SECRET) && req.headers['x-night-shift-internal'] === process.env.CRON_SECRET; // the inbox, from our own function
       const ip = internal ? INTERNAL : (String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || null);
-      return res.status(202).json(await receive(body.text, body.from, ORIGIN, body.photo, body.anonymous, ip, body.register, internal ? body.exception : undefined, body.room)); // the exception is the studio's alone (#17)
+      return res.status(202).json(await receive(body.text, body.from, ORIGIN, body.photo, body.anonymous, ip, body.register, internal ? body.exception : undefined, body.room, internal ? body.source : undefined)); // the exception and the Instagram source are the studio's alone (#17)
     }
     if (req.method === 'GET') {
       const room = validateRoomCode(req.query.room);
