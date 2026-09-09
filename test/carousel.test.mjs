@@ -51,3 +51,11 @@ test('publish drops the extra slide before it drops the painting', () => {
   assert.match(src, /sentMedia = \{ video: sentMedia\.video, cover: sentMedia\.cover \}/);
 });
 import { readFileSync } from 'node:fs';
+
+// The change of shape moves the permalink from /reel/ to /p/, and anything that recognised our own work
+// by its URL stops seeing it. /api/status's insights list did exactly that.
+test('nothing recognises a painting by the shape of its permalink', () => {
+  const src = readFileSync(new URL('../api/status.ts', import.meta.url), 'utf8');
+  assert.match(src, /c\.postedAs \? c\.postedAs !== 'stills' :/, 'the recorded shape decides, not the URL');
+  assert.match(src, /postedAs: last\.postedAs/, 'and the operator surface says which shape went up');
+});

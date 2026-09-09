@@ -42,7 +42,10 @@ test('every posted Reel carries what Instagram reported for it, on /api/status a
   assert.match(zernio, /igReelsAvgWatchTime/, 'watch time is the retention the opening A/B was read by hand for');
   assert.match(zernio, /reelsSkipRate/);
   const status = readFileSync(new URL('../api/status.ts', import.meta.url), 'utf8');
-  assert.match(status, /reels: posted\.filter\(c => c\.film && c\.mediaId && \/\\\/reel\\\/\/\.test/, 'only Reels: a backfilled film on a still post is not one');
+  // Still "only posts that carried the film" — a backfilled film on a still post is not one — but read
+  // from the recorded shape, because a carousel lands on /p/ and the URL test would drop every new post.
+  assert.match(status, /c\.postedAs \? c\.postedAs !== 'stills' :/, 'the recorded shape decides');
+  assert.match(status, /\/\\\/reel\\\/\/\.test\(c\.instagram/, 'and the permalink still answers for records written before that field');
   assert.match(status, /held: i\.held/);
   const critic = readFileSync(new URL('../api/critic.ts', import.meta.url), 'utf8');
   assert.match(critic, /On Instagram so far: \$\{ins\.views\} views/, 'the critic sees the audience numbers beside each painting');

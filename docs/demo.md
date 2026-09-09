@@ -78,6 +78,12 @@ a real person commissions goes to both. The studio's own plumbing (`test`, `smok
 reaches neither — until 2026-09-09 the room wall was the one surface that did not filter it, which read
 exactly like the two being out of sync.
 
+**A painting posts as a carousel**: slide one is the film, slide two is the painting, still, so it can
+be looked at rather than only watched (Diego, 2026-09-09). That makes the post a carousel rather than a
+Reel — it lands on `/p/`, not `/reel/` — and if Instagram ever refuses the extra slide the film goes up
+alone rather than nothing. `/api/status` → `lastPosted.postedAs` says which shape actually went up:
+`film+still`, `film`, or `stills`.
+
 **The gap is timing, and there is a reason for it.** A painting is on the wall about a minute after it
 is sent. It goes to Instagram **half an hour after the canvas exists** (`BURN_WINDOW_MS` in
 `api/paint.ts`), and the person who commissioned it can stop that from their own page in the meantime —
