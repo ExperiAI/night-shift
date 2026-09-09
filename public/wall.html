@@ -34,14 +34,17 @@
   #queue li{font-family:var(--mono);font-size:clamp(13px,1.15vw,20px);line-height:1.4;color:var(--ink);padding-left:1.2em;position:relative;transform:translateX(-40px);opacity:0;animation:arrive 1.1s cubic-bezier(.2,.7,.2,1) forwards}
   #queue li::before{content:'';position:absolute;left:0;top:.55em;width:.5em;height:.5em;border-radius:50%;background:var(--amber)}
   #queue li small{display:block;color:var(--dim);font-size:.82em;margin-top:.15em}
+  #queue li .who{font-style:normal;color:var(--ink)}
+  #queue li .who:not(:empty)::after{content:' · '}
   #queue li.next::before{box-shadow:0 0 0 .3em rgba(233,162,59,.18)}
   #queue li.done::before{background:var(--dim)}
   #queue li.done small{color:var(--amber)}
-  /* Which sentence is on the wall RIGHT NOW: the one thing a sender scans the list for. */
+  /* Which sentence is on the wall RIGHT NOW, said with light and nothing else (Diego, 2026-09-09:
+     "I just want a visual indication, no additional text"): the bar, the lit dot, and full brightness
+     while every other row is dimmed by the reveal. */
   #queue li.playing{color:var(--ink);border-left:2px solid var(--amber);padding-left:1.4em;margin-left:-.2em}
   #queue li.playing::before{background:var(--amber);box-shadow:0 0 0 .4em rgba(233,162,59,.25)}
   #queue li.playing small{color:var(--amber)}
-  #queue li.playing small::after{content:' — on the wall now'}
   #wall.revealing #queue li.playing{opacity:1}
   @keyframes arrive{to{transform:none;opacity:1}}
 
@@ -151,10 +154,13 @@ function stateLine(c) {
   if (c.status === 'painting') return 'Painting it now.';
   return c.note || 'Painting it.';
 }
+/** Who sent it, when they chose to give a name. A blank name on the send page means `anonymous`, and the
+ *  desk withholds `from` entirely for those — so this shows a name only where someone shared one. */
+const senderOf = c => (c.from && !c.studio ? String(c.from).trim().slice(0, 28) : '');
 function arrive(c) {
   const li = document.createElement('li');
   const words = c.commission ? (c.line || cut(c.commission, (SCORE && SCORE.sentence.maxChars) || 90)) : 'a sentence, sent privately';
-  li.innerHTML = `${esc(words)}<small></small>`;
+  li.innerHTML = `${esc(words)}<small><i class="who"></i><span class="what"></span></small>`;
   li.dataset.id = c.id;
   $('queue').prepend(li);
   update(c);
@@ -165,9 +171,10 @@ function arrive(c) {
 function update(c) {
   const li = [...$('queue').children].find(l => l.dataset.id === c.id);
   if (!li) return;
-  const small = li.querySelector('small');
-  const line = stateLine(c);
-  if (small.textContent !== line) small.textContent = line;
+  const who = senderOf(c), line = stateLine(c);
+  const w = li.querySelector('.who'), t = li.querySelector('.what');
+  if (w.textContent !== who) w.textContent = who;
+  if (t.textContent !== line) t.textContent = line;
   li.classList.toggle('done', c.status === 'painted' || c.status === 'posted');
 }
 function markNext() { for (const li of $('queue').children) li.classList.toggle('next', toReveal[0] && li.dataset.id === toReveal[0].id); }
