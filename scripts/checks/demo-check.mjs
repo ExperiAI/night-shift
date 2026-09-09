@@ -28,7 +28,7 @@ if (start) { await start.click().catch(() => {}); }
 
 const shots = [];
 let sawReveal = false, titles = new Set();
-for (let i = 0; i < 15; i++) {
+for (let i = 0; i < (Number(process.argv[3]) || 15); i++) {
   await page.waitForTimeout(3000);
   const s = await page.evaluate(() => {
     const t = document.getElementById('title');
@@ -37,10 +37,14 @@ for (let i = 0; i < 15; i++) {
       title: t ? (t.textContent || '').trim().slice(0, 60) : null,
       titleShown: t ? Number(t.style.opacity || 0) : 0,
       audio: (typeof audio !== 'undefined' && audio.el) ? { t: +audio.el.currentTime.toFixed(1), paused: audio.el.paused } : null,
+      // The list is what a sender looks for: their own sentence, and what became of it.
+      queue: [...document.querySelectorAll('#queue li')].map(li => `${li.firstChild.textContent.trim().slice(0, 34)} :: ${(li.querySelector('small')||{}).textContent || ''}`),
+      qrLit: (() => { const q = document.getElementById('qr'); return q ? getComputedStyle(q).opacity : null; })(),
     };
   }).catch(e => ({ evalError: String(e.message).slice(0, 100) }));
   const at = ((i + 1) * 3).toFixed(0) + 's';
-  console.log(at, JSON.stringify(s));
+  console.log(at, 'playing=' + (s.playing || '-'), '| qr opacity', s.qrLit, '| list:');
+  for (const q of (s.queue || [])) console.log('        ', q);
   if (s.playing) sawReveal = true;
   if (s.title && s.titleShown > 0.5) titles.add(s.title);
   if ([3, 6, 11].includes(i)) { const p = `${out}/demo-${at}.png`; await page.screenshot({ path: p }); shots.push(p); }

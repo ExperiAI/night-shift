@@ -56,6 +56,18 @@ live, trigger it by hand:
 
     curl -H "Authorization: Bearer $CRON_SECRET" https://nightshift.experiai.com/api/inbox
 
+## Two things about the send page
+
+**The photo field opens the phone's own picker** — take a photo, or choose one already on the roll.
+(It used to carry `capture="environment"`, which on iOS and Android skips the picker and opens the
+camera only; dropped 2026-09-09.) The page shrinks the image in the browser before sending, so a big
+iPhone photo is fine.
+
+**The per-sender cap is keyed on the NAME someone types**, three a day. Leaving the name blank is
+anonymous and **not** capped per sender, so a room where most people skip the name has only the room's
+own cap to worry about. If one person sends four under the same name, the fourth gets a sentence back
+telling them to come back tomorrow.
+
 ## If something stalls
 
 **A sentence arrives on the wall and never reveals.** The gatekeeper sometimes decides a commission is a
