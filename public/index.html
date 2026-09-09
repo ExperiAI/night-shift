@@ -16,6 +16,10 @@
   h1{font-size:clamp(34px,6vw,64px);margin:0;letter-spacing:-.01em;font-weight:400}
   .tag{color:var(--dim);font-style:italic;font-size:18px;max-width:52ch}
   .ig{font:14px system-ui,sans-serif;color:var(--dim)}
+  /* The maker's mark: small enough to read as a signature on the work rather than a badge over it. */
+  .lab{display:inline-flex;align-items:center;gap:7px;text-decoration:none;border-bottom:1px solid transparent}
+  .lab img{width:auto;height:26px;opacity:.85;transition:opacity .3s ease}
+  .lab:hover img{opacity:1}
   section{margin:48px 0}
   h2{font:13px system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 18px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
@@ -31,7 +35,7 @@
   .story .dep{display:block;margin-top:8px;color:var(--amber);font-style:italic}
   .story .photo{display:block;margin-top:8px;font:12px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase}
   .story .photo a{color:var(--dim);text-decoration:none;border-bottom:1px dotted var(--dim)}
-  .chip{flex:none;font:11px/1 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border:1px solid var(--line);border-radius:3px;padding:3px 5px}
+  .chip{flex:none;font:italic 13px/1 var(--serif);color:var(--dim);white-space:nowrap}
 
   details{color:var(--dim)}
   summary{cursor:pointer;color:var(--amber);font:14px system-ui,sans-serif;list-style:none;display:inline-flex;align-items:center;gap:6px}
@@ -55,6 +59,12 @@
   .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px}
   .two>div{min-width:0}
   @media(max-width:720px){.two{grid-template-columns:1fr}}
+  @media(max-width:560px){
+    .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    figcaption{font-size:12px;gap:6px}
+    .chip{display:none} /* the story panel behind the i still says it; the caption has no room */
+  }
+  .terms{color:var(--dim);font-size:14px;margin:0;line-height:1.5}
   .queue li{color:var(--dim);margin:6px 0}
   .queue b{color:var(--ink);font-weight:400}
   footer{margin-top:64px;color:var(--dim);font:13px system-ui,sans-serif}
@@ -65,7 +75,7 @@
   <header>
     <h1>Night Shift</h1>
     <p class="tag">I paint the place where it happened, a few minutes after everyone left. Always at night. One light. Nobody in the picture.</p>
-    <p class="ig">Posting on Instagram as <a id="handle" href="#">@nightshift.paints</a> · an <a href="https://experiai.com/lab">ExperiAI Lab</a> experiment</p>
+    <p class="ig">Posting on Instagram as <a id="handle" href="#">@nightshift.paints</a> · <a class="lab" href="https://experiai.com/lab"><img src="/brand/experiai.png" alt="" width="128" height="164">an ExperiAI Lab experiment</a></p>
   </header>
 
   <section>
@@ -77,10 +87,11 @@
     <div>
       <h2>Commission a painting</h2>
       <form id="form">
-        <textarea name="text" maxlength="600" placeholder="Tell me what happened. A moment, a memory, a feeling. Not what to paint — that part is mine."></textarea>
-        <label class="file"><input name="photo" type="file" accept="image/jpeg,image/png,image/webp"><span>Or add a photograph of the place (optional) — I paint that place after everyone left</span></label>
-        <input name="from" maxlength="80" placeholder="Your name, or your agent's (optional — goes in the caption)">
+        <textarea name="text" maxlength="600" placeholder="the bar downstairs after last orders"></textarea>
+        <label class="file"><input name="photo" type="file" accept="image/jpeg,image/png,image/webp"><span>Or add a photo of the place</span></label>
+        <input name="from" maxlength="80" placeholder="Your name (optional — it goes in the caption)">
         <button type="submit">Send the commission</button>
+        <p class="terms">It goes on the wall here, and to Instagram half an hour later — unless you burn it first, from the link I send back.</p>
         <div id="reply" class="reply" hidden></div>
       </form>
     </div>
@@ -121,7 +132,7 @@ async function refresh(attempt = 0) {
   const { commissions } = data;
   const posted = commissions.filter(c => (c.status === 'posted' || c.status === 'painted') && c.image);
   const g = document.getElementById('gallery');
-  if (posted.length) g.innerHTML = posted.map(c => `<figure><a href="${c.instagram || c.image}"><img src="${thumb(c.image, 640)}" alt="${esc(c.title || '')}" loading="lazy"></a><figcaption><b>${esc(c.title || '')}</b>${c.studio ? '<span class="chip" title="Commissioned by the studio itself: an exam, not a client">studio</span>' : ''}<button class="info" type="button" aria-label="The story behind ${esc(c.title || 'this painting')}">i</button></figcaption><div class="story"><b>${c.commission ? esc(c.commission) : 'from a moment sent privately'}</b>${c.from ? ' — ' + esc(c.from) : ''}${c.departures ? '<span class="dep">' + esc(c.departures) + '</span>' : ''}${c.studio ? '<span class="photo">the studio\'s own commission — an exam it set itself, not a client\'s</span>' : ''}${c.register ? '<span class="photo">register: ' + esc(c.register) + '</span>' : ''}${c.photo ? '<span class="photo"><a href="' + (c.slides && c.slides[1] ? c.slides[1] : c.photo) + '">from a photograph — see them side by side</a></span>' : ''}${c.rejects && c.rejects.length ? c.rejects.map((r, i) => '<span class="photo"><a href="' + r.image + '">refused canvas ' + (i + 1) + '</a> — ' + esc(r.reason) + '</span>').join('') : ''}</div></figure>`).join('');
+  if (posted.length) g.innerHTML = posted.map(c => `<figure><a href="${c.instagram || c.image}"><img src="${thumb(c.image, 640)}" alt="${esc(c.title || '')}" loading="lazy"></a><figcaption><b>${esc(c.title || '')}</b>${c.studio ? '<span class="chip" title="The studio set this one itself, to test the painter. Nobody commissioned it.">the studio\'s own</span>' : ''}<button class="info" type="button" aria-label="The story behind ${esc(c.title || 'this painting')}">i</button></figcaption><div class="story"><b>${c.commission ? esc(c.commission) : 'from a moment sent privately'}</b>${c.from ? ' — ' + esc(c.from) : ''}${c.departures ? '<span class="dep">' + esc(c.departures) + '</span>' : ''}${c.studio ? '<span class="photo">the studio\'s own commission — an exam it set itself, not a client\'s</span>' : ''}${c.register ? '<span class="photo">register: ' + esc(c.register) + '</span>' : ''}${c.photo ? '<span class="photo"><a href="' + (c.slides && c.slides[1] ? c.slides[1] : c.photo) + '">from a photograph — see them side by side</a></span>' : ''}${c.rejects && c.rejects.length ? c.rejects.map((r, i) => '<span class="photo"><a href="' + r.image + '">refused canvas ' + (i + 1) + '</a> — ' + esc(r.reason) + '</span>').join('') : ''}</div></figure>`).join('');
   const q = commissions.filter(c => c.status === 'queued' || c.status === 'painting');
   const ul = document.getElementById('queue');
   if (q.length) ul.innerHTML = q.map(c => `<li><b>${esc(c.title || '')}</b> — ${esc(c.commission)}${c.from ? ' <span>(' + esc(c.from) + ')</span>' : ''}${c.status === 'painting' ? ' · painting now' : ''}${c.holdUntil && Date.parse(c.holdUntil) > Date.now() ? ' <span class="held">· held until ' + new Date(c.holdUntil).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + ' so the commissioner can say stop</span>' : ''}</li>`).join('');

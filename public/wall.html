@@ -20,13 +20,18 @@
   /* The reveal quiets the door, but NOT the QR — it is the one control in the room and someone walking
      in mid-reveal has to be able to scan it. Opacity composites, so a child cannot undo a dimmed
      parent: the siblings dim, the code does not (Diego, 2026-09-09: "a bit darker than the rest"). */
-  #wall.revealing #ask,#wall.revealing #room,#wall.revealing #queue li:not(.playing){opacity:.28}
+  #wall.revealing #ask,#wall.revealing #room,#wall.revealing #lab,#wall.revealing #queue li:not(.playing){opacity:.28}
   #queue li{transition:opacity 1.2s ease}
-  #ask,#room,#queue{transition:opacity 1.2s ease}
-  #ask{font-size:clamp(28px,4.2vw,64px);line-height:1.08;margin:0;max-width:14ch;font-weight:400}
+  #ask,#room,#queue,#lab{transition:opacity 1.2s ease}
+  #ask{font-size:clamp(28px,4.2vw,64px);line-height:1.06;margin:0;font-weight:400}
   #qr{width:min(34vh,26vw);aspect-ratio:1;background:#fff;padding:3%;border-radius:4px}
   #qr img,#qr canvas{width:100%!important;height:100%!important;display:block}
   #room{color:var(--dim);font-family:var(--mono);font-size:clamp(12px,1.1vw,18px);margin:0}
+  /* Whose room this is, at the foot of the door: the mark plus the name in the wall's own type, because
+     the lockup's wordmark is dark navy and would disappear on this ground. Quiet enough that a person
+     reads the paintings first and the maker second. */
+  #lab{display:flex;align-items:center;gap:.6em;margin:.6vh 0 0;color:var(--dim);font-family:var(--mono);font-size:clamp(12px,1.05vw,18px)}
+  #lab img{width:auto;height:clamp(30px,3.8vh,52px)}
   /* A list of PAINTINGS, so every row carries the painting (Diego, 2026-09-09: "the way we're showing
      the list of painting requests is terrible - rethink it"). It was a wall of mono text next to a wall
      of pictures; nobody scanning it could tell which sentence had become what. Each row is now a tile of
@@ -120,10 +125,11 @@
 <div id="start"><b>Night Shift</b><span id="startline">Tap to start the wall</span></div>
 <div id="wall">
   <section id="door">
-    <h1 id="ask">Send one sentence about tonight.</h1>
+    <h1 id="ask">Name a place.<br>Get a painting of it.</h1>
     <div id="qr" aria-label="QR code to the send page"></div>
     <p id="room"></p>
     <ul id="queue"></ul>
+    <p id="lab"><img src="/brand/experiai.png" alt=""><span>ExperiAI Lab</span></p>
   </section>
   <div id="frame">
     <div id="fill"></div>
@@ -179,7 +185,7 @@ if (params.get('start') === '1') { $('start').classList.add('gone'); tick(); } /
 // ---- the door: QR and arrivals ----
 function drawQr(url) { $('qr').innerHTML = ''; new QRCode($('qr'), { text: url, width: 512, height: 512, correctLevel: QRCode.CorrectLevel.M, colorDark: '#0b1517', colorLight: '#ffffff' }); }
 if (ROOM) drawQr(`${origin}/send?room=${encodeURIComponent(ROOM)}`); else drawQr(`${origin}/`);
-if (DEMO) { $('ask').textContent = 'Send one sentence about tonight.'; $('room').textContent = 'demo: tonight’s paintings, arriving again'; }
+if (DEMO) { $('ask').innerHTML = 'Name a place.<br>Get a painting of it.'; $('room').textContent = 'demo: tonight’s paintings, arriving again'; }
 
 /** What the sender sees happen to their own sentence. It stays on the list after it is painted — the
  *  list used to drop an entry the moment its reveal played, so a room of people watched their sentences

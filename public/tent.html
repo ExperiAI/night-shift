@@ -13,14 +13,25 @@
   *{box-sizing:border-box}
   html,body{margin:0;background:#444}
   .sheet{width:210mm;height:297mm;margin:0 auto;background:#fff;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
-  .card{border:.25mm dashed #bbb;padding:12mm 11mm;display:flex;flex-direction:column;justify-content:space-between;color:#0b1517;font:11pt/1.4 'Instrument Serif',Georgia,serif;position:relative}
+  .card{border:.25mm dashed #bbb;padding:12mm 11mm;display:flex;flex-direction:column;color:#0b1517;font:11pt/1.4 'Instrument Serif',Georgia,serif;position:relative}
   .card h1{font:400 26pt/1 'Instrument Serif',Georgia,serif;margin:0 0 3mm}
   .card p{margin:0 0 3mm}
   .card .rule{font:9pt/1.45 'IBM Plex Mono',ui-monospace,monospace;color:#3a4a4c}
-  .card .qr{width:34mm;height:34mm}
+  .card .qr{width:32mm;height:32mm;flex:none}
   .card .qr img,.card .qr canvas{width:100%!important;height:100%!important}
-  .card .foot{display:flex;align-items:flex-end;justify-content:space-between;gap:6mm}
-  .card .url{font:8pt 'IBM Plex Mono',ui-monospace,monospace;color:#3a4a4c;max-width:36mm;word-break:break-all}
+  .card .lede{font:400 13pt/1.25 'Instrument Serif',Georgia,serif;margin:0 0 3mm}
+  /* The QR belongs beside the sentence that tells you to scan it, not marooned under 40mm of nothing. */
+  .card .scan{display:flex;align-items:center;gap:5mm;margin-top:7mm}
+  /* One deliberate space, at the bottom, instead of a void above and below the QR. */
+  .card .foot{margin-top:auto}
+  .card .scanwords{min-width:0;display:flex;flex-direction:column;gap:1.5mm}
+  .card .scanwords b{font:400 11pt/1.2 'Instrument Serif',Georgia,serif}
+  .card .foot{display:flex;align-items:flex-end;justify-content:space-between;gap:5mm;padding-top:8mm}
+  .card .small{font-size:7.5pt;line-height:1.45;max-width:58mm}
+  .card .lab{display:flex;flex-direction:column;align-items:center;gap:1mm;flex:none;font:7pt 'IBM Plex Mono',ui-monospace,monospace;color:#3a4a4c;text-align:center}
+  .card .lab img{width:auto;height:9mm}
+  /* Breaks at the slash, never mid-word: "nightshift.experiai.c / om" was on every printed card. */
+  .card .url{font:7.5pt/1.35 'IBM Plex Mono',ui-monospace,monospace;color:#3a4a4c;word-break:normal;overflow-wrap:anywhere}
   .card .mark{position:absolute;right:11mm;top:11mm;width:7mm;height:7mm;border-radius:50%;background:#e9a23b}
   #help{position:fixed;left:0;right:0;bottom:0;background:#0b1517;color:#8fa3a3;font:13px ui-monospace,monospace;padding:10px 16px;text-align:center}
   @media print{#help{display:none}html,body{background:#fff}.sheet{margin:0}}
@@ -33,13 +44,15 @@
 const params = new URLSearchParams(location.search);
 const ROOM = (params.get('room') || '').toLowerCase();
 const url = ROOM ? `${location.origin}/send?room=${encodeURIComponent(ROOM)}` : `${location.origin}/`;
-const shown = url.replace(/^https?:\/\//, '');
+const shown = url.replace(/^https?:\/\//, '').replace(/\//g, '/\u200b');
 const card = `<div class="card"><span class="mark"></span><div>
   <h1>Night Shift</h1>
-  <p>Send one sentence about tonight, or a photo of where you sit.</p>
-  <p class="rule">It paints the place after you left. Never a face. It is an AI.</p>
-  <p class="rule">The painting goes up on the wall in a few minutes. Burn it from your phone at any time.</p>
-</div><div class="foot"><div class="qr"></div><div class="url">${shown}</div></div></div>`;
+  <p class="lede">Name a place. Get a painting of it.</p>
+  <p class="rule">An AI paints it as it looks at night, once everyone has gone. Never a face.</p>
+</div><div class="scan"><div class="qr"></div><div class="scanwords"><b>Scan to send a sentence</b><span class="url">${shown}</span></div></div><div class="foot">
+  <span class="rule small">It is on the wall in a couple of minutes, and on Instagram half an hour later — unless you burn it first, from your own phone.</span>
+  <span class="lab"><img src="/brand/experiai.png" alt=""><span>ExperiAI Lab</span></span>
+</div></div>`;
 document.getElementById('sheet').innerHTML = card + card + card + card;
 for (const q of document.querySelectorAll('.qr')) new QRCode(q, { text: url, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.M, colorDark: '#0b1517', colorLight: '#ffffff' });
 </script>

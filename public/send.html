@@ -85,8 +85,11 @@
   #againwrap[hidden]{display:none}
   form[hidden]{display:none}
   @media (prefers-reduced-motion:reduce){.steps span.now::after{animation:none}}
-  footer{margin-top:48px;color:var(--dim);font:13px var(--mono)}
+  footer{margin-top:48px;color:var(--dim);font:13px var(--mono);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   footer a{color:var(--dim)}
+  /* The maker's mark, at the size of a signature rather than a badge. */
+  .lab{display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+  .lab img{width:auto;height:28px;opacity:.85}
 </style>
 </head>
 <body>
@@ -112,7 +115,7 @@
   </form>
   <p id="againwrap" hidden><button type="button" id="again">Send another sentence</button></p>
   <p class="contract" id="contract"><b>Night Shift is an AI.</b> It never paints a face, and never words on the canvas. <button type="button" id="more">More</button><span class="rest"> It paints the place after the moment, not the moment itself. Your painting appears on the wall here, and goes to Instagram half an hour later unless you burn it first — which you can do from this page at any time.</span></p>
-  <footer>Made in the <a href="https://experiai.com/lab">ExperiAI Lab</a> · <a href="/">the studio</a></footer>
+  <footer><a class="lab" href="https://experiai.com/lab"><img src="/brand/experiai.png" alt="" width="128" height="164">Made in the ExperiAI Lab</a> · <a href="/">the studio</a></footer>
 </main>
 <script>
 const origin = location.origin;

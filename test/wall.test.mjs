@@ -38,7 +38,11 @@ test('the ticket keeps the receipt key in this browser only, polls until the fil
 test('the table card prints four A6 on one A4 with the contract and the room QR', () => {
   const t = page('tent.html');
   assert.match(t, /size:A4 portrait/); assert.match(t, /card \+ card \+ card \+ card/);
-  assert.match(t, /It is an AI\./); assert.match(t, /Never a face/);
+  // What the card owes someone who picks it up off a table, whatever the wording: that a machine paints
+  // it, the one thing it will not paint, where the painting ends up, and how to stop that.
+  assert.match(t, /\bAI\b/); assert.match(t, /Never a face/);
+  assert.match(t, /Instagram/, 'the card is where a stranger learns their painting gets published');
+  assert.match(t, /burn it/i, 'and that they can stop it');
   assert.match(t, /cdnjs\.cloudflare\.com\/ajax\/libs\/qrcodejs\/1\.0\.0/);
 });
 
@@ -72,4 +76,25 @@ test('a waiting row shows how far off it is as a level, and says only who asked'
   // Five to ten at once is the case it is for: every one of them has to fit and be findable.
   assert.match(w, /#queue\.dense/, 'the rows tighten rather than pushing the newest off the wall');
   assert.match(w, /children\.length > 6/);
+});
+
+// Diego, 2026-09-09: "ensure we have the ExperiAI branding represented — maybe find a place to add the
+// little ExperiAI logo somewhere." And the sibling problem this session kept finding: a line gets fixed
+// on the page someone complained about and left standing on the three pages nobody looked at.
+test('every page a person meets carries the mark, the same promise, and the same terms', () => {
+  for (const f of ['index.html', 'send.html', 'wall.html', 'tent.html']) {
+    assert.match(page(f), /brand\/experiai\.png/, `${f} has no maker's mark`);
+  }
+  // One promise, said the same way wherever it is made: the wall someone reads across a room, the card
+  // on their table, and the page behind the QR. The wall used to make a different one.
+  for (const f of ['wall.html', 'send.html', 'tent.html']) {
+    assert.match(page(f), /Get a painting of it/, `${f} makes a different promise`);
+  }
+  // And the same terms wherever a person can commission: it gets published, and they can stop that.
+  for (const f of ['index.html', 'send.html', 'tent.html']) {
+    assert.match(page(f), /half an hour/, `${f} does not say when it is published`);
+    assert.match(page(f), /burn it/i, `${f} does not say how to stop it`);
+  }
+  // The placeholder Diego called creepy on the send page had been sitting on the studio page too.
+  assert.doesNotMatch(page('index.html'), /Tell me what happened/, 'an instruction where an example belongs');
 });
