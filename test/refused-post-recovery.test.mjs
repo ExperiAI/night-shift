@@ -100,3 +100,13 @@ test('a retake keeps why the last attempt failed, so a requeue is never silent',
   assert.match(pre, /openrouter\.ai\/api\/v1\/credits/, 'the pre-flight reads the one number that decides whether anything can be painted');
   assert.match(pre, /NO-GO/);
 });
+
+test('the send endpoint outlives the gatekeeper retries it may need', () => {
+  const v = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+  const desk = readFileSync(new URL('../api/_lib/desk.ts', import.meta.url), 'utf8');
+  const asks = (desk.match(/await chatJSON<Take>\(/g) ?? []).length;
+  assert.ok(asks >= 4, `the desk may ask the gatekeeper ${asks} times`);
+  // ~19 s was the slowest single call measured (2026-09-09), and the repeat retries are likeliest in a
+  // full room — exactly when a demo is running.
+  assert.ok(v.functions['api/commission.ts'].maxDuration >= asks * 19, `maxDuration ${v.functions['api/commission.ts'].maxDuration}s must cover ${asks} asks`);
+});

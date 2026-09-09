@@ -29,7 +29,9 @@ test('the desk kicks after the record is saved, for queued work that is not held
   const p = src('api/paint.ts');
   assert.match(p, /req\.query\.id === 'string'/); assert.match(p, /fresh\.status !== 'queued' \|\| isHeld\(fresh\) \|\| dry/, 'a kicked id that is not queued any more is skipped, never painted twice');
   assert.match(p, /const claimed = await load\(c\.id\)/, 'the sweep re-reads before claiming');
-  assert.match(src('vercel.json'), /"api\/commission\.ts": \{ "maxDuration": 60 \}/, 'the desk has time for the gatekeeper and the kick');
+  // A floor, not a number: the desk may ask the gatekeeper up to four times (a repeat, a repeated trace,
+  // missing departures) and one ask measured 11-19 s, so 60 was the worst case, not headroom over it.
+  assert.ok(JSON.parse(src('vercel.json')).functions['api/commission.ts'].maxDuration >= 120, 'the desk has time for the gatekeeper and the kick');
 });
 
 test('the sweep leaves freshly kicked work alone and takes it after the grace; a dead painter\'s claim goes back once, then fails', () => {

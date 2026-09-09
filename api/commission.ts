@@ -6,6 +6,12 @@ import { ORIGIN } from './_lib/origin.js';
 import { validateRoomCode, loadRoom, publicRoom } from './_lib/room.js';
 import { SCORE } from './_lib/score.js';
 
+/** The desk answers a send, and answering means asking the gatekeeper: once, and again for a repeated
+ *  light-and-anchor, again for a repeated trace, again if the departures were missing (desk.ts). One call
+ *  measured 11-19 s on 2026-09-09, so the worst case is around a minute — and it is MOST likely in a full
+ *  room, because the repeat checks fire on what has already been painted that day. At maxDuration 60 that
+ *  send would have died at the ceiling with nothing saved and the person looking at an error. 120 in
+ *  vercel.json is the headroom; the number of calls is already bounded. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(204).setHeader('Access-Control-Allow-Methods', 'GET,POST').setHeader('Access-Control-Allow-Headers', 'Content-Type').end();
   try {
