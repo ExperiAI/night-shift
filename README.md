@@ -19,7 +19,7 @@ Open work is the repo's issues: #2 sketches, #3 style code,
 the feedback record, #13 live paths not yet fired. Decided 2026-09-05 night (issue #18, see "Credit"
 and "Never refuse" below): a DM's core-conflict canvas paints only on a **yes**; the studio never asks
 for a handle; its own commissions are marked **studio** on the wall; the letter exam sits itself under
-the one **lettering exception** (#17). Tests: `npm test` (153). Deploy:
+the one **lettering exception** (#17). Tests: `npm test` (158). Deploy:
 `./scripts/deploy-prod.sh` — tests, deploys with a build id, then proves `/api/status` on the domain
 reports that build (an optional marker checks a page).
 
@@ -35,6 +35,13 @@ reports that build (an optional marker checks a page).
   1.2 kB `accountId`, so the stored error read `{"platform":"instagram","accountId":{...` and the sentence
   that would have ended it in a minute — *"Trial Reels require an Instagram account with 1,000+
   followers"* — sat unread for three days. `publishError()` pulls the reason out first.
+- **The desk kicks a painter before it answers, so nothing may edit a commission afterwards.** The
+  inbox used to add `source` with a `load` -> `save` after the receipt; that painter, already at work on
+  its own copy, saved over it. Every Instagram commission between 2026-09-06 and 2026-09-09 lost its
+  thread, and with it the reply carrying the link, the credit offer and any way for "stop" or "burn it"
+  in that conversation to find the painting. Anything that belongs on a commission goes in the body of
+  `POST /api/commission`, so the desk writes it once, before the kick. `scripts/relink.mjs` repairs the
+  stranded ones.
 - **A finished canvas is never `failed`.** That status is terminal; nothing retries it. Work whose canvas
   exists goes to `painted`, which the backlog posts (`statusAfterFailure`, `postBacklog`).
   `scripts/unstick.mjs` frees anything already stranded.
