@@ -1,63 +1,45 @@
-// Diego, 2026-09-09: "for the insta posts, can we have a carousel that first shows the video and the
-// second is the static painting img? There is no easy way currently to check out the painting as a
-// static image so you can appreciate the details." The film ends holding the painting, but a viewer
-// cannot stop it there — the work was only ever watchable, never lookable-at.
+// From 2026-09-09 a filmed painting posted as a carousel, the film and then the still, so the painting could
+// be studied. Diego, 2026-09-14, after it left the Reels tab (5 views against 10–117 for the Reels beside
+// it) and put a black tile on the grid (a carousel takes no cover): "go back to the reel, still in the
+// story". Issue #45. The still to study is the Story, which already went up after every post.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { postBody } from '../api/_lib/zernio.ts';
 import { mediaFor } from '../api/paint.ts';
 
 const body = (media, o = {}) => postBody(media, 'a caption', o, 'acct');
-const items = (media, o) => body(media, o).mediaItems;
 
-// Diego, 2026-09-14, from his phone: the film-first carousel's grid tile was a black square. A carousel
-// takes no cover, so the tile is slide one's first frame, and the film opens on black by design.
-test('a filmed painting posts as the painting to look at first, then the film', () => {
-  assert.deepEqual(mediaFor({ image: 'i', film: 'f' }), { video: 'f', cover: 'i', before: ['i'] });
-  assert.deepEqual(items({ video: 'f', cover: 'i', before: ['i'] }), [{ type: 'image', url: 'i' }, { type: 'video', url: 'f' }]);
+test('a filmed painting posts as a Reel with the painting as its cover, never a carousel', () => {
+  assert.deepEqual(mediaFor({ image: 'i', film: 'f' }), { video: 'f', cover: 'i' });
+  const b = body(mediaFor({ image: 'i', film: 'f' }), { trial: true });
+  assert.deepEqual(b.mediaItems, [{ type: 'video', url: 'f' }], 'one item: anything more is a carousel and leaves the Reels tab');
+  const d = b.platforms[0].platformSpecificData;
+  assert.equal(d.instagramThumbnail, 'i', 'the grid tile is the painting, not the film\'s black opening');
+  assert.equal(d.shareToFeed, true);
+  assert.equal(d.isAiGenerated, true, 'the honest flag belongs on any post of our own work');
+});
+
+test('the still to study goes up as the Story on both post paths', () => {
+  const src = readFileSync(new URL('../api/paint.ts', import.meta.url), 'utf8');
+  assert.match(src, /publishStory\(c\.image\)/);
+  assert.equal(src.match(/await alsoStory\(/g)?.length, 2);
 });
 
 test('a photo commission keeps its own comparison, and a painting with no film is still a single', () => {
   assert.deepEqual(mediaFor({ image: 'i', slides: ['i', 'p', 'q'], film: 'f' }), ['i', 'p', 'q']);
   assert.equal(mediaFor({ image: 'i' }), 'i');
-  assert.deepEqual(items('i'), [{ type: 'image', url: 'i' }]);
+  assert.deepEqual(body('i').mediaItems, [{ type: 'image', url: 'i' }]);
 });
 
-test('the AI flag rides the carousel too; the reel-only settings do not', () => {
-  const d = body({ video: 'f', cover: 'i', before: ['i'] }, { trial: true }).platforms[0].platformSpecificData;
-  assert.equal(d.isAiGenerated, true, 'the honest flag belongs on any post of our own work');
-  assert.equal(d.trialParams, undefined, 'a carousel is not a Reel and cannot be a trial one');
-  assert.equal(d.instagramThumbnail, undefined, 'the thumbnail is a Reel cover; a carousel has slides');
-});
-
-test('a plain Reel is unchanged — it is what a refused carousel falls back to', () => {
-  const b = body({ video: 'f', cover: 'i' }, { trial: true });
-  assert.deepEqual(b.mediaItems, [{ type: 'video', url: 'f' }]);
-  assert.equal(b.platforms[0].platformSpecificData.instagramThumbnail, 'i');
-  assert.equal(b.platforms[0].platformSpecificData.shareToFeed, true);
-});
-
-// A painting must never be lost to an ask Instagram will not take — the lesson of the trial reels. And
-// the fallback has to be visible: silently posting a Reel looks exactly like never having shipped this.
-test('the record says which shape Instagram actually took', () => {
-  const src = readFileSync(new URL('../api/_lib/zernio.ts', import.meta.url), 'utf8');
-  assert.match(src, /export type PostedAs = 'film\+still' \| 'film' \| 'stills'/);
-  assert.match(src, /postedAs = shapeOf\(sentMedia\)/, 'the shape that was SENT last, not the one first asked for');
+// The carousel week's records keep `postedAs: 'film+still'`, so the shape stays on the record and the
+// operator surface, and nothing recognises a painting by its permalink (those moved from /reel/ to /p/).
+test('the record says which shape went up, and nothing recognises a painting by its permalink', () => {
+  const zernio = readFileSync(new URL('../api/_lib/zernio.ts', import.meta.url), 'utf8');
+  assert.match(zernio, /export type PostedAs = 'film\+still' \| 'film' \| 'stills'/);
   assert.match(readFileSync(new URL('../api/paint.ts', import.meta.url), 'utf8'), /postedAs = post\.postedAs/);
   assert.match(readFileSync(new URL('../api/_lib/store.ts', import.meta.url), 'utf8'), /postedAs\?:/);
-});
-
-test('publish drops the extra slide before it drops the painting', () => {
-  const src = readFileSync(new URL('../api/_lib/zernio.ts', import.meta.url), 'utf8');
-  assert.match(src, /a\.kind === 'refused' && isFilmCarousel\(/, 'a refused carousel retries as the Reel');
-  assert.match(src, /sentMedia = \{ video: sentMedia\.video, cover: sentMedia\.cover \}/);
-});
-import { readFileSync } from 'node:fs';
-
-// The change of shape moves the permalink from /reel/ to /p/, and anything that recognised our own work
-// by its URL stops seeing it. /api/status's insights list did exactly that.
-test('nothing recognises a painting by the shape of its permalink', () => {
-  const src = readFileSync(new URL('../api/status.ts', import.meta.url), 'utf8');
-  assert.match(src, /c\.postedAs \? c\.postedAs !== 'stills' :/, 'the recorded shape decides, not the URL');
-  assert.match(src, /postedAs: last\.postedAs/, 'and the operator surface says which shape went up');
+  const status = readFileSync(new URL('../api/status.ts', import.meta.url), 'utf8');
+  assert.match(status, /c\.postedAs \? c\.postedAs !== 'stills' :/, 'the recorded shape decides, not the URL');
+  assert.match(status, /postedAs: last\.postedAs/);
 });
