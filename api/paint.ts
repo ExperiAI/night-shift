@@ -86,8 +86,8 @@ export function postBacklog<T extends { status: string; image?: string; instagra
 }
 
 /** What a painting posts as: a photo commission's carousel (it already carries the painting to look at,
- *  beside the photograph), else the film followed by the painting still, else the still alone. */
-export const mediaFor = (c: { image?: string; slides?: string[]; film?: string }) => c.slides ?? (c.film && c.image ? { video: c.film, cover: c.image, then: [c.image] } : c.image!);
+ *  beside the photograph), else the painting still followed by the film, else the still alone. */
+export const mediaFor = (c: { image?: string; slides?: string[]; film?: string }) => c.slides ?? (c.film && c.image ? { video: c.film, cover: c.image, before: [c.image] } : c.image!);
 import { isHeld, expiredHolds, cancel, retake } from './_lib/desk.js';
 import { photoSlide, pairSlide, signatureLayer, avoidLine } from './_lib/compose.js';
 import sharp from 'sharp';

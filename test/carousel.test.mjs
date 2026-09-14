@@ -10,9 +10,11 @@ import { mediaFor } from '../api/paint.ts';
 const body = (media, o = {}) => postBody(media, 'a caption', o, 'acct');
 const items = (media, o) => body(media, o).mediaItems;
 
-test('a filmed painting posts as the film first, then the painting to look at', () => {
-  assert.deepEqual(mediaFor({ image: 'i', film: 'f' }), { video: 'f', cover: 'i', then: ['i'] });
-  assert.deepEqual(items({ video: 'f', cover: 'i', then: ['i'] }), [{ type: 'video', url: 'f' }, { type: 'image', url: 'i' }]);
+// Diego, 2026-09-14, from his phone: the film-first carousel's grid tile was a black square. A carousel
+// takes no cover, so the tile is slide one's first frame, and the film opens on black by design.
+test('a filmed painting posts as the painting to look at first, then the film', () => {
+  assert.deepEqual(mediaFor({ image: 'i', film: 'f' }), { video: 'f', cover: 'i', before: ['i'] });
+  assert.deepEqual(items({ video: 'f', cover: 'i', before: ['i'] }), [{ type: 'image', url: 'i' }, { type: 'video', url: 'f' }]);
 });
 
 test('a photo commission keeps its own comparison, and a painting with no film is still a single', () => {
@@ -22,7 +24,7 @@ test('a photo commission keeps its own comparison, and a painting with no film i
 });
 
 test('the AI flag rides the carousel too; the reel-only settings do not', () => {
-  const d = body({ video: 'f', cover: 'i', then: ['i'] }, { trial: true }).platforms[0].platformSpecificData;
+  const d = body({ video: 'f', cover: 'i', before: ['i'] }, { trial: true }).platforms[0].platformSpecificData;
   assert.equal(d.isAiGenerated, true, 'the honest flag belongs on any post of our own work');
   assert.equal(d.trialParams, undefined, 'a carousel is not a Reel and cannot be a trial one');
   assert.equal(d.instagramThumbnail, undefined, 'the thumbnail is a Reel cover; a carousel has slides');

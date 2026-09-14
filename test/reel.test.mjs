@@ -22,9 +22,9 @@ test('a film posts as a Reel: one video item, the still as cover, the AI flag, s
 
 test('what a painting posts as: the photo comparison, else the film and the painting to look at, else the still', () => {
   assert.deepEqual(mediaFor({ image: 'i', slides: ['i', 'p', 'q'], film: 'f' }), ['i', 'p', 'q'], 'a photo commission keeps the comparison: a Reel cannot carry it');
-  // Slide two is the painting, still, so it can be looked at (Diego, 2026-09-09). test/carousel.test.mjs
-  // owns the rest of this behaviour, the Reel fallback included.
-  assert.deepEqual(mediaFor({ image: 'i', film: 'f' }), { video: 'f', cover: 'i', then: ['i'] });
+  // Slide one is the painting, still, so it can be looked at (Diego, 2026-09-09) and so the grid tile is not
+  // the film's black opening (2026-09-14). test/carousel.test.mjs owns the rest, the Reel fallback included.
+  assert.deepEqual(mediaFor({ image: 'i', film: 'f' }), { video: 'f', cover: 'i', before: ['i'] });
   assert.equal(mediaFor({ image: 'i' }), 'i');
 });
 

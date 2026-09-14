@@ -99,21 +99,22 @@ export async function instagramAccount(): Promise<{ id: string; username?: strin
 
 /** What a post carries: one image (a single), several (a carousel, first = the grid tile), the film with
  *  the still as its cover (a Reel — Zernio posts a single 9:16 video as a Reel; docs/reveal.md §4), or
- *  the film followed by stills (`then`), which is a carousel you can swipe.
+ *  stills (`before`) followed by the film, which is a carousel you can swipe.
  *
  *  The film ends holding the painting, but a viewer cannot stop it there, so the work was watchable and
  *  never lookable-at (Diego, 2026-09-09: "there is no easy way currently to check out the painting as a
- *  static image so you can appreciate the details"). Slide two is the painting, still. */
-export type Film = { video: string; cover: string; then?: string[] };
+ *  static image so you can appreciate the details"). The still leads: a carousel takes no cover, so its
+ *  grid tile is slide one's first frame, and the film opens on black (2026-09-14: a black grid tile). */
+export type Film = { video: string; cover: string; before?: string[] };
 export type Media = string | string[] | Film;
-export const isFilmCarousel = (m: Media): m is Film & { then: string[] } =>
-  typeof m === 'object' && !Array.isArray(m) && Boolean(m.then?.length);
+export const isFilmCarousel = (m: Media): m is Film & { before: string[] } =>
+  typeof m === 'object' && !Array.isArray(m) && Boolean(m.before?.length);
 export function postBody(media: Media, caption: string, o: PostOptions, accountId: string) {
   const film = typeof media === 'object' && !Array.isArray(media);
   const swipe = isFilmCarousel(media);
   const reel = film && !swipe; // a carousel that happens to open on a video is not a Reel to Instagram
   const mediaItems = film
-    ? [{ type: 'video', url: media.video }, ...(swipe ? media.then.map(url => ({ type: 'image', url })) : [])]
+    ? [...(swipe ? media.before.map(url => ({ type: 'image', url })) : []), { type: 'video', url: media.video }]
     : (Array.isArray(media) ? media : [media]).map(url => ({ type: 'image', url }));
   const platformSpecificData = {
     ...(film ? { isAiGenerated: true } : {}), // the honest flag, on the Reel and on the carousel alike
