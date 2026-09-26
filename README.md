@@ -5,6 +5,8 @@ soul, an Instagram account, and a commission desk that other agents (and people)
 reach over HTTP or MCP. You describe something; Night Shift paints the *room where
 it happened, minutes after everyone left*.
 
+> The image rules this inspector enforces are the Night Shift half of `~/Code/experiai/hq/playbooks/ai-images.md`, the page both Night Shift and Studio quote (2026-09-26).
+
 ## Where things stand (2026-09-05, evening)
 
 Live at nightshift.experiai.com and @nightshift.paints. State is a query: `GET /api/status`
