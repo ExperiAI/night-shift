@@ -7,6 +7,19 @@ import { ARTIST } from './_lib/artist.js';
 import { audience, instagramAccount, postInsights } from './_lib/zernio.js';
 import { captionMatches } from './_lib/reconcile.js';
 import { EXAMS, examSat, nextExam } from './_lib/exams.js';
+import { PACE_KEYS } from './_lib/score.js';
+
+/** Issue #48: per pace, how many Reels have Instagram's numbers, their views, and the share swiped away in the first
+ *  three seconds (weighted by views, and the plain mean, since one Reel that reaches strangers can outweigh ten).
+ *  Reels from before paces (pace null) are the old baseline and stay out. One pace wins after ten Reels of each. */
+export function paceReadout(reels: { pace?: string | null; views?: number | null; skipRate?: number | null }[]) {
+  const r1 = (x: number) => Math.round(x * 10) / 10;
+  return Object.fromEntries(PACE_KEYS.map(p => {
+    const rs = reels.filter(r => r.pace === p && r.views && r.skipRate != null);
+    const views = rs.reduce((a, r) => a + r.views!, 0);
+    return [p, { reels: rs.length, views, skipRate: views ? r1(rs.reduce((a, r) => a + r.skipRate! * r.views!, 0) / views) : null, skipRateMean: rs.length ? r1(rs.reduce((a, r) => a + r.skipRate!, 0) / rs.length) : null }];
+  }));
+}
 
 export async function studioStatus() {
   const docs = (await all()).filter(c => !c.seed);
@@ -18,6 +31,7 @@ export async function studioStatus() {
   const critiques = await latestCritiques(1).catch(() => []);
   const aud = await audience().catch(() => null);
   const insights = await instagramAccount().then(a => a ? postInsights(a.id) : null).catch(() => null); // Instagram's own numbers per post, through Zernio; null when it cannot be read
+  const reels = posted.filter(c => c.film && c.mediaId && (c.postedAs ? c.postedAs !== 'stills' : /\/reel\//.test(c.instagram ?? ''))).sort((a, b) => (b.painted ?? '').localeCompare(a.painted ?? '')).map(c => { const i = insights?.get(c.mediaId!); return { id: c.id, title: c.take.title, at: c.painted, instagram: c.instagram, distribution: c.distribution ?? 'feed', pace: c.pace ?? null, postedAs: c.postedAs ?? null, ...(i ? { views: i.views, reach: i.reach, held: i.held, avgWatchS: i.avgWatchS, skipRate: i.skipRate, shares: i.shares, saves: i.saves, comments: i.comments, syncedAt: i.syncedAt } : { views: null }) }; });
   return {
     artist: ARTIST.name, build: process.env.BUILD_ID ?? null, // set per deployment by scripts/deploy-prod.sh; how the deploy proves itself
     instagram: `https://www.instagram.com/${ARTIST.handle}/`,
@@ -37,7 +51,8 @@ export async function studioStatus() {
     // permalink, and since 2026-09-09 a filmed painting posts as a carousel and lands on /p/, which would
     // have emptied this list without a word. `postedAs` says it outright; the URL is the fallback for
     // records written before that field existed.
-    reels: posted.filter(c => c.film && c.mediaId && (c.postedAs ? c.postedAs !== 'stills' : /\/reel\//.test(c.instagram ?? ''))).sort((a, b) => (b.painted ?? '').localeCompare(a.painted ?? '')).map(c => { const i = insights?.get(c.mediaId!); return { id: c.id, title: c.take.title, at: c.painted, instagram: c.instagram, distribution: c.distribution ?? 'feed', postedAs: c.postedAs ?? null, ...(i ? { views: i.views, reach: i.reach, held: i.held, avgWatchS: i.avgWatchS, skipRate: i.skipRate, shares: i.shares, saves: i.saves, comments: i.comments, syncedAt: i.syncedAt } : { views: null }) }; }),
+    reels,
+    paces: paceReadout(reels), // issue #48: the swipe-away rate of each opening pace, from the Reels filmed since it shipped
     lastCritique: critiques[0] ? { date: critiques[0].date, paintings: critiques[0].paintings, patterns: critiques[0].patterns, exam: critiques[0].exam ?? null, quiet: critiques[0].quiet ?? null } : null,
     exams: { sat: EXAMS.filter(e => examSat(e, docs)).map(e => e.key), next: nextExam(docs)?.key ?? null }, // the studio sits one each morning at the critic's run; a sitting that never filed shows as lastCritique.exam with a non-2xx status
     limits: { perSenderPerDay: 3, perAddressPerDay: 5, studioPerDay: STUDIO_CAP },

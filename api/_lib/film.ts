@@ -9,7 +9,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { FRAME, CANVAS, SCORE, ease, easeOut, sentenceFor, typingWeights, typingPace, scoreFor, type Score, openingFor, type Opening, type Silence } from './score.js';
+import { FRAME, CANVAS, SCORE, ease, easeOut, sentenceFor, typingWeights, typingPace, scoreFor, type Score, openingFor, type Opening, type Silence, type Pace } from './score.js';
 import { font, fit, wrap, textFrame, blockHeight, layoutGlyphs, glyphFrame, mix, type Block } from './text.js';
 import { soundtrack } from './sound.js';
 import type { KeyPreset, PenPreset, Transition } from './score.js';
@@ -39,6 +39,8 @@ export type FilmInput = {
   transition?: Transition;
   /** The A/B of the opening (score.ts OPENINGS): openingFor(id) when unset. */
   opening?: Opening;
+  /** How fast the opening moves (score.ts PACES, issue #48): 'hand' when unset. */
+  pace?: Pace;
   /** The silence of the place under the film (score.ts SILENCES): 'electric' when unset. */
   silence?: Silence;
 };
@@ -85,8 +87,8 @@ const writeAll = (w: Writable, b: Buffer) => new Promise<void>((resolve, reject)
 export type Band = { frames: Buffer[]; top: number; height: number; /** when each glyph lands, and which are spaces: the keys in sound.ts */ cues: number[]; spaces: boolean[]; /** how much later than SCORE this film's tail runs (score.ts typingPace) */ shift: number };
 /** The sentence frames are a band around the text, not whole frames: 133 encodes of 1080×1920 cost a minute on
  *  one Vercel core. The compositor overlays the band at `top`. */
-export async function sentenceFrames(commission: string | null | undefined, line?: string | null, id = 'night-shift'): Promise<Band> {
-  const S = SCORE.sentence;
+export async function sentenceFrames(commission: string | null | undefined, line?: string | null, id = 'night-shift', pace: Pace = 'hand'): Promise<Band> {
+  const S = scoreFor(0, 'dark', undefined, pace).sentence; // the pace moves the line's own beats (score.ts PACES)
   const f = font(S.font);
   const text = sentenceFor(commission, line);
   const maxW = FRAME.w - 2 * SCORE.sentence.marginX;
@@ -100,7 +102,7 @@ export async function sentenceFrames(commission: string | null | undefined, line
   const chars = lines.join(' ');
   const weights = typingWeights(chars, id);
   const cum: number[] = []; weights.reduce((acc, w, i) => (cum[i] = acc, acc + w), 0);
-  const { unit, shift } = typingPace(chars, id); // never faster than a hand; a long line takes its time and the film waits
+  const { unit, shift } = typingPace(chars, id, pace); // never faster than the pace allows; a long line takes its time and the film waits
   const interval = unit; // the pen's own step, used for the cursor
   const cue = (i: number) => S.start + (cum[i] ?? 0) * unit;
   const frames: Buffer[] = [];
@@ -173,9 +175,9 @@ export async function makeFilm(input: FilmInput, opts: FilmOptions = {}): Promis
     await Promise.all([writeFile(join(dir, 'canvas.png'), canvas), writeFile(join(dir, 'fill.png'), fill)]);
     lap('stills');
 
-    const sentence = await sentenceFrames(input.commission, input.line, input.id);
+    const sentence = await sentenceFrames(input.commission, input.line, input.id, input.pace);
     const opening = input.opening ?? openingFor(input.id);
-    SC = scoreFor(sentence.shift, opening, input.transition);
+    SC = scoreFor(sentence.shift, opening, input.transition, input.pace);
     const P = SC.painting, S = SC.sentence, G = SC.signature, T = SC.title, O = SC.signoff;
     await Promise.all(sentence.frames.map((b, i) => writeFile(join(dir, `txt_${pad3(i)}.png`), b)));
     const cap = await captionFrames(input.title, input.endLine);
@@ -280,9 +282,9 @@ export async function hookLine(text: string): Promise<string | null> {
 }
 
 /** The film's inputs from a commission record: fetches the canvas, the raw and the ink layer. */
-export async function filmInputFor(c: { id: string; image?: string; raw?: string; signature?: { image: string; x: number; y: number; w: number; h: number }; anonymous?: boolean; private?: boolean; text: string; take: { title?: string; line?: string; silence?: string; register?: string; scene?: string; prompt?: string }; opening?: Opening }): Promise<FilmInput> {
+export async function filmInputFor(c: { id: string; image?: string; raw?: string; signature?: { image: string; x: number; y: number; w: number; h: number }; anonymous?: boolean; private?: boolean; text: string; take: { title?: string; line?: string; silence?: string; register?: string; scene?: string; prompt?: string }; opening?: Opening; pace?: Pace }): Promise<FilmInput> {
   const get = async (u: string) => Buffer.from(await (await fetch(u)).arrayBuffer());
   if (!c.image) throw new Error('no painting to film');
   const [image, raw, ink] = await Promise.all([get(c.image), c.raw ? get(c.raw) : null, c.signature ? get(c.signature.image) : null]);
-  return { id: c.id, image, raw, signature: ink && c.signature ? { ink, x: c.signature.x, y: c.signature.y, w: c.signature.w, h: c.signature.h } : null, commission: wordsPrivate(c) ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), opening: c.opening ?? openingFor(c.id), silence: silenceFor(c.take) };
+  return { id: c.id, image, raw, signature: ink && c.signature ? { ink, x: c.signature.x, y: c.signature.y, w: c.signature.w, h: c.signature.h } : null, commission: wordsPrivate(c) ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), opening: c.opening ?? openingFor(c.id), pace: c.pace ?? 'hand', silence: silenceFor(c.take) }; // a film from before paces is re-made at its own pace
 }
