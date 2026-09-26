@@ -1,6 +1,6 @@
 // The studio session. Runs on a cron; paints the oldest queued commission and posts it.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { all, load, save, storeImage, storeFilm, type Commission } from './_lib/store.js';
+import { all, load, save, storeImage, storeFilm, wordsPrivate, type Commission } from './_lib/store.js';
 import { makeFilm, filmInputFor, hookLine, type FilmInput } from './_lib/film.js';
 import { endLineFor, isStudioPlumbing } from './_lib/artist.js';
 import { ORIGIN } from './_lib/origin.js';
@@ -25,7 +25,7 @@ export async function filmIt(c: Commission, input?: FilmInput): Promise<boolean>
   try {
     const inp = input ?? await filmInputFor(c);
     inp.opening = c.opening ?? (c.opening = openingFor(c.id)); // the A/B of the opening, fixed on the record the first time it is filmed (score.ts OPENINGS)
-    if (!inp.line && !c.anonymous) { inp.line = await hookLine(c.text); if (inp.line) c.take.line = inp.line; } // the hook, for work from before the gatekeeper chose one
+    if (!inp.line && !wordsPrivate(c)) { inp.line = await hookLine(c.text); if (inp.line) c.take.line = inp.line; } // the hook, for work from before the gatekeeper chose one
     stages.inputs = Date.now() - t0;
     const mp4 = await makeFilm(inp, { preset: 'veryfast', timings: stages }); // veryfast: one Vercel core; the Tatami took 130 s at 'fast' (2026-09-06)
     const up = Date.now(); c.film = await storeFilm(c.id, mp4); stages.upload = Date.now() - up;
@@ -196,7 +196,7 @@ async function paintOne(c: Commission, res: VercelResponse, started: number, dry
     c.cost = img.cost ?? undefined;
     c.painted = new Date().toISOString();
     await save(c); // the painting is safe before the film is attempted
-    if (Date.now() - started < FILM_INLINE_BUDGET_MS) await filmIt(c, { id: c.id, image: img.bytes, raw, signature: { ink: sig.ink, x: sig.left, y: sig.top, w: sig.w, h: sig.h }, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), silence: silenceFor(c.take) });
+    if (Date.now() - started < FILM_INLINE_BUDGET_MS) await filmIt(c, { id: c.id, image: img.bytes, raw, signature: { ink: sig.ink, x: sig.left, y: sig.top, w: sig.w, h: sig.h }, commission: wordsPrivate(c) ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), silence: silenceFor(c.take) });
     else c.filmError = `deferred: the painting took ${Math.round((Date.now() - started) / 1000)} s; the next cron films it, then posts`;
     if (!dry && canPost() && readyToPost(c) && mayPublish(c) && burnWindowPassed(c)) { // a new-pipeline painting waits for its film (next cron: film first, then the backlog posts the Reel; a failed film posts the still), and every one waits out the sender's burn window
       const post = await publish(mediaFor(c), c.take.caption ?? c.take.title ?? 'Night Shift', postOptions(c, await accountNow()));

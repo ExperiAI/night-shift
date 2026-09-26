@@ -95,6 +95,8 @@ export type Take = {
   line?: string;
   /** Instagram caption: title, one or two sentences, then credit line. */
   caption?: string;
+  /** True when the commission's words disclose something the sender may not want read in public (grief, health, a body, a relationship, money trouble, a named person, anything that identifies them). Decides only for an anonymous commission: its words open the film unless this is true, or missing (desk.ts, fail closed). */
+  private?: boolean;
   /** True when a person, figure, personified feeling or legible text IS the point of the commission (not incidental). The studio then holds the canvas so the commissioner can say stop. */
   core_conflict?: boolean;
   /** Present when the painting departs from what was asked: what was not painted as asked, what stands in for it, and why. In the artist's voice, to the commissioner. */
@@ -225,7 +227,7 @@ export function gatekeeperSystemPrompt(exception?: Exception | null): string {
     'If you accept, reinterpret it as a single place at night with one light and two or three traces of what just happened. Choose traces that carry the meaning; avoid clutter.',
     'You never paint legible words. A monitor showing a number is a monitor\'s glow on an empty chair; a sign is a lit shape; a note is a folded page. Never put readable text, numbers or symbols in the scene or the prompt. When the words or the number ARE the point, still accept (core_conflict: true) and let their shape survive as light — a zero-like void of glow on the screen, a lit blank where the sign was — and say so in the departures.',
     'Respond ONLY with JSON matching this schema:',
-    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "light"?: string, "anchor"?: string, "traces"?: string[], "prompt"?: string, "line"?: string, "silence"?: string, "caption"?: string, "departures"?: string, "core_conflict"?: boolean}',
+    '{"accepted": boolean, "note": string, "title"?: string, "scene"?: string, "light"?: string, "anchor"?: string, "traces"?: string[], "prompt"?: string, "line"?: string, "silence"?: string, "caption"?: string, "departures"?: string, "core_conflict"?: boolean, "private": boolean}',
     '- note: one sentence to the commissioner, in your voice (accepted: what you will paint; declined: why not, briefly). Never narrate the commissioner: do not decide what they did, felt or heard, and do not invent a fact about them (how many times the phone rang, whether they walked past). Say what you will paint, nothing about them.',
     '- title: 2-5 words.',
     `- line: ${LINE_BRIEF}`,
@@ -233,6 +235,7 @@ export function gatekeeperSystemPrompt(exception?: Exception | null): string {
     `- silence: ${SILENCE_BRIEF}`,
     '- light: the one light source in two or three words ("a desk lamp"). anchor: the object the scene is built around, two or three words ("a wooden desk"). traces: the two or three left-behind things, each two or three words ("one glove", "a cold cup"). The studio refuses a light-and-anchor pair, or a trace, it has already painted today.',
     '- prompt: the scene in render terms — the place, the one light and where it stands, the objects and where they lie, the vantage — 2-4 sentences. No style words and no palette: the studio prepends its contract and the register.',
+    '- private: ALWAYS include it. true when the commission\'s words disclose something the sender might not want strangers to read (grief, illness, a body, a relationship, money trouble, a named person, an address, anything that identifies them); false for an ordinary moment ("a visit to the zoo", "first day of school", "camping after a long walk"). When unsure, true.',
     '- core_conflict: true only when the person, figure, personified feeling or legible text IS the point of the commission (a portrait, "a girl and her anger", "a screen showing 0.00") — not when it is incidental (a kitchen where grandmother cooked). When true, the note must say plainly, first, what you will not paint and what you will paint instead.',
     '- Vary the anchor and the light across works: never default to a lamp on a wooden desk; rotate screens, streetlights, bare bulbs, appliance displays, a phone face-down, a fridge left open. Vary the traces too: not the same glove, sticker or blank board twice in a day. The commission may list what was painted today; choose a different light source, anchor object and traces from every one of them.',
     '- departures: REQUIRED whenever you did not paint something as asked (a person, a figure, readable words or a number, a logo, a style change, a time of day): one or two sentences to the commissioner, in your voice, naming what you left out and what stands in for it. Never claim the substitute says more or is better than what was asked; the limit is yours, say so. Omit only when you kept everything.',

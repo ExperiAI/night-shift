@@ -31,6 +31,7 @@ export type Commission = {
   unstuck?: string;      // a finished canvas freed from 'failed' back to 'painted' by scripts/unstick.mjs, after a refused post stranded it
   ip?: string;          // caller address at the API, 'internal' for the inbox; never public
   anonymous?: boolean;  // credited as “…” — a commission; `from` is kept only for the per-sender limit
+  private?: boolean;    // the words themselves stay off every public surface (film, caption, wall); absent on work from before 2026-09-26, where anonymous meant private too (desk.ts wordsPrivate)
   photo?: string;       // our copy of the photograph the commission came with (references/<id>)
   slides?: string[];    // carousel for a photo commission: painting, the photo, both side by side
   seed?: string;        // written by scripts/seed.mjs: made outside the pipeline, not a commission
@@ -189,4 +190,12 @@ export async function latestCritiques(n = 7): Promise<Critique[]> {
   const page = await list({ prefix: CRITIQUE, limit: 1000 });
   const blobs = page.blobs.sort((a, b) => b.pathname.localeCompare(a.pathname)).slice(0, n);
   return Promise.all(blobs.map(async b => (await (await fetch(`${b.url}?t=${Date.now()}`, { cache: 'no-store' })).json()) as Critique));
+}
+
+/** Whether a commission's words stay off the film, the caption and the wall. Leaving your name off is not the same as
+ *  hiding what you said (Diego, 2026-09-26: a DM'd "A visit to the zoo" opened its film on "a commission"). An
+ *  anonymous commission's words are shown unless the gatekeeper judged them a personal disclosure; work from before
+ *  `private` existed keeps the old rule, anonymous meant private. */
+export function wordsPrivate(c: { anonymous?: boolean; private?: boolean }): boolean {
+  return c.private ?? Boolean(c.anonymous);
 }
