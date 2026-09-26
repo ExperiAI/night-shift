@@ -31,6 +31,7 @@ export type Commission = {
   unstuck?: string;      // a finished canvas freed from 'failed' back to 'painted' by scripts/unstick.mjs, after a refused post stranded it
   ip?: string;          // caller address at the API, 'internal' for the inbox; never public
   anonymous?: boolean;  // credited as “…” — a commission; `from` is kept only for the per-sender limit
+  pace?: import('./score.js').Pace; // how fast the film's opening moved (score.ts PACES, issue #48); set the first time it is filmed, absent before 2026-09-26
   private?: boolean;    // the words themselves stay off every public surface (film, caption, wall); absent on work from before 2026-09-26, where anonymous meant private too (desk.ts wordsPrivate)
   photo?: string;       // our copy of the photograph the commission came with (references/<id>)
   slides?: string[];    // carousel for a photo commission: painting, the photo, both side by side

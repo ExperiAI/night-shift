@@ -4,7 +4,7 @@ import { all, load, save, storeImage, storeFilm, wordsPrivate, type Commission }
 import { makeFilm, filmInputFor, hookLine, type FilmInput } from './_lib/film.js';
 import { endLineFor, isStudioPlumbing } from './_lib/artist.js';
 import { ORIGIN } from './_lib/origin.js';
-import { openingFor } from './_lib/score.js';
+import { openingFor, paceFor } from './_lib/score.js';
 import { renderImage, inspectImage } from './_lib/openrouter.js';
 import { publish, publishStory, canPost, postOptions, audience } from './_lib/zernio.js';
 import { reconcile } from './_lib/reconcile.js';
@@ -25,6 +25,7 @@ export async function filmIt(c: Commission, input?: FilmInput): Promise<boolean>
   try {
     const inp = input ?? await filmInputFor(c);
     inp.opening = c.opening ?? (c.opening = openingFor(c.id)); // the A/B of the opening, fixed on the record the first time it is filmed (score.ts OPENINGS)
+    inp.pace = c.pace ?? (c.pace = paceFor(c.id)); // the A/B of the pace (issue #48), fixed the same way
     if (!inp.line && !wordsPrivate(c)) { inp.line = await hookLine(c.text); if (inp.line) c.take.line = inp.line; } // the hook, for work from before the gatekeeper chose one
     stages.inputs = Date.now() - t0;
     const mp4 = await makeFilm(inp, { preset: 'veryfast', timings: stages }); // veryfast: one Vercel core; the Tatami took 130 s at 'fast' (2026-09-06)

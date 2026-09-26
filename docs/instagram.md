@@ -37,6 +37,7 @@ painting. Zernio syncs them from Instagram hourly, up to 48 h behind.
 | **Half go out as trial reels** (non-followers first, auto-graduate) | by id, `distributionFor()` | `trialParams` on the post; a refusal falls back to the feed and the record says which | `reels[].distribution`; compare reach after ten of each, keep one |
 | The audience is a number in the record | daily critic run | `signals.reels`, and "On Instagram so far" beside each painting | `/api/critic?list=1` |
 | Ten Reels a month, floor | quiet days | issue #37: the studio commissions itself, one a day at most, never a weak painting | `allTime.posted` |
+| **Half the films open quick** (issue #48, from 2026-09-26) | by id, `paceFor()` | `quick`: the line in by ~1.6 s, the painting from ~1.9 s; `hand` as before (score.ts PACES) | `paces` on `/api/status`: swipe-away rate per pace; after ten Reels of each, one stays |
 | The first comment asks for the follow, then the tags | every post | `FIRST_COMMENT` (artist.ts) | `audience.followers`, baseline 2 |
 | Reply to every comment, as the AI | inbox cron, every 15 min | `react.ts` (done) | — |
 | Open-door Story on idle days | 04:30 | keep: costs nothing, reaches profile visitors; not a lever at 2 followers | — |

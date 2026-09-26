@@ -120,6 +120,21 @@ export const SILENCES: Record<Silence, SilenceRecipe> = {
 };
 export const SILENCE_KEYS = Object.keys(SILENCES) as Silence[];
 
+/** How fast the opening moves (issue #48; Diego, 2026-09-26: "go ahead"). 58 % of viewers swiped away in the first
+ *  three seconds, while the screen was still dark and the line typing at a hand's pace (≤18 characters a second, the
+ *  picture from 3.7 s). `quick` keeps the story, text first then the picture, and moves it all `lead` seconds earlier:
+ *  the line types at up to ~28 characters a second, about reading speed, and is in by 1.6 s; the room's light rises
+ *  from 0.8 s; the painting surfaces from 1.9 s. A line too long for that still takes the time it needs (typingPace).
+ *  Assigned by id, half and half, from the first film made after it shipped; `/api/status.paces` reads the swipe-away
+ *  rate of each, and after ten Reels of each one stays. */
+export type Pace = 'hand' | 'quick';
+export const PACES = {
+  hand: { lead: 0, minCharInterval: 0.056 },
+  quick: { lead: -1.8, minCharInterval: 0.035 },
+} as const;
+export const PACE_KEYS = Object.keys(PACES) as Pace[];
+export function paceFor(id: string): Pace { return seeded(`pace:${id}`)() < 0.5 ? 'quick' : 'hand'; }
+
 /** Every painting opens dark (Diego's call, above); the id no longer decides. Kept as the one place the choice is made. */
 export function openingFor(_id: string): Opening { return 'dark'; }
 
@@ -138,6 +153,8 @@ export const SCORE = {
   painting: { transition: 'snap' as Transition, fadeStart: 3.7 as number, fadeEnd: 5.0 as number, fillStart: 2.6 as number, fillEnd: 4.2 as number, blur: 0 as number, blurStart: 0 as number, blurEnd: 0 as number, pushStart: 3.8, pushEnd: PUSH_END, scaleFrom: 1.10 as number, scaleTo: 1.0, fillBlur: 40, fillLevel: 0.35, fromFill: false as boolean, scrim: 0 as number, floor: 0 as number, band: 0 as number },
   /** Which opening this score plays (OPENINGS); scoreFor sets it per film. */
   opening: 'dark' as Opening, openings: OPENINGS, transitions: TRANSITIONS,
+  /** Which pace this score plays (PACES, issue #48); scoreFor sets it per film. */
+  pace: 'hand' as Pace, paces: PACES,
   /** The painter signs, in real time: the mark is revealed left to right with a soft wet edge. */
   signature: { start: SIGN_AT, end: SIGN_END, edgePx: 24 },
   title: { start: TITLE_AT, fadeIn: 0.6, font: 'InstrumentSerif-Regular', size: 64, color: '#ffd58a', marginX: CAPTION.x, maxW: CAPTION.maxW, top: CAPTION.top },
@@ -204,16 +221,17 @@ export function typingWeights(chars: string, seed: string): number[] {
  *  2026-09-06, hearing two films: the slower one "feels better" — 17 characters a second against 22). No line types
  *  faster than `minCharInterval` a step; a line that cannot finish by `typedBy` at that pace takes the time it needs
  *  and everything after the sentence moves later by `shift` (scoreFor). MIRRORED in public/wall.html. */
-export function typingPace(chars: string, seed: string): { unit: number; shift: number } {
-  const S = SCORE.sentence, sum = typingWeights(chars, seed).reduce((a, b) => a + b, 0);
-  const unit = Math.min(S.maxCharInterval, Math.max(S.minCharInterval, (S.typedBy - S.glyphFade - S.start) / (sum + 1)));
+export function typingPace(chars: string, seed: string, pace: Pace = 'hand'): { unit: number; shift: number } {
+  const S = SCORE.sentence, P = PACES[pace], typedBy = S.typedBy + P.lead, sum = typingWeights(chars, seed).reduce((a, b) => a + b, 0);
+  const unit = Math.min(S.maxCharInterval, Math.max(P.minCharInterval, (typedBy - S.glyphFade - S.start) / (sum + 1)));
   const need = S.start + (sum + 1) * unit + S.glyphFade;
-  return { unit, shift: Math.max(0, Math.round((need - S.typedBy) * 100) / 100) };
+  return { unit, shift: Math.max(0, Math.round((need - typedBy) * 100) / 100) };
 }
 
 export type Score = { -readonly [K in keyof typeof SCORE]: { -readonly [P in keyof (typeof SCORE)[K]]: (typeof SCORE)[K][P] } } & { total: number };
-/** The score of one film: SCORE with every beat from the sentence's fade onward moved later by `shift` seconds. */
-export function scoreFor(shift: number, opening: Opening = 'dark', transition: Transition = SCORE.painting.transition): Score {
+/** The score of one film: SCORE at its pace (PACES: every beat from the line being typed onward moved by `lead`), then
+ *  every such beat moved later by `shift` seconds for a line that needs longer. */
+export function scoreFor(shift: number, opening: Opening = 'dark', transition: Transition = SCORE.painting.transition, pace: Pace = 'hand'): Score {
   const sc = JSON.parse(JSON.stringify(SCORE)) as Score;
   const op = OPENINGS[opening]; sc.opening = opening;
   sc.painting.fadeStart = op.fadeStart; sc.painting.fadeEnd = op.fadeEnd; sc.painting.fromFill = op.fromFill; sc.painting.scrim = op.scrim; sc.painting.floor = op.floor; sc.painting.band = op.band;
@@ -222,13 +240,17 @@ export function scoreFor(shift: number, opening: Opening = 'dark', transition: T
     sc.painting.fadeStart = tr.canvasStart; sc.painting.fadeEnd = tr.canvasEnd; sc.painting.fillStart = tr.fillStart; sc.painting.fillEnd = tr.fillEnd;
     sc.painting.blur = tr.blur; sc.painting.blurStart = tr.blurStart; sc.painting.blurEnd = tr.blurEnd; sc.painting.scaleFrom = tr.scaleFrom;
   }
-  if (!shift) return sc;
-  const mv = (o: Record<string, any>, keys: string[]) => { for (const k of keys) if (typeof o[k] === 'number') o[k] = Math.round((o[k] + shift) * 100) / 100; };
-  mv(sc.sentence as any, ['typedBy', 'fadeStart', 'fadeEnd']);
-  mv(sc.painting as any, op.fadeStart === 0 ? ['fadeEnd', 'pushStart', 'pushEnd'] : ['fadeStart', 'fadeEnd', 'fillStart', 'fillEnd', 'blurStart', 'blurEnd', 'pushStart', 'pushEnd']); // a lit opening starts at the first frame whatever the line's length
-  mv(sc.signature as any, ['start', 'end']); mv(sc.title as any, ['start']); mv(sc.signoff as any, ['start']); mv(sc.hold as any, ['start']);
-  mv(sc.audio.shimmer as any, ['from', 'to', 'until']); mv(sc.audio.note as any, ['at']);
-  sc.total = Math.round((sc.total + shift) * 100) / 100;
+  sc.pace = pace; (sc.sentence as any).minCharInterval = PACES[pace].minCharInterval;
+  const move = (by: number) => {
+    if (!by) return;
+    const mv = (o: Record<string, any>, keys: string[]) => { for (const k of keys) if (typeof o[k] === 'number') o[k] = Math.round((o[k] + by) * 100) / 100; };
+    mv(sc.sentence as any, ['typedBy', 'fadeStart', 'fadeEnd']);
+    mv(sc.painting as any, op.fadeStart === 0 ? ['fadeEnd', 'pushStart', 'pushEnd'] : ['fadeStart', 'fadeEnd', 'fillStart', 'fillEnd', 'blurStart', 'blurEnd', 'pushStart', 'pushEnd']); // a lit opening starts at the first frame whatever the line's length
+    mv(sc.signature as any, ['start', 'end']); mv(sc.title as any, ['start']); mv(sc.signoff as any, ['start']); mv(sc.hold as any, ['start']);
+    mv(sc.audio.shimmer as any, ['from', 'to', 'until']); mv(sc.audio.note as any, ['at']);
+    sc.total = Math.round((sc.total + by) * 100) / 100;
+  };
+  move(PACES[pace].lead); move(shift);
   return sc;
 }
 
