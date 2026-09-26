@@ -47,7 +47,7 @@ export type Commission = {
   sourceReplied?: string; // when the artist answered in the source thread with the finished painting
   mediaId?: string;      // Instagram media id of the post (for comments under it)
   zernioPostId?: string; // Zernio's own record of the post; lets reconcile() find the permalink when publishing outran the 60s wait
-  collaborator?: { handle: string; invited: boolean }; // a comment sender asked as collaborator (zernio.ts postOptions); invited false when Instagram refused the tag and it posted without
+  collaborator?: { handle: string; sent: boolean }; // a comment sender asked as collaborator (zernio.ts postOptions); sent = the post carried the tag, which is not proof Instagram delivered an invite
   distribution?: 'feed' | 'trial'; // how the Reel went out (zernio.ts DISTRIBUTIONS, the trial A/B, #11); what Instagram accepted, not what was asked
   postedAs?: 'film+still' | 'film' | 'stills'; // the SHAPE Instagram took: a refused carousel falls back to the plain Reel, and a silent fallback nobody can see looks like the feature never shipped
   story?: string;        // when the painting also went up as a 24h Story

@@ -32,8 +32,8 @@ test('the desk fills a missing caption, and both post paths post captionOf, neve
   assert.equal((paint.match(/\.take\.caption = captionOf\(/g) ?? []).length, 2);
 });
 
-test('the record says whether the collaborator invite went out', () => {
+test('the record says whether the post carried the collaborator tag (not whether an invite arrived)', () => {
   const z = read('../api/_lib/zernio.ts');
-  assert.match(z, /collaborator = asked \? \{ handle: asked, invited: Boolean\(sent\.collaborators\?\.length\) \}/);
+  assert.match(z, /collaborator = asked \? \{ handle: asked, sent: Boolean\(sent\.collaborators\?\.length\) \}/);
   assert.equal((read('../api/paint.ts').match(/\.collaborator = post\.collaborator/g) ?? []).length, 2);
 });
