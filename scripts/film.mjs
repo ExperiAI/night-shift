@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 for (const f of ['.env.vercel', '.env']) {
   try { for (const line of readFileSync(f, 'utf8').split('\n')) { const m = line.match(/^(\w+)="?([^"]*)"?$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2]; } } catch {}
 }
-const { load } = await import('../api/_lib/store.js');
+const { load, wordsPrivate } = await import('../api/_lib/store.js');
 const { makeFilm, filmInputFor, hookLine } = await import('../api/_lib/film.js');
 const { signatureLayer } = await import('../api/_lib/compose.js');
 
@@ -32,7 +32,7 @@ if (args.includes('--pen')) input.pen = args[args.indexOf('--pen') + 1]; // a pe
 if (args.includes('--transition')) input.transition = args[args.indexOf('--transition') + 1]; // how the line hands over to the picture (score.ts TRANSITIONS), for comparing
 if (args.includes('--silence')) input.silence = args[args.indexOf('--silence') + 1]; // electric|still|soft|open|wet: the silence of the place, for comparing (score.ts SILENCES)
 if (args.includes('--opening')) input.opening = args[args.indexOf('--opening') + 1]; // dark | lit: the A/B of the opening, for comparing (score.ts OPENINGS)
-if (!input.line && !c.anonymous) input.line = await hookLine(c.text); // the hook, chosen not cut, for work from before the gatekeeper picked one
+if (!input.line && !wordsPrivate(c)) input.line = await hookLine(c.text); // the hook, chosen not cut, for work from before the gatekeeper picked one
 console.log(`line: ${JSON.stringify(input.line ?? '(cut from the opening)')}`);
 const t0 = Date.now();
 const mp4 = await makeFilm(input, { ffmpeg: process.env.FFMPEG_PATH ?? '/opt/homebrew/bin/ffmpeg', keepWork: args.includes('--keep'), workDir: args.includes('--keep') ? resolve(outDir, `work-${id}`) : undefined });

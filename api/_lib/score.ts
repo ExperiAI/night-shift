@@ -240,8 +240,8 @@ export const easeOut = (x: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x
 
 /** The sentence a film opens on (Diego, 2026-09-06: never an overwhelming text). The gatekeeper picks `line`, a
  *  verbatim excerpt of the commission at most `maxChars` long (desk.ts checks it IS an excerpt); without one, the
- *  commission is cut at a sentence or clause boundary. An anonymous commission never shows its words
- *  (desk.ts publicView): the film opens on “a commission” in the same type. */
+ *  commission is cut at a sentence or clause boundary. A private commission never shows its words
+ *  (store.ts wordsPrivate): the film opens on “a commission” in the same type. */
 export function sentenceFor(commission: string | null | undefined, line?: string | null): string {
   const text = (commission ?? '').trim();
   if (!text) return 'a commission';

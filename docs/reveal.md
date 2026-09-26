@@ -42,8 +42,8 @@ canvas 1080×1920, 30 fps, total **14.8 s** plus the line's shift (18.6 until 20
 
 The reveal in ffmpeg: the signature PNG as an overlay whose visible width grows with `crop=w='iw*clip((t-SIGN_AT)/1.8,0,1)'` on an eased time (`(1-cos(PI*x))/2`) and a horizontal alpha ramp of 24 px at the leading edge (`geq` on the alpha plane, or a pre-rendered gradient mask blended with `alphamerge`). On the wall the same beat is a CSS `mask-image` linear gradient whose position animates over 1.8 s with the same easing, from a shared constant in the score.
 
-Copy in the film: the line (or, for an anonymous commission, nothing types: the film opens on
-"a commission" in the same mono, since an anonymous sentence is never shown, see `publicView`), the
+Copy in the film: the line (or, for a commission whose words are private, nothing types: the film opens on
+"a commission" in the same mono, since a private sentence is never shown, see `wordsPrivate`), the
 title, the last words. No credit line, no hashtags, no departures: those stay in the caption.
 **The line is the hook** (Diego, 2026-09-06, third note): the gatekeeper chooses it under `LINE_BRIEF` —
 the phrase that creates the most expectation and curiosity, verbatim — and for paintings from before

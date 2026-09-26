@@ -236,6 +236,13 @@ post). Diego, 2026-09-05: the painter should share its work the way a real paint
 
 ## Credit after the fact — never asked for (issue #18)
 
+**No name is not hidden words** (2026-09-26). Diego DM'd "A visit to the zoo" and the film opened on
+"a commission": every anonymous commission hid its sentence, so the hook of every DM Reel was gone. Now
+the gatekeeper answers `private` for each one: a personal disclosure (grief, health, a relationship, a
+named person) stays off the film, caption and wall as before; an ordinary moment opens the film in its own
+words, still with no name. A missing answer is private (`privateFor`, fail closed); work from before the
+flag keeps the old promise (`wordsPrivate`).
+
 A DM commission posts anonymously and fast. The finished painting goes back into the DM with the
 link and the artist's explanation of any departure — and no question. Decided 2026-09-05 on the
 therapist's bar: you do not ask someone who hid to un-hide. A handle the sender **volunteers** in

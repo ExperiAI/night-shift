@@ -1,7 +1,8 @@
 // The commission desk: what happens when someone asks for a painting.
 import { gatekeeperSystemPrompt, INVITE, SIGNOFF, PHOTO, SHARE, REGISTERS, REGISTER_KEYS, registerByKey, composePrompt, isStudioSender, EXCEPTIONS, endLineFor, type Take, type Register, type Exception, silenceFor } from './artist.js';
 import { chatJSON } from './openrouter.js';
-import { all, load, newId, save, saveFeedback, storeReference, allFeedback, deleteFeedback, filesOf, deleteFiles, type Commission } from './store.js';
+import { all, load, newId, save, saveFeedback, storeReference, allFeedback, deleteFeedback, filesOf, deleteFiles, wordsPrivate, type Commission } from './store.js';
+export { wordsPrivate };
 import { createHash, randomBytes } from 'node:crypto';
 import { normalizePhoto } from './compose.js';
 import { isExcerpt, SCORE } from './score.js';
@@ -150,6 +151,8 @@ export function validateException(raw: unknown, ip: string | null): Exception | 
 /** A private disclosure stays with the person (Diego, 2026-09-05, on the therapist's point): the caption of an anonymous
  *  commission carries no quote of what was sent. The gatekeeper is told; this scrubs the line anyway, so it fails closed. */
 export const PRIVATE_LINE = 'from a moment sent privately';
+/** A new anonymous commission is private unless the gatekeeper said, in so many words, that it is not (fail closed). */
+export const privateFor = (anonymous: boolean, take: Pick<Take, 'private'>): boolean => anonymous && take.private !== false;
 export function privateCaption(caption: string, text: string): string {
   const lines = caption.split('\n');
   const needle = text.trim().slice(0, 40).toLowerCase();
@@ -276,7 +279,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const id = newId();
   const photo = photoUrl ? await copyPhoto(id, photoUrl) : undefined;
   const system = photo ? `${gatekeeperSystemPrompt(exception)}\n${PHOTO.gatekeeper}` : gatekeeperSystemPrompt(exception);
-  const credit = anonymous ? 'anonymous — and PRIVATE: do not quote the commission in the caption at all; write the line "' + PRIVATE_LINE + '" where the quote would go' : !from ? 'anonymous — write “…” — a commission' : from;
+  const credit = anonymous ? 'anonymous — if you set private true, do not quote the commission in the caption at all and write the line "' + PRIVATE_LINE + '" where the quote would go; otherwise quote it and write “…” — a commission' : !from ? 'anonymous — write “…” — a commission' : from;
   const register = validateRegister(registerRaw) ?? pickRegister(docs);
   const brief = `From: ${from ?? 'anonymous'}\nCredit in the caption as: ${credit}\nCommission: ${text}${recentWorkLine(docs)}\nRegister for this canvas (fixed by the studio): ${register.name} — ${register.prompt}`;
   let take = await chatJSON<Take>(system, brief, undefined, photo);
@@ -298,7 +301,8 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   if (take.accepted) { take.register = register.key; take.prompt = composePrompt(register, take.prompt || take.scene || text, exception); } // the contract and the register are the studio's, not the model's
   if (take.accepted) take.silence = silenceFor(take); // the silence of the place under the film: the gatekeeper's pick if it is one of the five, else a guess from its own words (score.ts SILENCES)
   if (take.line && !(take.line.trim().length <= SCORE.sentence.maxChars && isExcerpt(text, take.line))) delete take.line; // the film opens on the commissioner's words or on none of them (score.ts)
-  if (anonymous && take.caption) take.caption = privateCaption(take.caption, text); // fail closed: never the sender's sentence in public
+  const hidden = privateFor(anonymous, take);
+  if (hidden && take.caption) take.caption = privateCaption(take.caption, text); // fail closed: never a private sentence in public
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
   if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out
   const holdUntil = take.accepted ? holdFor(take.core_conflict) : undefined;
@@ -306,7 +310,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   const key = newKey();
   const c: Commission = {
     id, text, from, created: new Date().toISOString(), keyHash: hashKey(key),
-    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true } : {}), ...(ip ? { ip } : {}), ...(holdUntil ? { holdUntil } : {}), ...(exception ? { exception } : {}), ...(roomCode ? { room: roomCode } : {}), ...(source ? { source } : {}),
+    status: take.accepted ? 'queued' : 'declined', take, ...(photo ? { photo } : {}), ...(anonymous ? { anonymous: true, private: hidden } : {}), ...(ip ? { ip } : {}), ...(holdUntil ? { holdUntil } : {}), ...(exception ? { exception } : {}), ...(roomCode ? { room: roomCode } : {}), ...(source ? { source } : {}),
   };
   await save(c);
   if (c.status === 'queued' && !holdUntil) await kickPainter(c.id).catch(() => null); // the painter starts now, not at the next cron (kick.ts); a held commission waits for its window
@@ -327,7 +331,7 @@ export async function retake(c: Commission, docs?: Commission[]): Promise<Commis
   take.register = register.key; take.prompt = composePrompt(register, take.prompt || take.scene || c.text, c.exception);
   take.silence = silenceFor(take);
   if (take.line && !(take.line.trim().length <= SCORE.sentence.maxChars && isExcerpt(c.text, take.line))) delete take.line;
-  if (c.anonymous && take.caption) take.caption = privateCaption(take.caption, c.text);
+  if (wordsPrivate(c) && take.caption) take.caption = privateCaption(take.caption, c.text);
   // Why the first attempt failed is the only record of it: the retake clears `error` so the fresh try is
   // not judged by the old one, but it is kept. 2026-09-09, chasing a room commission that had silently
   // requeued: the reason was gone, and it was "openrouter images 402: Insufficient credits" — the one
@@ -367,7 +371,7 @@ export function publicView(c: Commission) {
   if (c.status === 'withdrawn') return { id: c.id, status: c.status, note: c.take.note }; // burned: nothing else exists to show
   return {
     id: c.id, status: c.status, created: c.created, from: c.anonymous ? null : c.from,
-    commission: c.anonymous ? null : c.text, line: c.anonymous ? null : c.take.line, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene, // a private sentence stays private on the wall too
+    commission: wordsPrivate(c) ? null : c.text, line: wordsPrivate(c) ? null : c.take.line, note: c.take.note, departures: c.take.departures, title: c.take.title, scene: c.take.scene, // a private sentence stays private on the wall too
     image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides, holdUntil: c.holdUntil, register: c.take.register,
     film: c.film, opening: c.opening, raw: c.raw, signature: c.signature, room: c.room, endLine: endLineFor(c.id), // the film's last words, so the wall says the same // the reveal (docs/reveal.md): the film for the Reel and the ticket; the unsigned canvas and the ink layer for the wall to sign in real time
     ...(c.rejects?.length ? { rejects: c.rejects } : {}), // what the inspector refused on the way to this canvas

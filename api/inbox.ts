@@ -150,7 +150,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         try {
           // Credit rule (2026-09-05): a comment was asked in public, so the caption credits and mentions
           // the handle; a DM is private, so it is credited anonymously (Zernio also gives DMs a display
-          // name, not a handle). `from` still keys the per-sender limit either way.
+          // name, not a handle). `from` still keys the per-sender limit either way. No name is not hidden
+          // words (2026-09-26): the gatekeeper decides whether the sentence itself is private (desk.ts privateFor).
           // The source travels WITH the commission, so the desk writes it into the document it creates.
           // It used to be added here afterwards, with a load/save — and the desk kicks a painter before it
           // answers, so that painter saved over it every time (2026-09-06 to 2026-09-09: every Instagram

@@ -13,6 +13,7 @@ import { FRAME, CANVAS, SCORE, ease, easeOut, sentenceFor, typingWeights, typing
 import { font, fit, wrap, textFrame, blockHeight, layoutGlyphs, glyphFrame, mix, type Block } from './text.js';
 import { soundtrack } from './sound.js';
 import type { KeyPreset, PenPreset, Transition } from './score.js';
+import { wordsPrivate } from './store.js';
 import { isExcerpt, excerpt } from './score.js';
 import { chatJSON } from './openrouter.js';
 import { LINE_BRIEF, endLineFor, silenceFor } from './artist.js';
@@ -279,9 +280,9 @@ export async function hookLine(text: string): Promise<string | null> {
 }
 
 /** The film's inputs from a commission record: fetches the canvas, the raw and the ink layer. */
-export async function filmInputFor(c: { id: string; image?: string; raw?: string; signature?: { image: string; x: number; y: number; w: number; h: number }; anonymous?: boolean; text: string; take: { title?: string; line?: string; silence?: string; register?: string; scene?: string; prompt?: string }; opening?: Opening }): Promise<FilmInput> {
+export async function filmInputFor(c: { id: string; image?: string; raw?: string; signature?: { image: string; x: number; y: number; w: number; h: number }; anonymous?: boolean; private?: boolean; text: string; take: { title?: string; line?: string; silence?: string; register?: string; scene?: string; prompt?: string }; opening?: Opening }): Promise<FilmInput> {
   const get = async (u: string) => Buffer.from(await (await fetch(u)).arrayBuffer());
   if (!c.image) throw new Error('no painting to film');
   const [image, raw, ink] = await Promise.all([get(c.image), c.raw ? get(c.raw) : null, c.signature ? get(c.signature.image) : null]);
-  return { id: c.id, image, raw, signature: ink && c.signature ? { ink, x: c.signature.x, y: c.signature.y, w: c.signature.w, h: c.signature.h } : null, commission: c.anonymous ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), opening: c.opening ?? openingFor(c.id), silence: silenceFor(c.take) };
+  return { id: c.id, image, raw, signature: ink && c.signature ? { ink, x: c.signature.x, y: c.signature.y, w: c.signature.w, h: c.signature.h } : null, commission: wordsPrivate(c) ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), opening: c.opening ?? openingFor(c.id), silence: silenceFor(c.take) };
 }

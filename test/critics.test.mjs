@@ -120,8 +120,8 @@ test('a take names its light and anchor; one already used today is a repeat', as
   assert.match(read('../api/_lib/desk.ts'), /repeatsToday\(docs, take\)/);
 });
 
-// Diego, 2026-09-05, delegating the therapist's point (07-lena.md): a sentence sent by DM or anonymously is a
-// private disclosure. It is never quoted in the public caption or on the public wall; only a commission that
+// Diego, 2026-09-05, delegating the therapist's point (07-lena.md): a private disclosure sent by DM or
+// anonymously (since 2026-09-26: the gatekeeper's `private`, see below). It is never quoted in the public caption or on the public wall; only a commission that
 // arrived publicly (a comment, or the API/MCP under a name) is. Fail closed: the caption is scrubbed even if the model quoted it.
 test('an anonymous commission is never quoted in the caption or on the wall', async () => {
   const { privateCaption } = await import('../api/_lib/desk.ts');
@@ -136,6 +136,27 @@ test('an anonymous commission is never quoted in the caption or on the wall', as
   assert.equal(publicView({ id: 'y', text: 'public', from: '@bea', created: '2026-09-05T00:00:00Z', status: 'posted', take: { accepted: true, note: 'n' } }).commission, 'public');
   assert.match(read('../api/_lib/desk.ts'), /privateCaption\(take\.caption, text\)/);
   assert.match(read('../public/index.html'), /sent privately/);
+});
+
+// Diego, 2026-09-26: "a few requests via instagram and when making the video the system only claims 'a commission'
+// instead of the actual prompt". Leaving your name off is not hiding what you said: an anonymous commission's words
+// open the film and sit on the wall unless the gatekeeper judged them a personal disclosure. Work from before the
+// flag keeps the old promise.
+test('an anonymous DM shows its words unless they are a disclosure; a missing verdict is private', async () => {
+  const { privateFor, wordsPrivate } = await import('../api/_lib/desk.ts');
+  const base = { id: 'x', text: 'A visit to the zoo', from: 'Diego Leal Togni', anonymous: true, created: '2026-09-26T00:00:00Z', status: 'posted', take: { accepted: true, note: 'n', line: 'A visit to the zoo' } };
+  const shown = publicView({ ...base, private: false });
+  assert.equal(shown.commission, 'A visit to the zoo'); assert.equal(shown.line, 'A visit to the zoo');
+  assert.equal(shown.from, null, 'the name stays off even when the words are shown');
+  assert.equal(publicView({ ...base, private: true }).commission, null);
+  assert.equal(wordsPrivate({ anonymous: true }), true, 'from before the flag: anonymous meant private');
+  assert.equal(wordsPrivate({}), false);
+  assert.equal(privateFor(true, { private: false }), false);
+  assert.equal(privateFor(true, { private: true }), true);
+  assert.equal(privateFor(true, {}), true, 'the gatekeeper said nothing: fail closed');
+  assert.equal(privateFor(false, { private: true }), false, 'a named commission was said out loud');
+  assert.match(gatekeeperSystemPrompt(), /"private": boolean/);
+  for (const f of ['../api/paint.ts', '../api/_lib/film.ts']) assert.doesNotMatch(read(f), /c\.anonymous \? null : c\.text/, `${f} decides by name, not by words`);
 });
 
 test('the caption asks the question rather than picking a fight for it (Diego, 2026-09-09)', async () => {
