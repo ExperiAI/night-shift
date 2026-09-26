@@ -10,7 +10,7 @@ import { loadInboxState, saveInboxState, all, load, save, type Commission } from
 import { ORIGIN } from './_lib/origin.js';
 import { cancel, burn, isHeld, awaitYes } from './_lib/desk.js';
 import type { Receipt } from './_lib/desk.js';
-import { EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, isStop, isYes, isBurn, consentNote, standingWork, standingLine, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
+import { commissionWords, EMPTY_STATE, freshItems, remember, replyFor, reactionSystemPrompt, photoFrom, creditHandle, awaitingCredit, isStop, isYes, isBurn, consentNote, standingWork, standingLine, type InboxItem, type InboxState, type Reaction } from './_lib/react.js';
 import { sendOnce } from './_lib/outbound.js';
 
 export const config = { maxDuration: 300 };
@@ -157,7 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // answers, so that painter saved over it every time (2026-09-06 to 2026-09-09: every Instagram
           // commission lost its thread, and with it the reply carrying the link).
           const source: Commission['source'] = { channel: it.kind === 'dm' ? 'instagram-dm' : 'instagram-comment', handle: it.handle, ...it.ref };
-          const receipt = await commissionViaApi({ text: r.commission, from: it.kind === 'comment' ? `@${it.handle}` : it.handle, anonymous: it.kind === 'dm', source, ...(it.photo ? { photo: it.photo } : {}) });
+          const receipt = await commissionViaApi({ text: commissionWords(it.text, r.commission), from: it.kind === 'comment' ? `@${it.handle}` : it.handle, anonymous: it.kind === 'dm', source, ...(it.photo ? { photo: it.photo } : {}) });
           about = await load(receipt.id);
           // A private disclosure is not painted on silence (issue #18): the DM hold waits for a yes, and the receipt says so.
           const waitForYes = it.kind === 'dm' && receipt.status === 'queued' && Boolean(about?.holdUntil);
