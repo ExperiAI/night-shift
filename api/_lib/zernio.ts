@@ -168,7 +168,7 @@ async function attemptPost(media: Media, caption: string, o: PostOptions, accoun
 /** The shape that went up. `film+still` is history only: the carousel of 2026-09-09 to -14 (issue #45). */
 export type PostedAs = 'film+still' | 'film' | 'stills';
 const shapeOf = (m: Media): PostedAs => (typeof m === 'object' && !Array.isArray(m) ? 'film' : 'stills');
-export async function publish(media: Media, caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string; distribution: Distribution; postedAs: PostedAs; collaborator?: { handle: string; invited: boolean } }> {
+export async function publish(media: Media, caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string; distribution: Distribution; postedAs: PostedAs; collaborator?: { handle: string; sent: boolean } }> {
   const acct = await instagramAccount();
   if (!acct) throw new Error('no Instagram account connected in Zernio');
   let sent = opts;
@@ -181,7 +181,9 @@ export async function publish(media: Media, caption: string, opts: PostOptions =
   const distribution: Distribution = sent.trial ? 'trial' : 'feed'; // what Instagram took, not what was asked
   const postedAs = shapeOf(media);
   const asked = opts.collaborators?.[0];
-  const collaborator = asked ? { handle: asked, invited: Boolean(sent.collaborators?.length) } : undefined; // invited false: Instagram refused the tag and the painting went up without it
+  // sent: the post went up carrying the tag. NOT proof of an invite: on 2026-09-26 the first one (@diegolealtogni, a private
+  // account) was accepted with the tag and Instagram delivered no invite and listed no collaborator. false: refused, posted without.
+  const collaborator = asked ? { handle: asked, sent: Boolean(sent.collaborators?.length) } : undefined;
   const fallback = acct.username ? `https://www.instagram.com/${acct.username}/` : 'https://www.instagram.com/experiai/';
   if (a.kind === 'pending') return { postId: a.postId, permalink: fallback, mediaId: undefined, distribution, postedAs, collaborator };
   return { postId: a.postId, permalink: a.permalink, mediaId: a.mediaId, distribution, postedAs, collaborator };
