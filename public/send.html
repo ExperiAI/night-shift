@@ -134,7 +134,7 @@ const store = t => { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch
     const r = await fetch(`${origin}/api/commission`);
     if (!r.ok) return;
     const list = (await r.json()).commissions || [];
-    // Never the studio's own work. Those are the pieces it sets itself to test the painter, they are
+    // Never the studio's own work. Those are the pieces it sets itself, they are
     // written in backstage language, and publicView already flags them with `studio`. The newest
     // painting was one, and its wording went straight onto the page strangers use.
     const c = list.filter(x => x.image && x.commission && x.title && !x.studio)

@@ -4,13 +4,14 @@
 // Diego, 2026-09-05: people won't give feedback themselves; the critique layer is automatic so
 // the system evolves. Night Shift's soul is not up for change here; the NEXT painter is.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { all, allFeedback, saveFeedback, saveCritique, latestCritiques, newId, type Critique, type ExamSitting } from './_lib/store.js';
+import { all, allFeedback, saveFeedback, saveCritique, latestCritiques, newId, type Critique, type ExamSitting, type QuietSitting } from './_lib/store.js';
 import { ARTIST, REGISTERS, registerByKey, isStudioPlumbing } from './_lib/artist.js';
 import { ORIGIN } from './_lib/origin.js';
 import { instagramAccount, audience, publishStory, canPost, postInsights, type PostInsight } from './_lib/zernio.js';
 import { openDoorStory } from './_lib/compose.js';
 import { captionMatches } from './_lib/reconcile.js';
 import { nextExam, STUDIO_SENDER } from './_lib/exams.js';
+import { isQuiet, pickMoment } from './_lib/quiet.js';
 import { STUDIO_CAP, acceptedToday } from './_lib/desk.js';
 import { put } from '@vercel/blob';
 
@@ -30,6 +31,16 @@ async function sitExam(allDocs: { text: string; created: string; status: string;
   if (!exam || acceptedToday(allDocs as any) >= STUDIO_CAP) return null;
   const r = await fetch(`${ORIGIN}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-night-shift-internal': process.env.CRON_SECRET ?? '' }, body: JSON.stringify({ text: exam.commission, from: STUDIO_SENDER, register: exam.register, exception: exam.exception }) });
   return { key: exam.key, status: r.status, body: (await r.text()).slice(0, 200) };
+}
+
+/** A quiet studio commissions itself (issue #37): at most one a day, under its own name, through the same desk.
+ *  Not on a morning an exam went, nor past the studio cap, nor when anyone else asked in the last day. */
+async function sitQuiet(allDocs: { text: string; from?: string | null; created: string; status: string; seed?: string }[], exam: ExamSitting | null): Promise<QuietSitting | null> {
+  if ((exam && exam.status >= 200 && exam.status < 300) || acceptedToday(allDocs as any) >= STUDIO_CAP || !isQuiet(allDocs)) return null;
+  const text = await pickMoment(allDocs);
+  if (!text) return null;
+  const r = await fetch(`${ORIGIN}/api/commission`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-night-shift-internal': process.env.CRON_SECRET ?? '' }, body: JSON.stringify({ text, from: STUDIO_SENDER }) });
+  return { text, status: r.status, body: (await r.text()).slice(0, 200) };
 }
 
 /** Both reviews on 2026-09-05 proposed, for THIS painter, what its standing decisions refuse: decline people
@@ -76,6 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const everything = await all();
   const docs = everything.filter(c => !isStudioPlumbing(c) && Date.parse(c.created) > since);
   const exam = req.query.dry === '1' ? null : await sitExam(everything).catch(e => ({ key: 'error', status: 0, body: String(e.message).slice(0, 120) }));
+  const quiet = req.query.dry === '1' ? null : await sitQuiet(everything, exam).catch(e => ({ text: '', status: 0, body: String(e.message).slice(0, 120) }));
   const posted = docs.filter(c => c.status === 'posted' && c.image).slice(0, 8);
   const failed = docs.filter(c => c.status === 'failed'), declined = docs.filter(c => c.status === 'declined');
   const human = (await allFeedback()).filter(f => f.channel !== 'critic' && Date.parse(f.created) > since);
@@ -101,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const date = new Date().toISOString().slice(0, 10);
   const door = posted.length === 0 ? await openDoor() : false; // idle day: a Story keeps the door lit
   const signals = { posted: posted.length, failed: failed.length, declined: declined.length, likes, comments, humanFeedback: human.length, ...(followers != null ? { followers } : {}), ...(reels ? { reels } : {}) };
-  if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: [door ? 'nothing to review; the open-door Story went up' : 'nothing to review'], next_painter: [], this_painter: [], signals, exam }; await saveCritique(empty); return res.json(empty); }
+  if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: [door ? 'nothing to review; the open-door Story went up' : 'nothing to review'], next_painter: [], this_painter: [], signals, exam, quiet }; await saveCritique(empty); return res.json(empty); }
 
   const content: any[] = [{ type: 'text', text: [
     `Day: ${date}. Posted ${posted.length}, failed ${failed.length} (${failed.map(f => f.error?.slice(0, 80)).join(' | ')}), declined ${declined.length} (${declined.map(d => d.take.note?.slice(0, 60)).join(' | ')}).`,
@@ -121,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!r.ok || j.error) return res.status(502).json({ error: `critic ${r.status}: ${JSON.stringify(j.error ?? j).slice(0, 200)}` });
   const m = String(j.choices?.[0]?.message?.content ?? '').match(/\{[\s\S]*\}/);
   const out = m ? JSON.parse(m[0]) : {};
-  const critique: Critique = { date, paintings: posted.length, observations: out.observations ?? [], patterns: out.patterns ?? [], next_painter: out.next_painter ?? [], this_painter: out.this_painter ?? [], signals, exam };
+  const critique: Critique = { date, paintings: posted.length, observations: out.observations ?? [], patterns: out.patterns ?? [], next_painter: out.next_painter ?? [], this_painter: out.this_painter ?? [], signals, exam, quiet };
   await saveCritique(critique);
   // Proposals join the human feedback record, so one list holds everything the next painter is made of.
   for (const p of critique.next_painter) await saveFeedback({ id: newId(), text: p, from: 'the critic', channel: 'critic', about: date, created: new Date().toISOString() });

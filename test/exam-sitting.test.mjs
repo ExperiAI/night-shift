@@ -19,8 +19,8 @@ test('the exam is filed at the public origin, never at the hostname the cron hap
 
 test('the sitting is part of the critique record and readable on /api/status, so a 401 is visible the next morning', () => {
   assert.match(store, /exam\?: ExamSitting \| null/);
-  assert.match(critic, /this_painter: out\.this_painter \?\? \[\], signals, exam \}/);
-  assert.match(critic, /next_painter: \[\], this_painter: \[\], signals, exam \}/); // the idle-day critique too
+  assert.match(critic, /this_painter: out\.this_painter \?\? \[\], signals, exam, quiet \}/);
+  assert.match(critic, /next_painter: \[\], this_painter: \[\], signals, exam, quiet \}/); // the idle-day critique too
   assert.match(status, /exam: critiques\[0\]\.exam \?\? null/);
   assert.match(status, /exams: \{ sat: EXAMS\.filter\(e => examSat\(e, docs\)\)\.map\(e => e\.key\), next: nextExam\(docs\)\?\.key \?\? null \}/);
 });
