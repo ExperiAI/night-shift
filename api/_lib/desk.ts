@@ -375,7 +375,7 @@ export function publicView(c: Commission) {
     image: c.image, instagram: c.instagram, painted: c.painted, photo: c.photo, slides: c.slides, holdUntil: c.holdUntil, register: c.take.register,
     film: c.film, opening: c.opening, raw: c.raw, signature: c.signature, room: c.room, endLine: endLineFor(c.id), // the film's last words, so the wall says the same // the reveal (docs/reveal.md): the film for the Reel and the ticket; the unsigned canvas and the ink layer for the wall to sign in real time
     ...(c.rejects?.length ? { rejects: c.rejects } : {}), // what the inspector refused on the way to this canvas
-    ...(isStudioSender(c.from) ? { studio: true } : {}), // the studio's own commission (an exam), marked so the wall is not read as a client list (#18)
+    ...(isStudioSender(c.from) ? { studio: true } : {}), // the studio's own commission (an exam, or a quiet day's #37), marked so the wall is not read as a client list (#18)
     ...(c.status === 'posted' || c.status === 'painted' ? { share: SHARE } : {}),
     ...(c.status === 'failed' && c.error ? { reason: c.error.slice(0, 200) } : {}), // so an agent can rephrase (#8)
   };
