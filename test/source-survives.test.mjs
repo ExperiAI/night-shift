@@ -42,7 +42,7 @@ test('the source is written into the document the desk creates, not added afterw
 
 test('the inbox sends the source with the commission and never writes it back over the painter', () => {
   const inbox = read('../api/inbox.ts');
-  assert.match(inbox, /commissionViaApi\(\{ text: r\.commission,[^)]*source,/, 'it travels with the commission');
+  assert.match(inbox, /commissionViaApi\(\{ text: commissionWords\(it\.text, r\.commission\),[^)]*source,/, 'it travels with the commission');
   assert.ok(!/about\.source = /.test(inbox), 'the load/save that the painter clobbered is gone');
   // The one remaining write after the receipt is the consent hold, and that is safe: a held commission
   // is never kicked, so no painter is racing it.

@@ -1,5 +1,6 @@
 // The inbox reactor: how the artist answers comments and DMs on Instagram.
 // Pure decisions live here so they can be tested; Zernio and the model stay in the handler.
+import { isExcerpt } from './score.js';
 import { ARTIST } from './artist.js';
 import { STOP_HINT } from './desk.js';
 import type { Receipt } from './desk.js';
@@ -167,4 +168,15 @@ export function standingLine(c: Standing, now = Date.now()): string {
   const age = Number.isNaN(Date.parse(c.created)) ? '' : `, asked ${ago(Math.max(0, now - Date.parse(c.created)))} ago`;
   const link = c.status === 'posted' && c.instagram ? ` It is up at ${c.instagram}.` : '';
   return `You are already carrying work for this person: ${title} — ${state}${age}.${link}`;
+}
+
+/** The words a commission is filed with: the reactor's pick when it is the sender's own words (a verbatim run of the
+ *  message, quotes and case aside: "paint this: my kitchen" → "my kitchen"), else the message itself. 2026-09-26: a
+ *  comment reading "first coffee before anyone wakes up" was filed as three sentences the reactor wrote ("The kitchen
+ *  in the first light… The moment after the first pour."), and the caption quoted them as the commenter's. The prompt
+ *  already said "their words, lightly cleaned"; this is where it holds. Leading @mentions are dropped either way. */
+export function commissionWords(message: string, picked?: string | null): string {
+  const own = message.replace(/^(\s*@[\w.]+[,:]?\s*)+/, '').trim();
+  const p = (picked ?? '').trim();
+  return p && isExcerpt(own, p) ? p : own;
 }
