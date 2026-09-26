@@ -168,7 +168,7 @@ async function attemptPost(media: Media, caption: string, o: PostOptions, accoun
 /** The shape that went up. `film+still` is history only: the carousel of 2026-09-09 to -14 (issue #45). */
 export type PostedAs = 'film+still' | 'film' | 'stills';
 const shapeOf = (m: Media): PostedAs => (typeof m === 'object' && !Array.isArray(m) ? 'film' : 'stills');
-export async function publish(media: Media, caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string; distribution: Distribution; postedAs: PostedAs }> {
+export async function publish(media: Media, caption: string, opts: PostOptions = {}): Promise<{ postId: string; permalink: string; mediaId?: string; distribution: Distribution; postedAs: PostedAs; collaborator?: { handle: string; invited: boolean } }> {
   const acct = await instagramAccount();
   if (!acct) throw new Error('no Instagram account connected in Zernio');
   let sent = opts;
@@ -180,9 +180,11 @@ export async function publish(media: Media, caption: string, opts: PostOptions =
   if (a.kind === 'refused') throw new Error(a.error);
   const distribution: Distribution = sent.trial ? 'trial' : 'feed'; // what Instagram took, not what was asked
   const postedAs = shapeOf(media);
+  const asked = opts.collaborators?.[0];
+  const collaborator = asked ? { handle: asked, invited: Boolean(sent.collaborators?.length) } : undefined; // invited false: Instagram refused the tag and the painting went up without it
   const fallback = acct.username ? `https://www.instagram.com/${acct.username}/` : 'https://www.instagram.com/experiai/';
-  if (a.kind === 'pending') return { postId: a.postId, permalink: fallback, mediaId: undefined, distribution, postedAs };
-  return { postId: a.postId, permalink: a.permalink, mediaId: a.mediaId, distribution, postedAs };
+  if (a.kind === 'pending') return { postId: a.postId, permalink: fallback, mediaId: undefined, distribution, postedAs, collaborator };
+  return { postId: a.postId, permalink: a.permalink, mediaId: a.mediaId, distribution, postedAs, collaborator };
 }
 
 /** A permalink to a post, as opposed to the profile fallback publish() returns when Instagram was slow. */

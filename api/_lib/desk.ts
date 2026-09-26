@@ -162,6 +162,21 @@ export function privateCaption(caption: string, text: string): string {
   return i >= 0 ? `${out.slice(0, i).trimEnd()}\n\n${PRIVATE_LINE}\n\n${out.slice(i)}` : `${out.trimEnd()}\n\n${PRIVATE_LINE}`;
 }
 
+/** The caption a painting posts with when the gatekeeper wrote none. 2026-09-26: the first commission ever sent as an
+ *  Instagram comment (Diego's, "late night at the laundromat") came back from the gatekeeper with no `caption`, and the
+ *  painter posted the bare title: no credit, no disclosure line, no invite. The model's omission is weather; posting
+ *  without them was the bug. Built from the record in the shape the gatekeeper is asked for, then scrubbed for a private
+ *  sentence and given the photo line exactly as a written caption would be. */
+export function captionFor(c: { text: string; from?: string | null; anonymous?: boolean; private?: boolean; photo?: string; take: { title?: string } }): string {
+  const credit = c.from && !c.anonymous ? `commissioned by ${c.from}` : 'a commission';
+  let caption = `${c.take.title ?? 'Night Shift'}\n\n“${c.text.trim()}” — ${credit}\n\n${SIGNOFF}\n\n${INVITE}`;
+  if (wordsPrivate(c)) caption = privateCaption(caption, c.text);
+  if (c.photo) caption = withPhotoLine(caption, c.anonymous || !c.from ? 'someone' : c.from);
+  return caption;
+}
+/** What a painting posts as its caption: the gatekeeper's, else one built from the record (never the bare title). */
+export const captionOf = (c: Parameters<typeof captionFor>[0] & { take: { caption?: string } }): string => c.take.caption?.trim() ? c.take.caption : captionFor(c);
+
 /** A commissioner's photo is a public https URL or an inline data URL; the desk copies it, never trusts it to last. */
 export function validatePhotoUrl(raw: unknown): string | null {
   if (raw == null || raw === '') return null;
@@ -302,6 +317,7 @@ export async function receive(textRaw: unknown, fromRaw: unknown, origin: string
   if (take.accepted) take.silence = silenceFor(take); // the silence of the place under the film: the gatekeeper's pick if it is one of the five, else a guess from its own words (score.ts SILENCES)
   if (take.line && !(take.line.trim().length <= SCORE.sentence.maxChars && isExcerpt(text, take.line))) delete take.line; // the film opens on the commissioner's words or on none of them (score.ts)
   const hidden = privateFor(anonymous, take);
+  if (take.accepted && !take.caption?.trim()) take.caption = captionFor({ text, from, anonymous, private: false, take }); // scrubbed and photo-lined just below, like a written one
   if (hidden && take.caption) take.caption = privateCaption(take.caption, text); // fail closed: never a private sentence in public
   if (photo && take.caption) take.caption = withPhotoLine(take.caption, anonymous || !from ? 'someone' : from);
   if (!take.note) take.note = take.departures ?? (take.accepted ? `I'll paint it: ${take.title ?? 'the place after everyone left'}.` : "I don't paint that."); // the model once left `note` out

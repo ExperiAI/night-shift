@@ -90,7 +90,7 @@ export function postBacklog<T extends { status: string; image?: string; instagra
  *  beside the photograph), else the film as a Reel with the still as its cover, else the still alone. The still
  *  to study goes up as the Story (alsoStory; Diego, 2026-09-14, issue #45). */
 export const mediaFor = (c: { image?: string; slides?: string[]; film?: string }) => c.slides ?? (c.film && c.image ? { video: c.film, cover: c.image } : c.image!);
-import { isHeld, expiredHolds, cancel, retake } from './_lib/desk.js';
+import { isHeld, expiredHolds, cancel, retake, captionOf } from './_lib/desk.js';
 import { photoSlide, pairSlide, signatureLayer, avoidLine } from './_lib/compose.js';
 import sharp from 'sharp';
 
@@ -149,8 +149,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!b || dry || !canPost()) return res.json({ painted: null, queued: 0, backlog: backlog.length, reconciled: fixed });
     b.postAttempt = new Date().toISOString();
     try {
-      const post = await publish(mediaFor(b), b.take.caption ?? b.take.title ?? 'Night Shift', postOptions(b, await accountNow()));
+      b.take.caption = captionOf(b); // never the bare title; the record keeps what was sent, so the read-back compares like with like
+      const post = await publish(mediaFor(b), b.take.caption, postOptions(b, await accountNow()));
       b.instagram = post.permalink; b.mediaId = post.mediaId; b.zernioPostId = post.postId; b.distribution = post.distribution; b.postedAs = post.postedAs; b.status = 'posted'; delete b.error;
+      if (post.collaborator) b.collaborator = post.collaborator;
       await tellSource(b);
       await alsoStory(b);
     } catch (e: any) { b.error = String(e.message).slice(0, 500); }
@@ -200,7 +202,9 @@ async function paintOne(c: Commission, res: VercelResponse, started: number, dry
     if (Date.now() - started < FILM_INLINE_BUDGET_MS) await filmIt(c, { id: c.id, image: img.bytes, raw, signature: { ink: sig.ink, x: sig.left, y: sig.top, w: sig.w, h: sig.h }, commission: wordsPrivate(c) ? null : c.text, line: c.take.line, title: c.take.title ?? 'Night Shift', endLine: endLineFor(c.id), silence: silenceFor(c.take) });
     else c.filmError = `deferred: the painting took ${Math.round((Date.now() - started) / 1000)} s; the next cron films it, then posts`;
     if (!dry && canPost() && readyToPost(c) && mayPublish(c) && burnWindowPassed(c)) { // a new-pipeline painting waits for its film (next cron: film first, then the backlog posts the Reel; a failed film posts the still), and every one waits out the sender's burn window
-      const post = await publish(mediaFor(c), c.take.caption ?? c.take.title ?? 'Night Shift', postOptions(c, await accountNow()));
+      c.take.caption = captionOf(c); // never the bare title (desk.ts captionFor)
+      const post = await publish(mediaFor(c), c.take.caption, postOptions(c, await accountNow()));
+      if (post.collaborator) c.collaborator = post.collaborator;
       c.instagram = post.permalink;
       c.mediaId = post.mediaId;
       c.zernioPostId = post.postId;
