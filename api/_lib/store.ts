@@ -1,4 +1,5 @@
 import { put, list, del } from '@vercel/blob';
+import { createHash } from 'node:crypto';
 import type { Take } from './artist.js';
 
 export type Status = 'queued' | 'declined' | 'painting' | 'painted' | 'posted' | 'failed' | 'withdrawn'; // withdrawn: burned at the commissioner's word — text, take and images gone (docs/stance.md, the therapist's bar)
@@ -133,7 +134,7 @@ export async function storeImage(id: string, bytes: Buffer, mime: string, suffix
 }
 
 // The inbox reactor's watermark and seen-list: one small document, read and written once
-// per run. Runs are 15 minutes apart, so Blob's ~60s body staleness cannot bite here.
+// per run. It may be ~60s stale when rounds overlap; it only narrows what a round looks at — claimInboxItem decides.
 const INBOX_STATE = 'inbox/state.json';
 export async function loadInboxState<T>(empty: T): Promise<T> {
   const page = await list({ prefix: INBOX_STATE, limit: 1 });
@@ -143,6 +144,22 @@ export async function loadInboxState<T>(empty: T): Promise<T> {
 }
 export async function saveInboxState<T>(state: T): Promise<void> {
   await put(INBOX_STATE, JSON.stringify(state), { access: 'public', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 0 });
+}
+
+// Rounds are no longer 15 minutes apart: Zernio pushes each DM and comment the moment it lands (2026-09-28, a stranger's
+// first DM sat unanswered until the next cron), so two rounds can overlap and the state above can be ~60s stale.
+// Before a round answers an item it CLAIMS it: Blob refuses a create over an existing path, and of five simultaneous
+// creates exactly one won (measured 2026-09-28). The claim, not the watermark, is what stops a second reply.
+const CLAIMS = 'inbox/claims/';
+export async function claimInboxItem(itemId: string, putFn: typeof put = put): Promise<boolean> {
+  const name = `${CLAIMS}${createHash('sha256').update(itemId).digest('hex').slice(0, 32)}.json`;
+  try {
+    await putFn(name, JSON.stringify({ at: new Date().toISOString() }), { access: 'public', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: false });
+    return true;
+  } catch (e: any) {
+    if (/already exists/i.test(String(e?.message))) return false;
+    throw e;
+  }
 }
 
 // ---- Feedback: critique and wishes about how the artist works, kept to shape the next painter ----

@@ -6,7 +6,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { chatJSON } from './_lib/openrouter.js';
 import { instagramAccount, listComments, listMessages, replyToComment, sendMessage, commentOnPost, notifyOwner } from './_lib/zernio.js';
-import { loadInboxState, saveInboxState, all, load, save, type Commission } from './_lib/store.js';
+import { loadInboxState, saveInboxState, claimInboxItem, all, load, save, type Commission } from './_lib/store.js';
+import { kickInbox } from './_lib/kick.js';
 import { ORIGIN } from './_lib/origin.js';
 import { cancel, burn, isHeld, awaitYes } from './_lib/desk.js';
 import type { Receipt } from './_lib/desk.js';
@@ -39,6 +40,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.authorization !== `Bearer ${secret}`) return res.status(401).end();
   const dry = req.query.dry === '1';
+  // Zernio's push (message.received / comment.received, carrying our secret as a custom header): start a round on its
+  // own function and answer Zernio now. The payload is not read — the round reads the inbox as the cron does, and the
+  // cron stays as the net for a push that never came (2026-09-28: a stranger's first DM waited for the next cron).
+  if (req.headers['x-zernio-event']) return res.status(202).json({ event: req.headers['x-zernio-event'], round: await kickInbox() });
 
   const acct = await instagramAccount();
   if (!acct) return res.status(500).json({ error: 'no Instagram account in Zernio' });
@@ -65,6 +70,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   for (const it of fresh) {
     if (!it.text.trim() && !it.photo) continue;
+    // A pushed round and the cron can hold the same item: only the round that claims it answers it.
+    if (!dry && !(await claimInboxItem(it.id))) { log.push({ id: it.id, skipped: 'claimed by another round' }); continue; }
     // "burn it" from the thread or handle that commissioned: the painting and the words go, everywhere we hold them (the therapist's bar).
     if (isBurn(it.text)) {
       const mine = docs.filter(c => c.status !== 'withdrawn' && c.status !== 'declined' && c.source && (it.kind === 'dm' ? c.source.conversationId === it.ref.conversationId : c.source.handle === it.handle)).sort((a, b) => b.created.localeCompare(a.created))[0];
