@@ -9,11 +9,21 @@ import { ORIGIN } from './origin.js';
 export const KICK_WAIT_MS = 1500; // long enough for the request to reach the painter; never long enough to hold the desk
 
 export async function kickPainter(id: string, fetchFn: typeof fetch = fetch, wait = KICK_WAIT_MS): Promise<'kicked' | 'no-secret' | 'failed'> {
+  return kick(`/api/paint?id=${encodeURIComponent(id)}`, fetchFn, wait);
+}
+
+/** The same kick for the inbox: Zernio pushes a DM or comment, we start a round on its own function and answer Zernio
+ *  at once — a webhook that times out is retried, and after enough failures Zernio switches it off. */
+export async function kickInbox(fetchFn: typeof fetch = fetch, wait = KICK_WAIT_MS): Promise<'kicked' | 'no-secret' | 'failed'> {
+  return kick('/api/inbox', fetchFn, wait);
+}
+
+async function kick(path: string, fetchFn: typeof fetch, wait: number): Promise<'kicked' | 'no-secret' | 'failed'> {
   const secret = process.env.CRON_SECRET;
   if (!secret) return 'no-secret';
   const ctrl = new AbortController();
   let answered: boolean | null = null;
-  const req = fetchFn(`${ORIGIN}/api/paint?id=${encodeURIComponent(id)}`, { headers: { authorization: `Bearer ${secret}` }, signal: ctrl.signal })
+  const req = fetchFn(`${ORIGIN}${path}`, { headers: { authorization: `Bearer ${secret}` }, signal: ctrl.signal })
     .then(r => { answered = r.ok; }, () => { if (answered === null) answered = false; });
   await Promise.race([req, new Promise(r => setTimeout(r, wait))]);
   ctrl.abort(); // the painter keeps working; only our socket closes
