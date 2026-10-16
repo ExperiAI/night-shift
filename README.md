@@ -25,6 +25,22 @@ the one **lettering exception** (#17). Tests: `npm test` (162). Deploy:
 `./scripts/deploy-prod.sh` — tests, deploys with a build id, then proves `/api/status` on the domain
 reports that build (an optional marker checks a page).
 
+## When something breaks, it says so (issue #43, 2026-10-16)
+
+`api/_lib/alarm.ts` emails admin@experiai.com, subject `Night Shift: …`, through Resend (`RESEND_API_KEY`; sender
+`onboarding@resend.dev`, which only delivers to the account owner):
+- **a painting that fails, the moment it fails**, with the error class (`out-of-credits` for a 402 or a key at its
+  cap, `inspector-refused`, `posting-failed`, `painter-died`, …) and what to do; once per commission and class a day;
+- **a run that throws** (the painter, the critic, the desk on a 5xx); once per run and class every 6 h;
+- **the daily budget check**, first thing in the 04:30 critic cron: the project key's `limit_remaining` and the
+  account's credit against the key's trailing 7-day spend. Alerts under **$5 left** or under **10 days** of runway,
+  and when the money cannot be read. Silent otherwise. The day's numbers are on `/api/status` → `lastCritique.budget`.
+
+Without `RESEND_API_KEY` every alert is logged as `alert UNSENT` in the function log. Prove the path:
+`curl -H "Authorization: Bearer $CRON_SECRET" "https://nightshift.experiai.com/api/critic?alert=test"` (one email,
+labelled TEST); `?budget=1` runs the daily check on demand. The key and the cap are set by
+`hs run night-shift-fail-loudly`.
+
 ## Traps that cost a live post
 
 - **When nothing paints, it is the credits — and it looks like a healthy queue.** OpenRouter answers

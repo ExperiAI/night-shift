@@ -8,6 +8,7 @@ import { openingFor, paceFor } from './_lib/score.js';
 import { renderImage, inspectImage } from './_lib/openrouter.js';
 import { publish, publishStory, canPost, postOptions, audience } from './_lib/zernio.js';
 import { reconcile } from './_lib/reconcile.js';
+import { paintingFailed, runCrashed } from './_lib/alarm.js';
 
 /** New work also goes up as a 24h Story. Best effort: a Story that fails never touches the post. */
 async function alsoStory(c: { image?: string; story?: string }) {
@@ -111,7 +112,16 @@ export function sweepQueue<T extends { status: string; holdUntil?: string; await
   return docs.filter(c => c.status === 'queued' && !isHeld(c, now) && Date.parse(c.created) < now - KICK_GRACE_MS).sort((a, b) => a.created.localeCompare(b.created));
 }
 
+/** Any run that throws says so (issue #43): a crash used to be a 500 in a log nobody read. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try { return await run(req, res); }
+  catch (e: any) {
+    await runCrashed('paint', e);
+    if (!res.headersSent) return res.status(500).json({ error: String(e?.message ?? e).slice(0, 300) });
+  }
+}
+
+async function run(req: VercelRequest, res: VercelResponse) {
   const started = Date.now();
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.authorization !== `Bearer ${secret}`) return res.status(401).end();
@@ -127,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const docs = await all();
   for (const d of stalePaintings(docs)) { // a painter that died mid-work: once more, then no more
     if ((d.revived ?? 0) >= 1) { d.status = 'failed'; d.error = 'the painter stopped twice on this one'; } else { d.status = 'queued'; d.revived = (d.revived ?? 0) + 1; delete d.paintingAt; }
-    if (!dry) await save(d);
+    if (!dry) { await save(d); if (d.status === 'failed') await paintingFailed(d, 'sweep'); }
   }
   const fixed = await reconcile(docs, { dry }).catch(e => ({ error: String(e.message).slice(0, 120) })); // finish what an earlier publish() started
   if (!dry) for (const d of docs.filter(d => d.status === 'posted' && d.source && !d.sourceReplied)) { await tellSource(d); if (d.sourceReplied) await save(d); } // the one reply, once the link is real
@@ -157,6 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await alsoStory(b);
     } catch (e: any) { b.error = String(e.message).slice(0, 500); }
     await save(b);
+    if (b.status !== 'posted' && b.error) await paintingFailed(b, 'post'); // the canvas is safe; Instagram said no
     return res.json({ painted: null, posted: b.id, status: b.status, instagram: b.instagram, error: b.error, backlog: backlog.length - 1 });
   }
 
@@ -167,6 +178,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 /** Paint one commission on this function: render, inspect, sign, store, film inside the budget, post if it may. */
 async function paintOne(c: Commission, res: VercelResponse, started: number, dry: boolean, docs?: Commission[]) {
+  let failure: { stage: 'paint' | 'post'; error: string } | null = null;
   c.status = 'painting'; c.paintingAt = new Date().toISOString(); await save(c);
   try {
     const refs = (process.env.STYLE_REFS ?? '').split(',').filter(Boolean).map(p => p.startsWith('http') ? p : `${ORIGIN}${p}`);
@@ -216,6 +228,7 @@ async function paintOne(c: Commission, res: VercelResponse, started: number, dry
       c.status = 'painted'; // on the wall; Instagram comes when the token exists, or once the film does
     }
   } catch (e: any) {
+    failure = { stage: statusAfterFailure(c) === 'painted' ? 'post' : 'paint', error: String(e.message).slice(0, 500) };
     // A finished canvas is never failed by a refused post. Until 2026-09-08 it was: Instagram said no,
     // publish() threw, and the painting — rendered, inspected, signed, filmed and paid for — went to
     // 'failed', a state nothing retries, while the person who asked for it was told nothing. `painted`
@@ -231,5 +244,6 @@ async function paintOne(c: Commission, res: VercelResponse, started: number, dry
   }
   delete c.paintingAt;
   await save(c);
+  if (failure && !dry) await paintingFailed({ ...c, error: failure.error }, failure.stage); // said the moment it happens, with the error the retake would otherwise have cleared
   return res.json({ painted: c.id, status: c.status, image: c.image, film: c.film, filmMs: c.filmMs, filmError: c.filmError, instagram: c.instagram, error: c.error });
 }
