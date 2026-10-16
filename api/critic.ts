@@ -14,6 +14,7 @@ import { nextExam, STUDIO_SENDER } from './_lib/exams.js';
 import { isQuiet, pickMoment } from './_lib/quiet.js';
 import { STUDIO_CAP, acceptedToday } from './_lib/desk.js';
 import { put } from '@vercel/blob';
+import { dailyBudgetCheck, runCrashed, readBudget, budgetLine, sendAlert } from './_lib/alarm.js';
 
 /** No new painting in a day: the door still shows a light. Best effort. */
 async function openDoor(): Promise<boolean> {
@@ -82,6 +83,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.authorization !== `Bearer ${secret}`) return res.status(401).end();
   if (req.method === 'GET' && req.query.list === '1') return res.setHeader('Cache-Control', 'no-store').json(await latestCritiques());
+  if (req.query.alert === 'test') { // proves the alert path end to end: one email, labelled TEST, with today's numbers
+    const line = await readBudget().then(b => budgetLine(b)).catch(e => `budget unreadable: ${String(e.message).slice(0, 120)}`);
+    return res.json({ test: await sendAlert('TEST — the alert path works', ['TEST. Nothing is wrong: this proves a Night Shift alert reaches this inbox.', 'Real alerts: a painting that fails (the moment it fails, with the error class) and the 04:30 budget check (key under $5 or under 10 days of runway).', '', line]), line });
+  }
+  if (req.query.budget === '1') return res.json(await dailyBudgetCheck()); // the daily check alone, on demand (emails only when something is wrong)
+  // The daily budget check rides this cron (issue #43), first, so nothing the critic does can skip it. Silent on an
+  // ordinary day; one email when the key or the account is running low or cannot be read.
+  const budget = req.query.dry === '1' ? null : await dailyBudgetCheck().catch(e => ({ ok: false, line: 'check threw', problems: [String(e.message)] }));
+  try { return await review(req, res, budget); }
+  catch (e: any) { await runCrashed('critic', e); if (!res.headersSent) return res.status(500).json({ error: String(e?.message ?? e).slice(0, 300), budget }); }
+}
+
+type BudgetCheck = Awaited<ReturnType<typeof dailyBudgetCheck>> | { ok: boolean; line: string; problems: string[] } | null;
+
+async function review(req: VercelRequest, res: VercelResponse, budget: BudgetCheck) {
 
   const since = Date.now() - 86_400_000;
   const everything = await all();
@@ -113,7 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const date = new Date().toISOString().slice(0, 10);
   const door = posted.length === 0 ? await openDoor() : false; // idle day: a Story keeps the door lit
   const signals = { posted: posted.length, failed: failed.length, declined: declined.length, likes, comments, humanFeedback: human.length, ...(followers != null ? { followers } : {}), ...(reels ? { reels } : {}) };
-  if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: [door ? 'nothing to review; the open-door Story went up' : 'nothing to review'], next_painter: [], this_painter: [], signals, exam, quiet }; await saveCritique(empty); return res.json(empty); }
+  if (!posted.length && !failed.length && !human.length) { const empty: Critique = { date, paintings: 0, observations: [], patterns: [door ? 'nothing to review; the open-door Story went up' : 'nothing to review'], next_painter: [], this_painter: [], signals, exam, quiet }; if (budget) empty.budget = { ok: budget.ok, line: budget.line }; await saveCritique(empty); return res.json(empty); }
 
   const content: any[] = [{ type: 'text', text: [
     `Day: ${date}. Posted ${posted.length}, failed ${failed.length} (${failed.map(f => f.error?.slice(0, 80)).join(' | ')}), declined ${declined.length} (${declined.map(d => d.take.note?.slice(0, 60)).join(' | ')}).`,
@@ -130,10 +146,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     body: JSON.stringify({ model: MODEL, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: criticSystemPrompt() }, { role: 'user', content }] }),
   });
   const j: any = await r.json();
-  if (!r.ok || j.error) return res.status(502).json({ error: `critic ${r.status}: ${JSON.stringify(j.error ?? j).slice(0, 200)}` });
+  if (!r.ok || j.error) { const err = `critic ${r.status}: ${JSON.stringify(j.error ?? j).slice(0, 200)}`; await runCrashed('critic', new Error(`openrouter ${err}`)); return res.status(502).json({ error: err, budget }); }
   const m = String(j.choices?.[0]?.message?.content ?? '').match(/\{[\s\S]*\}/);
   const out = m ? JSON.parse(m[0]) : {};
   const critique: Critique = { date, paintings: posted.length, observations: out.observations ?? [], patterns: out.patterns ?? [], next_painter: out.next_painter ?? [], this_painter: out.this_painter ?? [], signals, exam, quiet };
+  if (budget) critique.budget = { ok: budget.ok, line: budget.line }; // the day's money, on the record beside the review
   await saveCritique(critique);
   // Proposals join the human feedback record, so one list holds everything the next painter is made of.
   for (const p of critique.next_painter) await saveFeedback({ id: newId(), text: p, from: 'the critic', channel: 'critic', about: date, created: new Date().toISOString() });

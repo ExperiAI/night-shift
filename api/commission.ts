@@ -5,6 +5,7 @@ import { all } from './_lib/store.js';
 import { ORIGIN } from './_lib/origin.js';
 import { validateRoomCode, loadRoom, publicRoom } from './_lib/room.js';
 import { SCORE } from './_lib/score.js';
+import { runCrashed } from './_lib/alarm.js';
 
 /** The desk answers a send, and answering means asking the gatekeeper: once, and again for a repeated
  *  light-and-anchor, again for a repeated trace, again if the departures were missing (desk.ts). One call
@@ -34,6 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     return res.status(405).end();
   } catch (e: any) {
+    if (!e.status) await runCrashed('desk', e); // a 4xx is the desk answering a person; anything else (a 402 at the gatekeeper) is the studio failing (issue #43)
     return res.status(e.status ?? 500).json({ error: e.message });
   }
 }

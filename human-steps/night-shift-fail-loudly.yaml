@@ -1,0 +1,52 @@
+id: night-shift-fail-loudly
+title: Keep Night Shift painting past 24 October, and let its alerts reach you
+
+what_changes: >
+  Night Shift's OpenRouter key has a $20 cap with about $1.20 left (2026-10-16): at this week's spend it stops
+  painting around 24 October. The account itself has about $40.75, shared with other projects. Raising the key's
+  cap to $40 gives roughly three months; no money is spent or added.
+
+  The studio now emails admin@experiai.com ("Night Shift: …") the moment a painting fails, and once a day when
+  the key or the account runs low. It sends through ExperiAI's Resend account, and this project has no key of its
+  own yet, so until this step runs every alert is written to the log as UNSENT. This step stores a new
+  sending-only key in Vercel and redeploys.
+
+outcome: >
+  Night Shift paints past 24 October, and a failed painting or a low balance reaches admin@experiai.com as an
+  email titled "Night Shift: …". A TEST email arrives at the end of this step as proof.
+
+fields:
+  - name: LIMIT
+    label: The new limit on the Night Shift key, in dollars (raise it first)
+    default: "40"
+    pattern: '^[0-9]+$'
+    where: |
+      openrouter.ai → sign in (admin@experiai.com) → Settings → API Keys (openrouter.ai/settings/keys).
+      Find the key whose label ends in ...639 (the one with a $20 limit) → the ⋯ menu → Edit →
+      Credit limit: 40 → Save. Then press Enter here. The step reads the limit back and stops if it is not raised.
+
+  - name: RESEND_API_KEY
+    label: A new Resend key for Night Shift (sending access)
+    secret: true
+    starts_with: re_
+    min_length: 20
+    where: |
+      resend.com → log in with admin@experiai.com → API Keys → Create API Key.
+        Name:        night-shift
+        Permission:  Sending access
+        Domain:      All domains
+      Copy the key it shows once. Alerts go out from Resend's own sender (onboarding@resend.dev), which only
+      ever delivers to the account owner, admin@experiai.com: no domain to verify.
+
+commands:
+  check: /usr/bin/python3 scripts/steps/fail_loudly.py
+  apply: /usr/bin/python3 scripts/steps/fail_loudly.py
+  verify: /usr/bin/python3 scripts/steps/fail_loudly.py
+
+run_from: .
+
+recovery: |
+  Nothing here can paint, post or spend. If apply stopped after the key was written but before the redeploy
+  finished, run ./scripts/deploy-prod.sh from the repo, then run this step again (it replaces the key, never
+  stacks a second one). To undo: npx vercel env rm RESEND_API_KEY production --yes, and redeploy; alerts go back
+  to being logged as UNSENT.

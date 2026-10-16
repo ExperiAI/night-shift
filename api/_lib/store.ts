@@ -197,6 +197,7 @@ export type QuietSitting = { text: string; status: number; body: string };
 export type Critique = {
   date: string; paintings: number;
   exam?: ExamSitting | null; // what the studio sat that morning, or null when every exam is sat; a non-2xx status is a sitting that never filed
+  budget?: { ok: boolean; line: string } | null; // the day's OpenRouter budget check (issue #43, alarm.ts): ok, and the numbers it read
   quiet?: QuietSitting | null; // what the studio commissioned itself on a quiet day (#37), or null when someone else asked, an exam went, or no moment came
   observations: { id: string; title?: string; honoured: 'yes' | 'partly' | 'no'; note: string }[];
   patterns: string[];
