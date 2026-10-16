@@ -1,0 +1,15 @@
+# A request for a person, not the step itself.
+# What this step does, asks for and changes is declared in human-steps/night-shift-fail-loudly.yaml,
+# which is the file `hs run` loads. Nothing here describes the step.
+#
+#   hs run night-shift-fail-loudly
+
+id: night-shift-fail-loudly
+declaration: human-steps/night-shift-fail-loudly.yaml
+why: 'Two things only Diego can do: raise the Night Shift OpenRouter key cap $20 ->
+  $40 (no management key exists locally; his browser is not signed in to openrouter.ai)
+  and create a Resend sending key (not signed in to resend.com either). Until then
+  alerts log as UNSENT and painting stops ~2026-10-24.'
+args: []
+requested_at: '2026-10-16T10:32:15+02:00'
+requested_by: agent
