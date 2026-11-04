@@ -86,8 +86,27 @@ async function entries(): Promise<{ status: Status; id: string; url: string }[]>
   return out;
 }
 
+/** One JSON document read from Blob's public URL. Blob's edge can answer a server error as plain text ("A server
+ *  error has occurred"); parsed blindly that is `Unexpected token 'A'… is not valid JSON` with no status and no
+ *  file, and it crashed a whole paint sweep (2026-11-03 10:45 UTC, alarm "paint failed (other)"). So: the status
+ *  and the first characters of what came back are in the error, and a 5xx or an unreadable body is tried once more,
+ *  since a sweep reads every commission and one bad answer from the edge should not cost the run. */
+export async function readBlobJson<T>(url: string, fetchFn: typeof fetch = fetch, retryMs = 500): Promise<T> {
+  let last = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt) await new Promise(r => setTimeout(r, retryMs));
+    const r = await fetchFn(`${url}?t=${Date.now()}`, { cache: 'no-store' });
+    const text = await r.text();
+    const where = new URL(url).pathname.replace(/^\//, '');
+    if (r.ok) { try { return JSON.parse(text) as T; } catch { /* a 200 that is not JSON: say so below */ } }
+    last = `blob read ${r.status} (${where}): ${text.slice(0, 80).replace(/\s+/g, ' ')}`;
+    if (r.status < 500 && !r.ok) break; // a 4xx will not change by asking again
+  }
+  throw new Error(last);
+}
+
 async function body(url: string, status: Status): Promise<Commission> {
-  const c = (await (await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' })).json()) as Commission;
+  const c = await readBlobJson<Commission>(url);
   c.status = status; // the pathname is the truth
   return c;
 }
@@ -140,7 +159,7 @@ export async function loadInboxState<T>(empty: T): Promise<T> {
   const page = await list({ prefix: INBOX_STATE, limit: 1 });
   const b = page.blobs.find(x => x.pathname === INBOX_STATE);
   if (!b) return empty;
-  return (await (await fetch(`${b.url}?t=${Date.now()}`, { cache: 'no-store' })).json()) as T;
+  return await readBlobJson<T>(b.url);
 }
 export async function saveInboxState<T>(state: T): Promise<void> {
   await put(INBOX_STATE, JSON.stringify(state), { access: 'public', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 0 });
@@ -183,7 +202,7 @@ export async function allFeedback(): Promise<Feedback[]> {
   let cursor: string | undefined;
   do {
     const page = await list({ prefix: FEEDBACK, cursor, limit: 1000 });
-    for (const b of page.blobs) out.push((await (await fetch(`${b.url}?t=${Date.now()}`, { cache: 'no-store' })).json()) as Feedback);
+    for (const b of page.blobs) out.push(await readBlobJson<Feedback>(b.url));
     cursor = page.hasMore ? page.cursor : undefined;
   } while (cursor);
   return out.sort((a, b) => b.created.localeCompare(a.created));
@@ -212,7 +231,7 @@ export async function saveCritique(c: Critique): Promise<void> {
 export async function latestCritiques(n = 7): Promise<Critique[]> {
   const page = await list({ prefix: CRITIQUE, limit: 1000 });
   const blobs = page.blobs.sort((a, b) => b.pathname.localeCompare(a.pathname)).slice(0, n);
-  return Promise.all(blobs.map(async b => (await (await fetch(`${b.url}?t=${Date.now()}`, { cache: 'no-store' })).json()) as Critique));
+  return Promise.all(blobs.map(b => readBlobJson<Critique>(b.url)));
 }
 
 /** Whether a commission's words stay off the film, the caption and the wall. Leaving your name off is not the same as
