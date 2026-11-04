@@ -3,6 +3,7 @@
 // guard for that night, ≈ $0.15 × cap) and its work never counts against the studio's daily cap; inside a room
 // the per-address limit is off (a bar's Wi-Fi is one address). Opened and closed by the studio only.
 import { put, list, del } from '@vercel/blob';
+import { readBlobJson } from './store.js';
 
 export type Room = { code: string; name: string; opened: string; until: string; cap: number; closed?: string };
 
@@ -31,7 +32,7 @@ export async function loadRoom(code: string): Promise<Room | null> {
   const page = await list({ prefix: key(code), limit: 1 });
   const b = page.blobs.find(x => x.pathname === key(code));
   if (!b) return null;
-  return (await (await fetch(`${b.url}?t=${Date.now()}`, { cache: 'no-store' })).json()) as Room;
+  return await readBlobJson<Room>(b.url);
 }
 
 export async function saveRoom(room: Room): Promise<void> {
@@ -42,7 +43,7 @@ export async function deleteRoom(code: string): Promise<void> { await del(key(co
 
 export async function allRooms(): Promise<Room[]> {
   const out: Room[] = [];
-  for (const b of (await list({ prefix: PREFIX, limit: 1000 })).blobs) out.push((await (await fetch(`${b.url}?t=${Date.now()}`, { cache: 'no-store' })).json()) as Room);
+  for (const b of (await list({ prefix: PREFIX, limit: 1000 })).blobs) out.push(await readBlobJson<Room>(b.url));
   return out.sort((a, b) => b.opened.localeCompare(a.opened));
 }
 

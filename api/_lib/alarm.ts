@@ -21,7 +21,7 @@ export const RUNWAY_FLOOR_DAYS = 10;
 /** What one painting costs, roughly (README, scripts/preflight.mjs): turns dollars into something a person can act on. */
 export const PAINTING_USD = 0.15;
 
-export type ErrorClass = 'out-of-credits' | 'key-rejected' | 'rate-limited' | 'provider-error' | 'inspector-refused' | 'posting-failed' | 'painter-died' | 'other';
+export type ErrorClass = 'out-of-credits' | 'key-rejected' | 'rate-limited' | 'provider-error' | 'inspector-refused' | 'posting-failed' | 'painter-died' | 'upstream-error' | 'other';
 
 /** The class of an error, from the message our own code throws (openrouter.ts, zernio.ts, paint.ts). Money first:
  *  OpenRouter answers 402 when the account is empty and 403 "Key limit exceeded" when this key's cap is reached,
@@ -34,6 +34,9 @@ export function classify(message: unknown): ErrorClass {
   if (/OPENROUTER_API_KEY missing/i.test(m) || (/openrouter/i.test(m) && /\b40[13]\b/.test(m))) return 'key-rejected';
   if (/\b429\b|rate.?limit/i.test(m)) return 'rate-limited';
   if (/openrouter|no image in response|gatekeeper returned no JSON/i.test(m)) return 'provider-error';
+  // Before posting: a Blob path such as commissions/posted/… would otherwise read as a refused post. A bare JSON
+  // parse error is a service that answered an error page instead of data (2026-11-03: "A server e"… from Blob's edge).
+  if (/^blob read|is not valid JSON|server error has occurred/i.test(m)) return 'upstream-error';
   if (/zernio|instagram|publish|reel|story|post/i.test(m)) return 'posting-failed';
   return 'other';
 }
@@ -47,6 +50,7 @@ export const NEXT_STEP: Record<ErrorClass, string> = {
   'inspector-refused': 'The inspector refused both canvases. Usually the brief: the commission is in failed, nothing retries it.',
   'posting-failed': 'The painting is safe on the wall; the backlog retries Instagram after a 6 h cool-off.',
   'painter-died': 'The function died twice on this commission (a timeout?). It is in failed; nothing retries it.',
+  'upstream-error': 'A service (Vercel Blob, Zernio) answered with an error page instead of data; the next cron tries again. Worth a look only if it repeats.',
   other: 'Unrecognised error; read it below.',
 };
 
