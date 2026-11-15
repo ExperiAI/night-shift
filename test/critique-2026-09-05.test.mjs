@@ -50,6 +50,18 @@ test('after a legible-text refusal the retry says what a blank screen is; other 
   assert.equal(avoidLine('A second light source on the floor.'), 'Avoid: A second light source on the floor.');
 });
 
+test('after a frame refusal the retry says the image runs to its four edges (6 and 14 Nov 2026)', () => {
+  for (const reason of [
+    'A dark window frame/mullion border is visible around the entire scene, reading as a frame or wall around the picture.',
+    'A visible canvas edge/stretcher border is shown on the left side and around the whole image, with the painting appearing photographed against a wall.',
+  ]) {
+    const line = avoidLine(reason);
+    assert.match(line, /all four edges/);
+    assert.ok(line.startsWith(`Avoid: ${reason}`));
+  }
+  assert.doesNotMatch(avoidLine('A small reddish-orange mark resembling a signature in the corner.'), /four edges|no characters/);
+});
+
 test('the desk wires all three: caption, traces retry, and the paint retry', () => {
   const desk = readFileSync(new URL('../api/_lib/desk.ts', import.meta.url), 'utf8');
   assert.match(desk, /repeatsTraces\(docs, take\)/);

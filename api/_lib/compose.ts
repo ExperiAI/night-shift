@@ -142,7 +142,12 @@ export async function openDoorStory(): Promise<Buffer> {
  *  it, and "Avoid: legible text" did not move it. The retry says in render terms what the blank thing IS. */
 export function avoidLine(reason: string): string {
   const legible = /\b(legible|text|letter|letters|character|characters|digit|digits|number|numbers|word|words|sign|label|writing)\b/i.test(reason);
-  return legible
-    ? `Avoid: ${reason}\nEvery screen, monitor, sign, page and label in the picture is a blank lit surface: an even glow with no characters, no digits, no symbols, no marks of any kind on it. If the brief named a number or a word, its place is an empty glow.`
-    : `Avoid: ${reason}`;
+  // A refusal for a frame needs the same: on 6 and 14 Nov 2026 the renderer drew the painting as a framed or
+  // stretched canvas photographed on a wall (once as window mullions round the whole scene), and both retries
+  // past a bare "Avoid:" were refused again. The retry says what the image IS: the scene, to its four edges.
+  const framed = /\b(frame|framed|canvas edge|stretcher|mullion|border|wall around|photographed)\b/i.test(reason);
+  const lines = [`Avoid: ${reason}`];
+  if (legible) lines.push('Every screen, monitor, sign, page and label in the picture is a blank lit surface: an even glow with no characters, no digits, no symbols, no marks of any kind on it. If the brief named a number or a word, its place is an empty glow.');
+  if (framed) lines.push('The image is the scene itself, running to all four edges: not a painting of it hanging on a wall, not a canvas, no frame, no mat, no border, no window frame or bars around the whole view. A window or doorway may sit inside the scene, never around it.');
+  return lines.join('\n');
 }
